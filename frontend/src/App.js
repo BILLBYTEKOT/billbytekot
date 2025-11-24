@@ -29,7 +29,18 @@ export const setAuthToken = (token) => {
   }
 };
 
-const PrivateRoute = ({ children }) => {
+const PrivateRoute = ({ children, requireSetup = true }) => {
+  const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  
+  if (!token) return <Navigate to="/login" />;
+  if (requireSetup && user.role === 'admin' && !user.setup_completed) {
+    return <Navigate to="/setup" />;
+  }
+  return children;
+};
+
+const SetupRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   return token ? children : <Navigate to="/login" />;
 };
