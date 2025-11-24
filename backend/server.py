@@ -244,53 +244,64 @@ async def check_subscription(user: dict):
     return True
 
 def get_receipt_template(theme: str, business: dict, order: dict, currency_symbol: str) -> str:
+    sep_eq = '=' * 48
+    sep_dash = '-' * 48
+    sep_heavy = '═' * 48
+    sep_light = '─' * 48
+    
+    items_text = ''.join([f"{item['quantity']}x {item['name']:<30} {currency_symbol}{item['price'] * item['quantity']:.2f}\n" for item in order['items']])
+    items_modern = ''.join([f"  {item['quantity']}× {item['name']:<28} {currency_symbol}{item['price'] * item['quantity']:.2f}\n" for item in order['items']])
+    items_minimal = ''.join([f"{item['quantity']}× {item['name']}: {currency_symbol}{item['price'] * item['quantity']:.2f}\n" for item in order['items']])
+    items_elegant = ''.join([f"{item['quantity']:>3} × {item['name']:<28} {currency_symbol}{item['price'] * item['quantity']:>8.2f}\n" for item in order['items']])
+    
+    now_str = datetime.now().strftime('%d-%m-%Y %I:%M %p')
+    now_elegant = datetime.now().strftime('%d %B %Y, %I:%M %p')
+    
     templates = {
         "classic": f"""
-{'=' * 48}
+{sep_eq}
 {business.get('restaurant_name', 'RESTAURANT').center(48)}
-{'=' * 48}
+{sep_eq}
 {business.get('address', '').center(48)}
 Phone: {business.get('phone', 'N/A')}
 GSTIN: {business.get('gstin', 'N/A')}
-{'-' * 48}
+{sep_dash}
 Bill #: {order['id'][:8]}
 Table: {order['table_number']}
 Waiter: {order['waiter_name']}
 Customer: {order.get('customer_name', 'Guest')}
-Date: {datetime.now().strftime('%d-%m-%Y %I:%M %p')}
-{'-' * 48}
+Date: {now_str}
+{sep_dash}
 ITEMS:
-{''.join([f"{item['quantity']}x {item['name']:<30} {currency_symbol}{item['price'] * item['quantity']:.2f}\n" for item in order['items']])}
-{'-' * 48}
+{items_text}{sep_dash}
 Subtotal:         {currency_symbol}{order['subtotal']:.2f}
 Tax ({business.get('tax_rate', 5)}%):          {currency_symbol}{order['tax']:.2f}
-{'-' * 48}
+{sep_dash}
 TOTAL:            {currency_symbol}{order['total']:.2f}
-{'-' * 48}
+{sep_dash}
 Thank you for dining with us!
 Visit again soon!
-{'=' * 48}
+{sep_eq}
 """,
         "modern": f"""
-┌{'─' * 46}┐
+┌{sep_light}┐
 │ {business.get('restaurant_name', 'RESTAURANT').center(44)} │
-├{'─' * 46}┤
+├{sep_light}┤
 │ {business.get('address', '').center(44)} │
 │ ☎ {business.get('phone', 'N/A'):<42} │
-└{'─' * 46}┘
+└{sep_light}┘
 
 🧾 Bill #{order['id'][:8]}
 🍽️  Table {order['table_number']} | 👤 {order['waiter_name']}
-📅 {datetime.now().strftime('%d-%m-%Y %I:%M %p')}
+📅 {now_str}
 
-{'─' * 48}
-{''.join([f"  {item['quantity']}× {item['name']:<28} {currency_symbol}{item['price'] * item['quantity']:.2f}\n" for item in order['items']])}
-{'─' * 48}
+{sep_light}
+{items_modern}{sep_light}
 Subtotal                      {currency_symbol}{order['subtotal']:.2f}
 Tax ({business.get('tax_rate', 5)}%)                        {currency_symbol}{order['tax']:.2f}
-{'═' * 48}
+{sep_heavy}
 💰 TOTAL                      {currency_symbol}{order['total']:.2f}
-{'═' * 48}
+{sep_heavy}
 
 ✨ Thank you! Come again! ✨
 """,
@@ -299,37 +310,35 @@ Tax ({business.get('tax_rate', 5)}%)                        {currency_symbol}{or
 {business.get('address', '')}
 
 Bill: {order['id'][:8]} | Table: {order['table_number']}
-{datetime.now().strftime('%d-%m-%Y %I:%M %p')}
+{now_str}
 
-{''.join([f"{item['quantity']}× {item['name']}: {currency_symbol}{item['price'] * item['quantity']:.2f}\n" for item in order['items']])}
-Subtotal: {currency_symbol}{order['subtotal']:.2f}
+{items_minimal}Subtotal: {currency_symbol}{order['subtotal']:.2f}
 Tax: {currency_symbol}{order['tax']:.2f}
 Total: {currency_symbol}{order['total']:.2f}
 
 Thank you!
 """,
         "elegant": f"""
-╔{'═' * 46}╗
+╔{sep_heavy}╗
 ║ {business.get('restaurant_name', 'RESTAURANT').center(44)} ║
-╠{'═' * 46}╣
+╠{sep_heavy}╣
 ║ {business.get('address', '').center(44)} ║
 ║ Tel: {business.get('phone', 'N/A'):<40} ║
 ║ GSTIN: {business.get('gstin', 'N/A'):<38} ║
-╚{'═' * 46}╝
+╚{sep_heavy}╝
 
 Invoice: {order['id'][:8]}
 Table: {order['table_number']} | Server: {order['waiter_name']}
 Guest: {order.get('customer_name', 'Walk-in')}
-Date: {datetime.now().strftime('%d %B %Y, %I:%M %p')}
+Date: {now_elegant}
 
-{'-' * 48}
-{''.join([f"{item['quantity']:>3} × {item['name']:<28} {currency_symbol}{item['price'] * item['quantity']:>8.2f}\n" for item in order['items']])}
-{'-' * 48}
+{sep_dash}
+{items_elegant}{sep_dash}
                     Subtotal: {currency_symbol}{order['subtotal']:>8.2f}
                Tax ({business.get('tax_rate', 5)}%): {currency_symbol}{order['tax']:>8.2f}
-{'═' * 48}
+{sep_heavy}
                        TOTAL: {currency_symbol}{order['total']:>8.2f}
-{'═' * 48}
+{sep_heavy}
 
         Thank you for your patronage
           Please visit us again
