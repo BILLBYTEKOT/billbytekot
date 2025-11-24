@@ -60,9 +60,11 @@ function App() {
     try {
       const response = await axios.get(`${API}/auth/me`);
       setUser(response.data);
+      localStorage.setItem('user', JSON.stringify(response.data));
     } catch (e) {
       console.error('Failed to fetch user', e);
       setAuthToken(null);
+      localStorage.removeItem('user');
     }
   };
 
