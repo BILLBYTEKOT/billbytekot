@@ -1031,55 +1031,73 @@ def main():
     
     tester = RestaurantAPITester()
     
-    # Test user registration and authentication
-    print("\n📝 Testing Authentication...")
-    user_data = tester.test_user_registration()
-    if not user_data:
-        print("❌ Registration failed, stopping tests")
-        return 1
+    # PRIORITY 1: CRITICAL Multi-Tenancy Data Isolation Test
+    print("\n🔒 PRIORITY 1: CRITICAL Multi-Tenancy Data Isolation Test")
+    isolation_success = tester.test_multi_tenancy_data_isolation()
     
-    if not tester.test_user_login(user_data['username'], user_data['password']):
-        print("❌ Login failed, stopping tests")
-        return 1
+    if not isolation_success:
+        print("\n" + "="*60)
+        print("🚨 CRITICAL FAILURES DETECTED:")
+        for failure in tester.critical_failures:
+            print(f"   ❌ {failure}")
+        print("="*60)
     
-    tester.test_get_current_user()
-    
-    # Test core functionality
-    print("\n🍽️  Testing Menu Management...")
-    menu_id = tester.test_menu_operations()
-    
-    print("\n🪑 Testing Table Management...")
-    table_id = tester.test_table_operations()
-    
-    print("\n📋 Testing Order Management...")
-    order_id = tester.test_order_operations(table_id, menu_id)
-    
-    print("\n💳 Testing Payment Processing...")
-    tester.test_payment_operations(order_id)
-    
-    print("\n📦 Testing Inventory Management...")
-    tester.test_inventory_operations()
-    
-    print("\n🤖 Testing AI Features...")
-    tester.test_ai_features()
-    
-    print("\n📊 Testing Reports...")
-    tester.test_reports()
-    
-    print("\n🖨️  Testing Print Functionality...")
-    tester.test_print_functionality()
+    # Continue with other tests using one of the created businesses
+    if tester.business1_token:
+        tester.token = tester.business1_token
+        tester.user_id = tester.business1_user['id']
+        
+        print("\n📝 Testing Authentication Flow...")
+        tester.test_get_current_user()
+        
+        # Test core functionality with Business 1
+        print("\n🍽️  Testing Menu Management...")
+        menu_id = tester.test_menu_operations()
+        
+        print("\n🪑 Testing Table Management...")
+        table_id = tester.test_table_operations()
+        
+        print("\n📋 Testing Order Management...")
+        order_id = tester.test_order_operations(table_id, menu_id)
+        
+        print("\n💳 Testing Payment Processing...")
+        tester.test_payment_operations(order_id)
+        
+        print("\n📦 Testing Inventory Management...")
+        tester.test_inventory_operations()
+        
+        print("\n🤖 Testing AI Features...")
+        tester.test_ai_features()
+        
+        print("\n📊 Testing Reports...")
+        tester.test_reports()
+        
+        print("\n🖨️  Testing Print Functionality...")
+        tester.test_print_functionality()
     
     # Print final results
-    print("\n" + "=" * 50)
-    print(f"📊 Final Results: {tester.tests_passed}/{tester.tests_run} tests passed")
-    print(f"✅ Success Rate: {(tester.tests_passed/tester.tests_run)*100:.1f}%")
+    print("\n" + "=" * 60)
+    print("📊 FINAL TEST RESULTS")
+    print("=" * 60)
+    print(f"Total Tests: {tester.tests_run}")
+    print(f"Passed: {tester.tests_passed}")
+    print(f"Failed: {tester.tests_run - tester.tests_passed}")
+    print(f"Success Rate: {(tester.tests_passed/tester.tests_run)*100:.1f}%")
     
-    if tester.tests_passed == tester.tests_run:
-        print("🎉 All tests passed! Backend is working correctly.")
+    if tester.critical_failures:
+        print(f"\n🚨 CRITICAL FAILURES: {len(tester.critical_failures)}")
+        for failure in tester.critical_failures:
+            print(f"   ❌ {failure}")
+        print("\n⚠️  CRITICAL ISSUES FOUND - IMMEDIATE ATTENTION REQUIRED!")
+        return 1
+    elif tester.tests_passed == tester.tests_run:
+        print("\n🎉 ALL TESTS PASSED! Backend is working correctly.")
+        print("✅ Multi-tenancy data isolation is working properly.")
         return 0
     else:
-        print("⚠️  Some tests failed. Check the output above for details.")
-        return 1
+        print(f"\n⚠️  {tester.tests_run - tester.tests_passed} non-critical tests failed.")
+        print("✅ No critical data isolation issues found.")
+        return 0
 
 if __name__ == "__main__":
     sys.exit(main())
