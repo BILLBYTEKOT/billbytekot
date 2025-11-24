@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { setAuthToken } from '../App';
-import { Home, UtensilsCrossed, ShoppingBag, Table, ChefHat, Package, FileText, LogOut, Menu, X } from 'lucide-react';
+import { Home, UtensilsCrossed, ShoppingBag, Table, ChefHat, Package, FileText, LogOut, Menu, X, Settings as SettingsIcon, Crown } from 'lucide-react';
 
 const Layout = ({ user, children }) => {
   const navigate = useNavigate();
@@ -21,7 +21,9 @@ const Layout = ({ user, children }) => {
     { path: '/tables', icon: Table, label: 'Tables' },
     { path: '/kitchen', icon: ChefHat, label: 'Kitchen' },
     { path: '/inventory', icon: Package, label: 'Inventory' },
-    { path: '/reports', icon: FileText, label: 'Reports' }
+    { path: '/reports', icon: FileText, label: 'Reports' },
+    { path: '/subscription', icon: Crown, label: 'Subscription' },
+    { path: '/settings', icon: SettingsIcon, label: 'Settings', adminOnly: true }
   ];
 
   return (
