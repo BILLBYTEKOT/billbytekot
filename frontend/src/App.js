@@ -85,7 +85,7 @@ function App() {
             }
           />
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <PrivateRoute>
                 <Dashboard user={user} />
