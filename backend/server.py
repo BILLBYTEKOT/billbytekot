@@ -398,18 +398,20 @@ async def register(user_data: UserCreate):
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
     
+    # Create user object
     user_obj = User(
         username=user_data.username,
         email=user_data.email,
         role=user_data.role
     )
-    doc = user_obj.model_dump()
-    doc['password'] = hash_password(user_data.password)
-    doc['created_at'] = doc['created_at'].isoformat()
     
     # If admin, they are their own organization
     if user_data.role == 'admin':
-        doc['organization_id'] = user_obj.id
+        user_obj.organization_id = user_obj.id
+    
+    doc = user_obj.model_dump()
+    doc['password'] = hash_password(user_data.password)
+    doc['created_at'] = doc['created_at'].isoformat()
     
     await db.users.insert_one(doc)
     return user_obj
