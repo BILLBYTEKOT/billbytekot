@@ -776,12 +776,15 @@ async def get_tables(current_user: dict = Depends(get_current_user)):
 
 @api_router.put("/tables/{table_id}", response_model=Table)
 async def update_table(table_id: str, table: TableCreate, current_user: dict = Depends(get_current_user)):
-    existing = await db.tables.find_one({"id": table_id}, {"_id": 0})
+    # Get user's organization_id
+    user_org_id = current_user.get('organization_id') or current_user['id']
+    
+    existing = await db.tables.find_one({"id": table_id, "organization_id": user_org_id}, {"_id": 0})
     if not existing:
         raise HTTPException(status_code=404, detail="Table not found")
     
-    await db.tables.update_one({"id": table_id}, {"$set": table.model_dump()})
-    updated = await db.tables.find_one({"id": table_id}, {"_id": 0})
+    await db.tables.update_one({"id": table_id, "organization_id": user_org_id}, {"$set": table.model_dump()})
+    updated = await db.tables.find_one({"id": table_id, "organization_id": user_org_id}, {"_id": 0})
     return updated
 
 # Order routes
