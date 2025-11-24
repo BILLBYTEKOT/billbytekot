@@ -55,6 +55,18 @@ const Dashboard = ({ user }) => {
     }
   };
 
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const response = await axios.get(`${API}/subscription/status`);
+      setSubscriptionStatus(response.data);
+      if (response.data.needs_subscription) {
+        setShowSubscriptionModal(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription status', error);
+    }
+  };
+
   const handleChat = async () => {
     if (!chatMessage.trim()) return;
     setLoading(true);
