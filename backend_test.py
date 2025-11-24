@@ -11,6 +11,7 @@ class RestaurantAPITester:
         self.user_id = None
         self.tests_run = 0
         self.tests_passed = 0
+        self.critical_failures = []
         self.created_items = {
             'users': [],
             'menu_items': [],
@@ -18,6 +19,11 @@ class RestaurantAPITester:
             'orders': [],
             'inventory': []
         }
+        # For multi-tenancy testing
+        self.business1_token = None
+        self.business2_token = None
+        self.business1_user = None
+        self.business2_user = None
 
     def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
         """Run a single API test"""
