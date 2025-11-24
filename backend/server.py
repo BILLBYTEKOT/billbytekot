@@ -482,9 +482,16 @@ async def update_staff(staff_id: str, staff_data: StaffUpdate, current_user: dic
     if current_user['role'] != 'admin':
         raise HTTPException(status_code=403, detail="Only admin can update staff")
     
-    existing = await db.users.find_one({"id": staff_id}, {"_id": 0})
+    # Get admin's organization_id
+    admin_org_id = current_user.get('organization_id') or current_user['id']
+    
+    # Only allow updating staff from same organization
+    existing = await db.users.find_one({
+        "id": staff_id,
+        "organization_id": admin_org_id
+    }, {"_id": 0})
     if not existing:
-        raise HTTPException(status_code=404, detail="Staff not found")
+        raise HTTPException(status_code=404, detail="Staff not found or access denied")
     
     update_data = {}
     if staff_data.username:
