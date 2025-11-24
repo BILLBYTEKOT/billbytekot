@@ -141,6 +141,7 @@ const MenuPage = ({ user }) => {
       available: item.available,
       preparation_time: item.preparation_time || 15
     });
+    setImagePreview(item.image_url || '');
     setDialogOpen(true);
   };
 
