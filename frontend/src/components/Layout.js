@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { setAuthToken } from '../App';
-import { Home, UtensilsCrossed, ShoppingBag, Table, ChefHat, Package, FileText, LogOut, Menu, X, Settings as SettingsIcon, Crown } from 'lucide-react';
+import { Home, UtensilsCrossed, ShoppingBag, Table, ChefHat, Package, FileText, LogOut, Menu, X, Settings as SettingsIcon, Crown, Users } from 'lucide-react';
 
 const Layout = ({ user, children }) => {
   const navigate = useNavigate();
