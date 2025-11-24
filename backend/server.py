@@ -688,7 +688,10 @@ async def create_menu_item(item: MenuItemCreate, current_user: dict = Depends(ge
     if current_user['role'] not in ['admin', 'cashier']:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    menu_obj = MenuItem(**item.model_dump())
+    # Get user's organization_id
+    user_org_id = current_user.get('organization_id') or current_user['id']
+    
+    menu_obj = MenuItem(**item.model_dump(), organization_id=user_org_id)
     doc = menu_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     await db.menu_items.insert_one(doc)
