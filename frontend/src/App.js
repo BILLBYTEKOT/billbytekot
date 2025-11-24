@@ -74,6 +74,14 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage setUser={setUser} />} />
           <Route
+            path="/setup"
+            element={
+              <SetupRoute>
+                <BusinessSetupPage user={user} />
+              </SetupRoute>
+            }
+          />
+          <Route
             path="/"
             element={
               <PrivateRoute>
