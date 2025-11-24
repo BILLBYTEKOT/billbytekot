@@ -206,6 +206,7 @@ class InventoryItem(BaseModel):
     unit: str
     min_quantity: float
     price_per_unit: float
+    organization_id: Optional[str] = None
     last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class InventoryItemCreate(BaseModel):
