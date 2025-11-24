@@ -954,7 +954,10 @@ async def create_inventory_item(item: InventoryItemCreate, current_user: dict = 
     if current_user['role'] not in ['admin', 'cashier']:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    inv_obj = InventoryItem(**item.model_dump())
+    # Get user's organization_id
+    user_org_id = current_user.get('organization_id') or current_user['id']
+    
+    inv_obj = InventoryItem(**item.model_dump(), organization_id=user_org_id)
     doc = inv_obj.model_dump()
     doc['last_updated'] = doc['last_updated'].isoformat()
     await db.inventory.insert_one(doc)
