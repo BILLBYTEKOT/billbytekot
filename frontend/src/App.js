@@ -162,6 +162,14 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/staff"
+            element={
+              <PrivateRoute>
+                <StaffManagementPage user={user} />
+              </PrivateRoute>
+            }
+          />
         </Routes>
       </BrowserRouter>
       <Toaster position="top-center" richColors />
