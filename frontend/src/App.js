@@ -1,52 +1,129 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import { useState, useEffect } from 'react';
+import '@/App.css';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import axios from 'axios';
+import LoginPage from './pages/LoginPage';
+import Dashboard from './pages/Dashboard';
+import MenuPage from './pages/MenuPage';
+import OrdersPage from './pages/OrdersPage';
+import TablesPage from './pages/TablesPage';
+import KitchenPage from './pages/KitchenPage';
+import InventoryPage from './pages/InventoryPage';
+import ReportsPage from './pages/ReportsPage';
+import BillingPage from './pages/BillingPage';
+import { Toaster } from './components/ui/sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+export const API = `${BACKEND_URL}/api`;
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
+export const setAuthToken = (token) => {
+  if (token) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    localStorage.setItem('token', token);
+  } else {
+    delete axios.defaults.headers.common['Authorization'];
+    localStorage.removeItem('token');
+  }
+};
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
+const PrivateRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  return token ? children : <Navigate to="/login" />;
 };
 
 function App() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      setAuthToken(token);
+      fetchUser();
+    }
+  }, []);
+
+  const fetchUser = async () => {
+    try {
+      const response = await axios.get(`${API}/auth/me`);
+      setUser(response.data);
+    } catch (e) {
+      console.error('Failed to fetch user', e);
+      setAuthToken(null);
+    }
+  };
+
   return (
     <div className="App">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          <Route path="/login" element={<LoginPage setUser={setUser} />} />
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <Dashboard user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/menu"
+            element={
+              <PrivateRoute>
+                <MenuPage user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <PrivateRoute>
+                <OrdersPage user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/billing/:orderId"
+            element={
+              <PrivateRoute>
+                <BillingPage user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/tables"
+            element={
+              <PrivateRoute>
+                <TablesPage user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/kitchen"
+            element={
+              <PrivateRoute>
+                <KitchenPage user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <PrivateRoute>
+                <InventoryPage user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <PrivateRoute>
+                <ReportsPage user={user} />
+              </PrivateRoute>
+            }
+          />
         </Routes>
       </BrowserRouter>
+      <Toaster position="top-center" richColors />
     </div>
   );
 }
