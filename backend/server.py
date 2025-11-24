@@ -979,11 +979,14 @@ async def update_inventory_item(item_id: str, item: InventoryItemCreate, current
     if current_user['role'] not in ['admin', 'cashier']:
         raise HTTPException(status_code=403, detail="Not authorized")
     
+    # Get user's organization_id
+    user_org_id = current_user.get('organization_id') or current_user['id']
+    
     update_data = item.model_dump()
     update_data['last_updated'] = datetime.now(timezone.utc).isoformat()
     
-    await db.inventory.update_one({"id": item_id}, {"$set": update_data})
-    updated = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+    await db.inventory.update_one({"id": item_id, "organization_id": user_org_id}, {"$set": update_data})
+    updated = await db.inventory.find_one({"id": item_id, "organization_id": user_org_id}, {"_id": 0})
     if isinstance(updated['last_updated'], str):
         updated['last_updated'] = datetime.fromisoformat(updated['last_updated'])
     return updated
