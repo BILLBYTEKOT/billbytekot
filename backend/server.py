@@ -241,6 +241,16 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user = await db.users.find_one({"id": user_id}, {"_id": 0})
         if user is None:
             raise HTTPException(status_code=401, detail="User not found")
+        
+        # Ensure all required fields exist with defaults
+        user.setdefault('subscription_active', False)
+        user.setdefault('bill_count', 0)
+        user.setdefault('setup_completed', False)
+        user.setdefault('business_settings', None)
+        user.setdefault('razorpay_key_id', None)
+        user.setdefault('razorpay_key_secret', None)
+        user.setdefault('subscription_expires_at', None)
+        
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
