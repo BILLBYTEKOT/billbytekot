@@ -29,8 +29,15 @@ const LoginPage = ({ setUser }) => {
         });
         setAuthToken(response.data.token);
         setUser(response.data.user);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
         toast.success('Welcome back!');
-        navigate('/');
+        
+        // Redirect to setup if admin hasn't completed setup
+        if (response.data.user.role === 'admin' && !response.data.user.setup_completed) {
+          navigate('/setup');
+        } else {
+          navigate('/');
+        }
       } else {
         await axios.post(`${API}/auth/register`, formData);
         toast.success('Account created! Please login.');
