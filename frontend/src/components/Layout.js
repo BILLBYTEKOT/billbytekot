@@ -22,6 +22,7 @@ const Layout = ({ user, children }) => {
     { path: '/kitchen', icon: ChefHat, label: 'Kitchen' },
     { path: '/inventory', icon: Package, label: 'Inventory' },
     { path: '/reports', icon: FileText, label: 'Reports' },
+    { path: '/staff', icon: Users, label: 'Staff', adminOnly: true },
     { path: '/subscription', icon: Crown, label: 'Subscription' },
     { path: '/settings', icon: SettingsIcon, label: 'Settings', adminOnly: true }
   ];
