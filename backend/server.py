@@ -759,13 +759,19 @@ async def create_table(table: TableCreate, current_user: dict = Depends(get_curr
     if current_user['role'] not in ['admin', 'cashier']:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    table_obj = Table(**table.model_dump())
+    # Get user's organization_id
+    user_org_id = current_user.get('organization_id') or current_user['id']
+    
+    table_obj = Table(**table.model_dump(), organization_id=user_org_id)
     await db.tables.insert_one(table_obj.model_dump())
     return table_obj
 
 @api_router.get("/tables", response_model=List[Table])
-async def get_tables():
-    tables = await db.tables.find({}, {"_id": 0}).to_list(1000)
+async def get_tables(current_user: dict = Depends(get_current_user)):
+    # Get user's organization_id
+    user_org_id = current_user.get('organization_id') or current_user['id']
+    
+    tables = await db.tables.find({"organization_id": user_org_id}, {"_id": 0}).to_list(1000)
     return tables
 
 @api_router.put("/tables/{table_id}", response_model=Table)
