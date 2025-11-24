@@ -235,11 +235,11 @@ backend:
         
   - task: "Business Setup/Settings"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: false
         agent: "user"
@@ -247,6 +247,9 @@ backend:
       - working: "NA"
         agent: "main"
         comment: "Endpoint exists at /api/business/setup. Needs testing after data isolation fix."
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: Business setup and settings endpoints working correctly. Both businesses successfully saved and retrieved their unique settings. Data isolation confirmed."
         
   - task: "Thermal Printer Integration"
     implemented: false
