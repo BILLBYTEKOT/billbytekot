@@ -1,0 +1,23 @@
+# Robots.txt for RestoBill AI
+# Allow all search engines to crawl the site
+
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /setup
+Disallow: /menu
+Disallow: /orders
+Disallow: /billing
+Disallow: /tables
+Disallow: /kitchen
+Disallow: /inventory
+Disallow: /reports
+Disallow: /staff
+Disallow: /settings
+Disallow: /subscription
+
+# Sitemap location
+Sitemap: https://restobill.ai/sitemap.xml
+
+# Crawl-delay (optional, adjust as needed)
+Crawl-delay: 1
