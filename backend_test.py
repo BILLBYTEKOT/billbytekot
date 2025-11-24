@@ -435,6 +435,596 @@ class RestaurantAPITester:
             data=print_data
         )
 
+    def test_multi_tenancy_data_isolation(self):
+        """CRITICAL TEST: Test multi-tenancy data isolation between businesses"""
+        print("\n" + "="*60)
+        print("🔒 CRITICAL TEST: Multi-Tenancy Data Isolation")
+        print("="*60)
+        
+        # Step 1: Register two separate businesses
+        print("\n📝 Step 1: Registering two separate businesses...")
+        
+        business1_data, business1_user = self.test_user_registration("restaurant_alpha")
+        if not business1_data:
+            self.critical_failures.append("Failed to register Business 1")
+            return False
+            
+        business2_data, business2_user = self.test_user_registration("restaurant_beta")
+        if not business2_data:
+            self.critical_failures.append("Failed to register Business 2")
+            return False
+        
+        # Step 2: Login both businesses
+        print("\n🔑 Step 2: Logging in both businesses...")
+        
+        self.business1_token, self.business1_user = self.test_user_login(
+            business1_data['username'], business1_data['password'], "Business 1"
+        )
+        if not self.business1_token:
+            self.critical_failures.append("Failed to login Business 1")
+            return False
+            
+        self.business2_token, self.business2_user = self.test_user_login(
+            business2_data['username'], business2_data['password'], "Business 2"
+        )
+        if not self.business2_token:
+            self.critical_failures.append("Failed to login Business 2")
+            return False
+        
+        print(f"✅ Business 1 ID: {self.business1_user['id']}")
+        print(f"✅ Business 2 ID: {self.business2_user['id']}")
+        
+        # Step 3: Setup business settings for both
+        print("\n🏢 Step 3: Setting up business configurations...")
+        self.test_business_setup_isolation()
+        
+        # Step 4: Create staff for both businesses
+        print("\n👥 Step 4: Testing staff isolation...")
+        self.test_staff_isolation()
+        
+        # Step 5: Create menu items for both businesses
+        print("\n🍽️ Step 5: Testing menu isolation...")
+        menu1_id, menu2_id = self.test_menu_isolation()
+        
+        # Step 6: Create tables for both businesses
+        print("\n🪑 Step 6: Testing table isolation...")
+        table1_id, table2_id = self.test_table_isolation()
+        
+        # Step 7: Create orders for both businesses
+        print("\n📋 Step 7: Testing order isolation...")
+        self.test_order_isolation(table1_id, menu1_id, table2_id, menu2_id)
+        
+        # Step 8: Create inventory for both businesses
+        print("\n📦 Step 8: Testing inventory isolation...")
+        self.test_inventory_isolation()
+        
+        # Step 9: Verify cross-business data access is blocked
+        print("\n🚫 Step 9: Verifying cross-business access is blocked...")
+        self.test_cross_business_access_blocked(menu1_id, menu2_id, table1_id, table2_id)
+        
+        return len(self.critical_failures) == 0
+
+    def test_business_setup_isolation(self):
+        """Test business setup isolation"""
+        business1_settings = {
+            "restaurant_name": "Alpha Restaurant",
+            "address": "123 Alpha Street",
+            "phone": "+1-555-0001",
+            "email": "alpha@restaurant.com",
+            "currency": "USD",
+            "tax_rate": 8.5
+        }
+        
+        business2_settings = {
+            "restaurant_name": "Beta Bistro",
+            "address": "456 Beta Avenue",
+            "phone": "+1-555-0002", 
+            "email": "beta@bistro.com",
+            "currency": "EUR",
+            "tax_rate": 10.0
+        }
+        
+        # Setup Business 1
+        success1, _ = self.run_test(
+            "Business 1 Setup",
+            "POST",
+            "business/setup",
+            200,
+            data=business1_settings,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        # Setup Business 2
+        success2, _ = self.run_test(
+            "Business 2 Setup", 
+            "POST",
+            "business/setup",
+            200,
+            data=business2_settings,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        # Verify Business 1 can only see its settings
+        success, response = self.run_test(
+            "Business 1 Get Settings",
+            "GET",
+            "business/settings",
+            200,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        if success and response.get('business_settings', {}).get('restaurant_name') != "Alpha Restaurant":
+            self.critical_failures.append("Business 1 settings not isolated")
+        
+        # Verify Business 2 can only see its settings
+        success, response = self.run_test(
+            "Business 2 Get Settings",
+            "GET", 
+            "business/settings",
+            200,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        if success and response.get('business_settings', {}).get('restaurant_name') != "Beta Bistro":
+            self.critical_failures.append("Business 2 settings not isolated")
+
+    def test_staff_isolation(self):
+        """Test staff management isolation"""
+        # Business 1 creates staff
+        staff1_data = {
+            "username": "waiter_alpha",
+            "email": "waiter@alpha.com",
+            "password": "StaffPass123!",
+            "role": "waiter",
+            "phone": "+1-555-1001",
+            "salary": 2500.0
+        }
+        
+        success1, response1 = self.run_test(
+            "Business 1 Create Staff",
+            "POST",
+            "staff/create",
+            200,
+            data=staff1_data,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        # Business 2 creates staff
+        staff2_data = {
+            "username": "waiter_beta",
+            "email": "waiter@beta.com", 
+            "password": "StaffPass123!",
+            "role": "cashier",
+            "phone": "+1-555-2001",
+            "salary": 3000.0
+        }
+        
+        success2, response2 = self.run_test(
+            "Business 2 Create Staff",
+            "POST",
+            "staff/create", 
+            200,
+            data=staff2_data,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        # Verify Business 1 can only see its staff
+        success, response = self.run_test(
+            "Business 1 Get Staff",
+            "GET",
+            "staff",
+            200,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        if success:
+            staff_usernames = [staff['username'] for staff in response]
+            if 'waiter_beta' in staff_usernames:
+                self.critical_failures.append("Business 1 can see Business 2's staff - DATA LEAK!")
+            if 'waiter_alpha' not in staff_usernames and len(response) > 0:
+                print(f"   Business 1 staff: {staff_usernames}")
+        
+        # Verify Business 2 can only see its staff  
+        success, response = self.run_test(
+            "Business 2 Get Staff",
+            "GET",
+            "staff",
+            200,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        if success:
+            staff_usernames = [staff['username'] for staff in response]
+            if 'waiter_alpha' in staff_usernames:
+                self.critical_failures.append("Business 2 can see Business 1's staff - DATA LEAK!")
+            if 'waiter_beta' not in staff_usernames and len(response) > 0:
+                print(f"   Business 2 staff: {staff_usernames}")
+
+    def test_menu_isolation(self):
+        """Test menu isolation between businesses"""
+        # Business 1 creates menu items
+        menu1_data = {
+            "name": "Alpha Burger",
+            "category": "Main Course",
+            "price": 15.99,
+            "description": "Alpha's signature burger",
+            "available": True
+        }
+        
+        success1, response1 = self.run_test(
+            "Business 1 Create Menu Item",
+            "POST",
+            "menu",
+            200,
+            data=menu1_data,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        menu1_id = response1.get('id') if success1 else None
+        
+        # Business 2 creates menu items
+        menu2_data = {
+            "name": "Beta Pizza",
+            "category": "Italian",
+            "price": 22.50,
+            "description": "Beta's wood-fired pizza",
+            "available": True
+        }
+        
+        success2, response2 = self.run_test(
+            "Business 2 Create Menu Item",
+            "POST",
+            "menu",
+            200,
+            data=menu2_data,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        menu2_id = response2.get('id') if success2 else None
+        
+        # Verify Business 1 can only see its menu
+        success, response = self.run_test(
+            "Business 1 Get Menu",
+            "GET",
+            "menu",
+            200,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        if success:
+            menu_names = [item['name'] for item in response]
+            if 'Beta Pizza' in menu_names:
+                self.critical_failures.append("Business 1 can see Business 2's menu - DATA LEAK!")
+            if 'Alpha Burger' not in menu_names and len(response) > 0:
+                print(f"   Business 1 menu: {menu_names}")
+        
+        # Verify Business 2 can only see its menu
+        success, response = self.run_test(
+            "Business 2 Get Menu",
+            "GET",
+            "menu",
+            200,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        if success:
+            menu_names = [item['name'] for item in response]
+            if 'Alpha Burger' in menu_names:
+                self.critical_failures.append("Business 2 can see Business 1's menu - DATA LEAK!")
+            if 'Beta Pizza' not in menu_names and len(response) > 0:
+                print(f"   Business 2 menu: {menu_names}")
+        
+        return menu1_id, menu2_id
+
+    def test_table_isolation(self):
+        """Test table isolation between businesses"""
+        # Business 1 creates tables
+        table1_data = {
+            "table_number": 101,
+            "capacity": 4,
+            "status": "available"
+        }
+        
+        success1, response1 = self.run_test(
+            "Business 1 Create Table",
+            "POST",
+            "tables",
+            200,
+            data=table1_data,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        table1_id = response1.get('id') if success1 else None
+        
+        # Business 2 creates tables
+        table2_data = {
+            "table_number": 201,
+            "capacity": 6,
+            "status": "available"
+        }
+        
+        success2, response2 = self.run_test(
+            "Business 2 Create Table",
+            "POST",
+            "tables",
+            200,
+            data=table2_data,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        table2_id = response2.get('id') if success2 else None
+        
+        # Verify Business 1 can only see its tables
+        success, response = self.run_test(
+            "Business 1 Get Tables",
+            "GET",
+            "tables",
+            200,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        if success:
+            table_numbers = [table['table_number'] for table in response]
+            if 201 in table_numbers:
+                self.critical_failures.append("Business 1 can see Business 2's tables - DATA LEAK!")
+            if 101 not in table_numbers and len(response) > 0:
+                print(f"   Business 1 tables: {table_numbers}")
+        
+        # Verify Business 2 can only see its tables
+        success, response = self.run_test(
+            "Business 2 Get Tables",
+            "GET",
+            "tables",
+            200,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        if success:
+            table_numbers = [table['table_number'] for table in response]
+            if 101 in table_numbers:
+                self.critical_failures.append("Business 2 can see Business 1's tables - DATA LEAK!")
+            if 201 not in table_numbers and len(response) > 0:
+                print(f"   Business 2 tables: {table_numbers}")
+        
+        return table1_id, table2_id
+
+    def test_order_isolation(self, table1_id, menu1_id, table2_id, menu2_id):
+        """Test order isolation between businesses"""
+        if not all([table1_id, menu1_id, table2_id, menu2_id]):
+            print("⚠️  Skipping order isolation test - missing prerequisites")
+            return
+        
+        # Business 1 creates order
+        order1_data = {
+            "table_id": table1_id,
+            "table_number": 101,
+            "items": [{
+                "menu_item_id": menu1_id,
+                "name": "Alpha Burger",
+                "quantity": 2,
+                "price": 15.99
+            }],
+            "customer_name": "Alpha Customer"
+        }
+        
+        success1, response1 = self.run_test(
+            "Business 1 Create Order",
+            "POST",
+            "orders",
+            200,
+            data=order1_data,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        # Business 2 creates order
+        order2_data = {
+            "table_id": table2_id,
+            "table_number": 201,
+            "items": [{
+                "menu_item_id": menu2_id,
+                "name": "Beta Pizza",
+                "quantity": 1,
+                "price": 22.50
+            }],
+            "customer_name": "Beta Customer"
+        }
+        
+        success2, response2 = self.run_test(
+            "Business 2 Create Order",
+            "POST",
+            "orders",
+            200,
+            data=order2_data,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        # Verify Business 1 can only see its orders
+        success, response = self.run_test(
+            "Business 1 Get Orders",
+            "GET",
+            "orders",
+            200,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        if success:
+            customer_names = [order.get('customer_name') for order in response]
+            if 'Beta Customer' in customer_names:
+                self.critical_failures.append("Business 1 can see Business 2's orders - DATA LEAK!")
+            if 'Alpha Customer' not in customer_names and len(response) > 0:
+                print(f"   Business 1 orders: {customer_names}")
+        
+        # Verify Business 2 can only see its orders
+        success, response = self.run_test(
+            "Business 2 Get Orders",
+            "GET",
+            "orders",
+            200,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        if success:
+            customer_names = [order.get('customer_name') for order in response]
+            if 'Alpha Customer' in customer_names:
+                self.critical_failures.append("Business 2 can see Business 1's orders - DATA LEAK!")
+            if 'Beta Customer' not in customer_names and len(response) > 0:
+                print(f"   Business 2 orders: {customer_names}")
+
+    def test_inventory_isolation(self):
+        """Test inventory isolation between businesses"""
+        # Business 1 creates inventory
+        inventory1_data = {
+            "name": "Alpha Beef Patties",
+            "quantity": 50.0,
+            "unit": "pieces",
+            "min_quantity": 10.0,
+            "price_per_unit": 2.50
+        }
+        
+        success1, response1 = self.run_test(
+            "Business 1 Create Inventory",
+            "POST",
+            "inventory",
+            200,
+            data=inventory1_data,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        # Business 2 creates inventory
+        inventory2_data = {
+            "name": "Beta Pizza Dough",
+            "quantity": 25.0,
+            "unit": "kg",
+            "min_quantity": 5.0,
+            "price_per_unit": 3.75
+        }
+        
+        success2, response2 = self.run_test(
+            "Business 2 Create Inventory",
+            "POST",
+            "inventory",
+            200,
+            data=inventory2_data,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        # Verify Business 1 can only see its inventory
+        success, response = self.run_test(
+            "Business 1 Get Inventory",
+            "GET",
+            "inventory",
+            200,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        if success:
+            inventory_names = [item['name'] for item in response]
+            if 'Beta Pizza Dough' in inventory_names:
+                self.critical_failures.append("Business 1 can see Business 2's inventory - DATA LEAK!")
+            if 'Alpha Beef Patties' not in inventory_names and len(response) > 0:
+                print(f"   Business 1 inventory: {inventory_names}")
+        
+        # Verify Business 2 can only see its inventory
+        success, response = self.run_test(
+            "Business 2 Get Inventory",
+            "GET",
+            "inventory",
+            200,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        if success:
+            inventory_names = [item['name'] for item in response]
+            if 'Alpha Beef Patties' in inventory_names:
+                self.critical_failures.append("Business 2 can see Business 1's inventory - DATA LEAK!")
+            if 'Beta Pizza Dough' not in inventory_names and len(response) > 0:
+                print(f"   Business 2 inventory: {inventory_names}")
+
+    def test_cross_business_access_blocked(self, menu1_id, menu2_id, table1_id, table2_id):
+        """Test that cross-business access to specific resources is blocked"""
+        if not all([menu1_id, menu2_id, table1_id, table2_id]):
+            print("⚠️  Skipping cross-business access test - missing IDs")
+            return
+        
+        # Business 1 tries to access Business 2's menu item
+        success, response = self.run_test(
+            "Business 1 Access Business 2 Menu Item (Should Fail)",
+            "GET",
+            f"menu/{menu2_id}",
+            404,  # Should return 404 (not found) due to organization filtering
+            token=self.business1_token,
+            critical=True
+        )
+        
+        if not success:
+            self.critical_failures.append("Business 1 can access Business 2's menu item - SECURITY BREACH!")
+        
+        # Business 2 tries to access Business 1's menu item
+        success, response = self.run_test(
+            "Business 2 Access Business 1 Menu Item (Should Fail)",
+            "GET",
+            f"menu/{menu1_id}",
+            404,  # Should return 404 (not found) due to organization filtering
+            token=self.business2_token,
+            critical=True
+        )
+        
+        if not success:
+            self.critical_failures.append("Business 2 can access Business 1's menu item - SECURITY BREACH!")
+        
+        # Business 1 tries to update Business 2's table
+        table_update = {"table_number": 999, "capacity": 10, "status": "occupied"}
+        success, response = self.run_test(
+            "Business 1 Update Business 2 Table (Should Fail)",
+            "PUT",
+            f"tables/{table2_id}",
+            404,  # Should return 404 (not found) due to organization filtering
+            data=table_update,
+            token=self.business1_token,
+            critical=True
+        )
+        
+        if not success:
+            self.critical_failures.append("Business 1 can update Business 2's table - SECURITY BREACH!")
+        
+        # Business 2 tries to update Business 1's table
+        success, response = self.run_test(
+            "Business 2 Update Business 1 Table (Should Fail)",
+            "PUT",
+            f"tables/{table1_id}",
+            404,  # Should return 404 (not found) due to organization filtering
+            data=table_update,
+            token=self.business2_token,
+            critical=True
+        )
+        
+        if not success:
+            self.critical_failures.append("Business 2 can update Business 1's table - SECURITY BREACH!")
+
 def main():
     print("🏪 Starting Restaurant Billing API Tests...")
     print("=" * 50)
