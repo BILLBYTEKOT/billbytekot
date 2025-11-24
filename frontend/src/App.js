@@ -123,6 +123,22 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/settings"
+            element={
+              <PrivateRoute>
+                <SettingsPage user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/subscription"
+            element={
+              <PrivateRoute>
+                <SubscriptionPage user={user} />
+              </PrivateRoute>
+            }
+          />
         </Routes>
       </BrowserRouter>
       <Toaster position="top-center" richColors />
