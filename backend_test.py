@@ -25,12 +25,15 @@ class RestaurantAPITester:
         self.business1_user = None
         self.business2_user = None
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, params=None, token=None, critical=False):
         """Run a single API test"""
         url = f"{self.base_url}/{endpoint}"
         headers = {'Content-Type': 'application/json'}
-        if self.token:
-            headers['Authorization'] = f'Bearer {self.token}'
+        
+        # Use provided token or default token
+        auth_token = token or self.token
+        if auth_token:
+            headers['Authorization'] = f'Bearer {auth_token}'
 
         self.tests_run += 1
         print(f"\n🔍 Testing {name}...")
@@ -54,16 +57,24 @@ class RestaurantAPITester:
                 except:
                     return success, {}
             else:
-                print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
+                error_msg = f"❌ Failed - Expected {expected_status}, got {response.status_code}"
+                print(error_msg)
                 try:
                     error_detail = response.json()
                     print(f"   Error: {error_detail}")
+                    if critical:
+                        self.critical_failures.append(f"{name}: {error_detail}")
                 except:
                     print(f"   Response: {response.text}")
+                    if critical:
+                        self.critical_failures.append(f"{name}: Status {response.status_code}")
                 return False, {}
 
         except Exception as e:
-            print(f"❌ Failed - Error: {str(e)}")
+            error_msg = f"❌ Failed - Error: {str(e)}"
+            print(error_msg)
+            if critical:
+                self.critical_failures.append(f"{name}: {str(e)}")
             return False, {}
 
     def test_user_registration(self):
