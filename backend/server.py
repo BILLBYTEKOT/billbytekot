@@ -931,16 +931,19 @@ async def create_payment_order(payment_data: PaymentCreate, current_user: dict =
 
 @api_router.post("/payments/verify")
 async def verify_payment(razorpay_payment_id: str, razorpay_order_id: str, order_id: str, current_user: dict = Depends(get_current_user)):
-    payment = await db.payments.find_one({"razorpay_order_id": razorpay_order_id}, {"_id": 0})
+    # Get user's organization_id
+    user_org_id = current_user.get('organization_id') or current_user['id']
+    
+    payment = await db.payments.find_one({"razorpay_order_id": razorpay_order_id, "organization_id": user_org_id}, {"_id": 0})
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     
     await db.payments.update_one(
-        {"razorpay_order_id": razorpay_order_id},
+        {"razorpay_order_id": razorpay_order_id, "organization_id": user_org_id},
         {"$set": {"razorpay_payment_id": razorpay_payment_id, "status": "completed"}}
     )
     
-    await db.orders.update_one({"id": order_id}, {"$set": {"status": "completed"}})
+    await db.orders.update_one({"id": order_id, "organization_id": user_org_id}, {"$set": {"status": "completed"}})
     await db.users.update_one({"id": current_user['id']}, {"$inc": {"bill_count": 1}})
     
     return {"status": "payment_verified"}
