@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API } from '../App';
 import Layout from '../components/Layout';
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Upload, X } from 'lucide-react';
 
 const MenuPage = ({ user }) => {
   const [menuItems, setMenuItems] = useState([]);
@@ -16,6 +16,9 @@ const MenuPage = ({ user }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState('');
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
     category: '',
