@@ -187,6 +187,7 @@ class Payment(BaseModel):
     razorpay_order_id: Optional[str] = None
     razorpay_payment_id: Optional[str] = None
     status: str = "pending"
+    organization_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class PaymentCreate(BaseModel):
