@@ -6,11 +6,29 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { toast } from 'sonner';
-import { FileText, Download, TrendingUp, Sparkles } from 'lucide-react';
+import { 
+  FileText, 
+  Download, 
+  TrendingUp, 
+  Sparkles, 
+  Calendar,
+  ShoppingBag,
+  Users as UsersIcon,
+  Clock,
+  BarChart3,
+  PieChart
+} from 'lucide-react';
 
 const ReportsPage = ({ user }) => {
   const [dailyReport, setDailyReport] = useState(null);
+  const [weeklyReport, setWeeklyReport] = useState(null);
+  const [monthlyReport, setMonthlyReport] = useState(null);
+  const [bestSelling, setBestSelling] = useState([]);
+  const [staffPerformance, setStaffPerformance] = useState([]);
+  const [peakHours, setPeakHours] = useState([]);
+  const [categoryAnalysis, setCategoryAnalysis] = useState([]);
   const [forecast, setForecast] = useState(null);
   const [dateRange, setDateRange] = useState({
     start_date: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0],
@@ -19,9 +37,21 @@ const ReportsPage = ({ user }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchDailyReport();
-    fetchForecast();
+    fetchAllReports();
   }, []);
+
+  const fetchAllReports = async () => {
+    await Promise.all([
+      fetchDailyReport(),
+      fetchWeeklyReport(),
+      fetchMonthlyReport(),
+      fetchBestSelling(),
+      fetchStaffPerformance(),
+      fetchPeakHours(),
+      fetchCategoryAnalysis(),
+      fetchForecast()
+    ]);
+  };
 
   const fetchDailyReport = async () => {
     try {
