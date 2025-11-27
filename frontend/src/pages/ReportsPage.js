@@ -176,8 +176,21 @@ const ReportsPage = ({ user }) => {
       <div className="space-y-6" data-testid="reports-page">
         <div>
           <h1 className="text-4xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Reports & Analytics</h1>
-          <p className="text-gray-600 mt-2">View sales reports and insights</p>
+          <p className="text-gray-600 mt-2">Comprehensive business insights and analytics</p>
         </div>
+
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="sales">Sales Trends</TabsTrigger>
+            <TabsTrigger value="items">Best Sellers</TabsTrigger>
+            <TabsTrigger value="staff">Staff Performance</TabsTrigger>
+            <TabsTrigger value="hours">Peak Hours</TabsTrigger>
+            <TabsTrigger value="export">Export</TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
 
         {dailyReport && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
