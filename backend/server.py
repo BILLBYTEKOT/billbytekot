@@ -15,7 +15,21 @@ from passlib.context import CryptContext
 import razorpay
 import base64
 import json
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+try:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    _LLM_AVAILABLE = True
+except Exception:
+    _LLM_AVAILABLE = False
+    class LlmChat:
+        def __init__(self, *args, **kwargs):
+            pass
+        def with_model(self, *args, **kwargs):
+            return self
+        async def send_message(self, *args, **kwargs):
+            raise RuntimeError("LLM integration unavailable")
+    class UserMessage:
+        def __init__(self, text):
+            self.text = text
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1016,6 +1030,8 @@ async def get_low_stock(current_user: dict = Depends(get_current_user)):
 # AI routes
 @api_router.post("/ai/chat")
 async def ai_chat(message: ChatMessage):
+    if not _LLM_AVAILABLE:
+        raise HTTPException(status_code=503, detail="LLM integration unavailable")
     try:
         chat = LlmChat(
             api_key=os.environ.get('EMERGENT_LLM_KEY'),
