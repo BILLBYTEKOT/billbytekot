@@ -44,7 +44,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 # MongoDB connection with SSL configuration
-mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017/restrobill")
+mongo_url = os.getenv("MONGO_URL", "mongodb+srv://shivshankarkumar281_db_user:RNdGNCCyBtj1d5Ar@retsro-ai.un0np9m.mongodb.net/?retryWrites=true&w=majority&authSource=admin&readPreference=primary&serverSelectionTimeoutMS=10000&connectTimeoutMS=15000&socketTimeoutMS=20000&appName=retsro-ai")
 
 # Clean up and optimize MongoDB Atlas connection string
 if "mongodb+srv://" in mongo_url:
