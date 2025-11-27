@@ -69,7 +69,7 @@
     "validate-env": "node scripts/validate-env.js",
     "validate-env:guide": "node scripts/validate-env.js --guide",
     "env:setup": "cp .env.local.template .env.local && echo '✅ .env.local created from template. Please edit it with your actual values.'",
-    "prestart": "node scripts/validate-env.js --summary"
+    "start:validate": "node scripts/validate-env.js --summary && craco start"
   },
   "browserslist": {
     "production": [

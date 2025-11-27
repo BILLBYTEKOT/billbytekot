@@ -44,7 +44,10 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 # MongoDB connection with SSL configuration
-mongo_url = os.getenv("MONGO_URL", "mongodb+srv://shivshankarkumar281_db_user:RNdGNCCyBtj1d5Ar@retsro-ai.un0np9m.mongodb.net/?retryWrites=true&w=majority&authSource=admin&readPreference=primary&serverSelectionTimeoutMS=10000&connectTimeoutMS=15000&socketTimeoutMS=20000&appName=retsro-ai")
+mongo_url = os.getenv(
+    "MONGO_URL",
+    "mongodb+srv://shivshankarkumar281_db_user:RNdGNCCyBtj1d5Ar@retsro-ai.un0np9m.mongodb.net/?retryWrites=true&w=majority&authSource=admin&readPreference=primary&serverSelectionTimeoutMS=10000&connectTimeoutMS=15000&socketTimeoutMS=20000&appName=retsro-ai",
+)
 
 # Clean up and optimize MongoDB Atlas connection string
 if "mongodb+srv://" in mongo_url:
@@ -103,6 +106,34 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+
+# Add CORS middleware to allow frontend connections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",  # React development server
+        "http://localhost:3001",  # Alternative React port
+        "https://restro-ai.onrender.com",  # Backend URL (for self-requests)
+        "https://*.vercel.app",  # Vercel deployments
+        "https://*.netlify.app",  # Netlify deployments
+        "https://*.onrender.com",  # Render deployments
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "User-Agent",
+        "DNT",
+        "Cache-Control",
+        "X-Mx-ReqToken",
+        "Keep-Alive",
+        "X-Requested-With",
+        "If-Modified-Since",
+    ],
+)
 
 # Currency symbols mapping
 CURRENCY_SYMBOLS = {
