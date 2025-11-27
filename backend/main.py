@@ -73,11 +73,24 @@ def validate_environment():
             missing_vars.append(var)
 
     if missing_vars:
-        print(
-            f"Error: Missing required environment variables: {', '.join(missing_vars)}"
-        )
-        print("Please create a .env file or set these environment variables.")
-        sys.exit(1)
+        print(f"Warning: Missing environment variables: {', '.join(missing_vars)}")
+        print("Using default values where possible...")
+
+        # Set defaults for missing variables
+        if "JWT_SECRET" in missing_vars:
+            os.environ["JWT_SECRET"] = "default-jwt-secret-please-change-in-production"
+            print(
+                "Warning: Using default JWT secret. Please set JWT_SECRET environment variable."
+            )
+
+        if "DB_NAME" in missing_vars:
+            os.environ["DB_NAME"] = "restrobill"
+
+        if "MONGO_URL" in missing_vars and ENVIRONMENT == "production":
+            print("Error: MONGO_URL is required in production")
+            sys.exit(1)
+        elif "MONGO_URL" in missing_vars:
+            os.environ["MONGO_URL"] = "mongodb://localhost:27017/restrobill"
 
 
 def create_directories():
@@ -102,10 +115,25 @@ def print_startup_info():
     print(f"Port: {PORT}")
     print(f"Debug: {DEBUG}")
     print(f"Log Level: {LOG_LEVEL}")
-    print(f"MongoDB: {'Connected' if os.getenv('MONGO_URL') else 'Not configured'}")
+    mongo_url = os.getenv("MONGO_URL", "")
+    if mongo_url:
+        # Hide sensitive parts of URL
+        safe_url = (
+            mongo_url.replace(
+                mongo_url.split("@")[0].split("://")[-1] + "@", "***:***@"
+            )
+            if "@" in mongo_url
+            else mongo_url
+        )
+        print(f"MongoDB: {safe_url}")
+    else:
+        print("MongoDB: Not configured")
+
+    jwt_secret = os.getenv("JWT_SECRET", "")
     print(
-        f"JWT Secret: {'Configured' if os.getenv('JWT_SECRET') else 'Not configured'}"
+        f"JWT Secret: {'Configured' if jwt_secret and jwt_secret != 'default-jwt-secret-please-change-in-production' else 'Using default (please change!)'}"
     )
+
     if SSL_CERT_PATH and SSL_KEY_PATH:
         print("SSL: Enabled")
     else:

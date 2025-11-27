@@ -27,8 +27,7 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p logs uploads backups
 
-# Create .env from template if it doesn't exist (for local testing)
-RUN if [ ! -f .env ]; then cp .env.example .env 2>/dev/null || true; fi
+# Environment variables will be provided by Render
 
 # Expose port
 EXPOSE $PORT

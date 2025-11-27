@@ -20,7 +20,7 @@ services:
       - key: LOG_LEVEL
         value: INFO
       - key: CORS_ORIGINS
-        value: https://restobill-frontend.onrender.com
+        value: https://restobill-frontend.onrender.com,https://restobill.ai
       - key: DB_NAME
         value: restrobill
       - key: JWT_SECRET
@@ -32,9 +32,13 @@ services:
       - key: RATE_LIMIT_PER_MINUTE
         value: 100
       - key: MONGO_URL
-        fromDatabase:
-          name: restobill-mongodb
-          property: connectionString
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
 
   # Frontend Web Service
   - type: web

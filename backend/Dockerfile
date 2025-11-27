@@ -43,9 +43,6 @@ RUN chown -R restobill:restobill /app
 # Switch to non-root user
 USER restobill
 
-# Create .env from template if it doesn't exist
-RUN if [ ! -f .env ]; then cp .env.example .env; fi
-
 # Expose port
 EXPOSE 5000
 
