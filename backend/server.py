@@ -116,6 +116,7 @@ def is_allowed_origin(origin: str) -> bool:
         "http://localhost:3001",
         "https://restro-ai.onrender.com",
         "https://restro-ai-u9kz.vercel.app",
+        "https://finverge.tech",
     ]
 
     # Check exact matches
