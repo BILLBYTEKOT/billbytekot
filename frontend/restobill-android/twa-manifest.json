@@ -12,27 +12,31 @@
   "navigationDividerColorDark": "#000000",
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
-  "startUrl": "https://restro-ai-u9kz.vercel.app/login",
-  "iconUrl": "https://drive.google.com/file/d/1c41vtgXRN5aDM_tZKWHZ6b1MW000zuFB/view?usp=sharing",
+  "startUrl": "restro-ai-u9kz.vercel.app/login",
+  "iconUrl": "https://raw.githubusercontent.com/shivshankar9/restro-ai/main/54.jpg",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "C:\\Users\\shivs\\da\\restro-ai\\frontend\\restobill-android\\android.keystore",
     "alias": "android"
   },
-  "appVersionName": "1",
-  "appVersionCode": 1,
+  "appVersionName": "2",
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "http://restro-ai-u9kz.vercel.app/manifest.json",
+  "webManifestUrl": "https://restro-ai-u9kz.vercel.app/manifest.json",
   "fallbackType": "customtabs",
-  "features": {},
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    }
+  },
   "alphaDependencies": {
     "enabled": false
   },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "http://restro-ai-u9kz.vercel.app/",
+  "fullScopeUrl": "https://restro-ai-u9kz.vercel.app/",
   "minSdkVersion": 21,
   "orientation": "portrait",
   "fingerprints": [],
@@ -42,5 +46,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "1"
+  "appVersion": "2"
 }
