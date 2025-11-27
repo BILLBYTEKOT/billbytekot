@@ -43,15 +43,15 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 # MongoDB connection
-mongo_url = os.environ["MONGO_URL"]
+mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017/restrobill")
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ["DB_NAME"]]
+db = client[os.getenv("DB_NAME", "restrobill")]
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
-JWT_SECRET = os.environ.get("JWT_SECRET")
-JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+JWT_SECRET = os.getenv("JWT_SECRET", "default-jwt-secret-please-change-in-production")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -1466,12 +1466,57 @@ async def api_health_check():
     return await health_check()
 
 
+# Startup validation
+@app.on_event("startup")
+async def startup_validation():
+    """Validate configuration and database connection on startup"""
+    print("🍽️  Starting RestoBill AI Server...")
+
+    # Check required environment variables
+    required_vars = {
+        "MONGO_URL": mongo_url,
+        "DB_NAME": os.getenv("DB_NAME", "restrobill"),
+        "JWT_SECRET": JWT_SECRET,
+    }
+
+    missing_vars = []
+    for var, value in required_vars.items():
+        if not value or (
+            var == "JWT_SECRET"
+            and value == "default-jwt-secret-please-change-in-production"
+        ):
+            missing_vars.append(var)
+
+    if missing_vars:
+        print(f"⚠️  Warning: Missing or default values for: {', '.join(missing_vars)}")
+        if "MONGO_URL" in missing_vars:
+            print(
+                "💡 Set MONGO_URL environment variable with your MongoDB connection string"
+            )
+        if "JWT_SECRET" in missing_vars:
+            print(
+                "💡 Set JWT_SECRET environment variable with a secure 32+ character secret"
+            )
+
+    # Test database connection
+    try:
+        await db.command("ping")
+        print(f"✅ Database connected: {db.name}")
+    except Exception as e:
+        print(f"❌ Database connection failed: {e}")
+        print(
+            f"🔗 MongoDB URL: {mongo_url.replace(mongo_url.split('@')[0].split('://')[1] + '@', '***:***@') if '@' in mongo_url else mongo_url}"
+        )
+
+    print(f"🚀 Server starting on port {os.getenv('PORT', '5000')}")
+
+
 app.include_router(api_router)
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
