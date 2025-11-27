@@ -107,16 +107,45 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
+
+# Dynamic CORS origin checker
+def is_allowed_origin(origin: str) -> bool:
+    """Check if the origin is allowed for CORS"""
+    allowed_patterns = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://restro-ai.onrender.com",
+        "https://restro-ai-u9kz.vercel.app",
+    ]
+
+    # Check exact matches
+    if origin in allowed_patterns:
+        return True
+
+    # Check pattern matches
+    domain_patterns = [".vercel.app", ".netlify.app", ".onrender.com", ".render.com"]
+
+    for pattern in domain_patterns:
+        if origin.endswith(pattern):
+            return True
+
+    # Allow localhost with any port for development
+    if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
+        return True
+
+    return False
+
+
 # Add CORS middleware to allow frontend connections
 app.add_middleware(
     CORSMiddleware,
+    allow_origin_regex=r"https://.*(vercel\.app|netlify\.app|onrender\.com|render\.com)$",
     allow_origins=[
-        "http://localhost:3000",  # React development server
-        "http://localhost:3001",  # Alternative React port
-        "https://restro-ai.onrender.com",  # Backend URL (for self-requests)
-        "https://*.vercel.app",  # Vercel deployments
-        "https://*.netlify.app",  # Netlify deployments
-        "https://*.onrender.com",  # Render deployments
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://restro-ai.onrender.com",
+        "https://restro-ai-u9kz.vercel.app",
+        "*",  # Allow all origins temporarily for debugging
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -132,6 +161,7 @@ app.add_middleware(
         "Keep-Alive",
         "X-Requested-With",
         "If-Modified-Since",
+        "Access-Control-Allow-Origin",
     ],
 )
 
