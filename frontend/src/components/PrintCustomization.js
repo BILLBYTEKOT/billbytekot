@@ -24,33 +24,34 @@ import {
 } from 'lucide-react';
 
 const PrintCustomization = ({ businessSettings, onUpdate }) => {
+  const ps = businessSettings?.print_customization || {};
   const [customization, setCustomization] = useState({
-    paper_width: businessSettings?.print_settings?.paper_width || '80mm',
-    font_size: businessSettings?.print_settings?.font_size || 'medium',
-    header_style: businessSettings?.print_settings?.header_style || 'centered',
-    show_logo: businessSettings?.print_settings?.show_logo ?? true,
-    show_address: businessSettings?.print_settings?.show_address ?? true,
-    show_phone: businessSettings?.print_settings?.show_phone ?? true,
-    show_email: businessSettings?.print_settings?.show_email ?? false,
-    show_website: businessSettings?.print_settings?.show_website ?? false,
-    show_gstin: businessSettings?.print_settings?.show_gstin ?? true,
-    show_fssai: businessSettings?.print_settings?.show_fssai ?? false,
-    show_tagline: businessSettings?.print_settings?.show_tagline ?? true,
-    show_customer_name: businessSettings?.print_settings?.show_customer_name ?? true,
-    show_waiter_name: businessSettings?.print_settings?.show_waiter_name ?? true,
-    show_table_number: businessSettings?.print_settings?.show_table_number ?? true,
-    show_order_time: businessSettings?.print_settings?.show_order_time ?? true,
-    show_item_notes: businessSettings?.print_settings?.show_item_notes ?? true,
-    border_style: businessSettings?.print_settings?.border_style || 'single',
-    separator_style: businessSettings?.print_settings?.separator_style || 'dashes',
-    footer_style: businessSettings?.print_settings?.footer_style || 'simple',
-    qr_code_enabled: businessSettings?.print_settings?.qr_code_enabled ?? false,
-    auto_print: businessSettings?.print_settings?.auto_print ?? false,
-    print_copies: businessSettings?.print_settings?.print_copies || 1,
-    kot_auto_print: businessSettings?.print_settings?.kot_auto_print ?? true,
-    kot_font_size: businessSettings?.print_settings?.kot_font_size || 'large',
-    kot_show_time: businessSettings?.print_settings?.kot_show_time ?? true,
-    kot_highlight_notes: businessSettings?.print_settings?.kot_highlight_notes ?? true,
+    paper_width: ps.paper_width || '80mm',
+    font_size: ps.font_size || 'medium',
+    header_style: ps.header_style || 'centered',
+    show_logo: ps.show_logo ?? true,
+    show_address: ps.show_address ?? true,
+    show_phone: ps.show_phone ?? true,
+    show_email: ps.show_email ?? false,
+    show_website: ps.show_website ?? false,
+    show_gstin: ps.show_gstin ?? true,
+    show_fssai: ps.show_fssai ?? false,
+    show_tagline: ps.show_tagline ?? true,
+    show_customer_name: ps.show_customer_name ?? true,
+    show_waiter_name: ps.show_waiter_name ?? true,
+    show_table_number: ps.show_table_number ?? true,
+    show_order_time: ps.show_order_time ?? true,
+    show_item_notes: ps.show_item_notes ?? true,
+    border_style: ps.border_style || 'single',
+    separator_style: ps.separator_style || 'dashes',
+    footer_style: ps.footer_style || 'simple',
+    qr_code_enabled: ps.qr_code_enabled ?? false,
+    auto_print: ps.auto_print ?? false,
+    print_copies: ps.print_copies || 1,
+    kot_auto_print: ps.kot_auto_print ?? true,
+    kot_font_size: ps.kot_font_size || 'large',
+    kot_show_time: ps.kot_show_time ?? true,
+    kot_highlight_notes: ps.kot_highlight_notes ?? true,
   });
 
   const [previewContent, setPreviewContent] = useState('');
@@ -226,7 +227,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
     try {
       const updatedSettings = {
         ...businessSettings,
-        print_settings: customization
+        print_customization: customization
       };
       
       await axios.put(`${API}/business/settings`, updatedSettings);

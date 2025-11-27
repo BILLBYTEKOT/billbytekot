@@ -7,9 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Settings as SettingsIcon, CreditCard, Shield, Info } from 'lucide-react';
+import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, Palette } from 'lucide-react';
+import PrintCustomization from '../components/PrintCustomization';
 
 const SettingsPage = ({ user }) => {
+  const [activeTab, setActiveTab] = useState('business');
   const [razorpaySettings, setRazorpaySettings] = useState({
     razorpay_key_id: '',
     razorpay_key_secret: ''
@@ -148,6 +150,47 @@ const SettingsPage = ({ user }) => {
           <p className="text-gray-600 mt-2">Configure your restaurant billing system</p>
         </div>
 
+        {/* Settings Tabs */}
+        <div className="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
+          <button
+            onClick={() => setActiveTab('business')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'business' ? 'bg-white shadow text-violet-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            Business Details
+          </button>
+          <button
+            onClick={() => setActiveTab('print')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'print' ? 'bg-white shadow text-violet-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Printer className="w-4 h-4" />
+            Print Customization
+          </button>
+          <button
+            onClick={() => setActiveTab('payment')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'payment' ? 'bg-white shadow text-violet-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <CreditCard className="w-4 h-4" />
+            Payment
+          </button>
+        </div>
+
+        {/* Print Customization Tab */}
+        {activeTab === 'print' && (
+          <PrintCustomization 
+            businessSettings={businessSettings} 
+            onUpdate={(updated) => setBusinessSettings(updated)}
+          />
+        )}
+
+        {/* Payment Tab */}
+        {activeTab === 'payment' && (
         <Card className="border-0 shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -213,7 +256,11 @@ const SettingsPage = ({ user }) => {
             </div>
           </CardContent>
         </Card>
+        )}
 
+        {/* Business Tab */}
+        {activeTab === 'business' && (
+        <>
         <Card className="border-0 shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -392,6 +439,8 @@ const SettingsPage = ({ user }) => {
             </div>
           </CardContent>
         </Card>
+        </>
+        )}
       </div>
     </Layout>
   );
