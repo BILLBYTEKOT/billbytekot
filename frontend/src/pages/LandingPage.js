@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
-import PrivacyPolicy from "./privacypolicy";
 import {
   Card,
   CardContent,
@@ -58,11 +57,11 @@ const DesktopDownloadSection = () => {
   const os = getOS();
   const isMobile = os === "android" || os === "ios";
   
-  // Download URLs - Update these with your actual hosted files
+  // Download URLs - GitHub Releases
   const downloadUrls = {
-    windows: "https://github.com/finverge/restobill-desktop/releases/latest/download/RestoBill-Setup.exe",
-    mac: "https://github.com/finverge/restobill-desktop/releases/latest/download/RestoBill.dmg",
-    linux: "https://github.com/finverge/restobill-desktop/releases/latest/download/RestoBill.AppImage",
+    windows: "https://github.com/shivshankar9/restro-ai/releases/download/v1-desktop-win-exe/RestoBill-Setup-1.0.0-win.exe",
+    mac: "https://github.com/shivshankar9/restro-ai/releases/download/v1-desktop-win-exe/RestoBill-1.0.0-mac.dmg",
+    linux: "https://github.com/shivshankar9/restro-ai/releases/download/v1-desktop-win-exe/RestoBill-1.0.0-linux.AppImage",
   };
   
   const handleDownload = (platform) => {
