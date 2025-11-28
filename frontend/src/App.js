@@ -18,6 +18,7 @@ import StaffManagementPage from './pages/StaffManagementPage';
 import LandingPage from './pages/LandingPage';
 import TrackOrderPage from './pages/TrackOrderPage';
 import CustomerOrderPage from './pages/CustomerOrderPage';
+import DownloadPage from './pages/DownloadPage';
 import DesktopInfo from './components/DesktopInfo';
 import { Toaster } from './components/ui/sonner';
 
@@ -194,6 +195,7 @@ function App() {
           {/* Public Routes - No Auth Required */}
           <Route path="/track/:trackingToken" element={<TrackOrderPage />} />
           <Route path="/order/:orgId" element={<CustomerOrderPage />} />
+          <Route path="/download" element={<DownloadPage />} />
         </Routes>
       </BrowserRouter>
       <Toaster position="top-center" richColors />
