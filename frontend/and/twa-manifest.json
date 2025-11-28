@@ -1,6 +1,6 @@
 {
-  "packageId": "app.vercel.restro_ai_u9kz.twa",
-  "host": "restro-ai-u9kz.vercel.app",
+  "packageId": "app.finverge.tech.twa",
+  "host": "finverge.tech",
   "name": "RestoBill AI - Restaurant Billing System",
   "launcherName": "RestoBill",
   "display": "standalone",
@@ -12,18 +12,18 @@
   "navigationDividerColorDark": "#000000",
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
-  "startUrl": "/",
+  "startUrl": "/login",
   "iconUrl": "https://raw.githubusercontent.com/shivshankar9/restro-ai/main/54.jpg",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "C:\\Users\\shivs\\da\\restro-ai\\frontend\\and\\android.keystore",
     "alias": "android"
   },
-  "appVersionName": "3",
-  "appVersionCode": 3,
+  "appVersionName": "9",
+  "appVersionCode": 9,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://restro-ai-u9kz.vercel.app/manifest.json",
+  "webManifestUrl": "https://finverge.tech/manifest.json",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {
@@ -32,7 +32,7 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "https://restro-ai-u9kz.vercel.app/",
+  "fullScopeUrl": "https://finverge.tech/",
   "minSdkVersion": 21,
   "orientation": "portrait",
   "fingerprints": [
@@ -46,5 +46,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "3"
+  "appVersion": "9"
 }

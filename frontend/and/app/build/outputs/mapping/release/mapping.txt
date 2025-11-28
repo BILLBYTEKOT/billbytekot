@@ -3,8 +3,8 @@
 # min_api: 21
 # common_typos_disable
 # {"id":"com.android.tools.r8.mapping","version":"2.2"}
-# pg_map_id: 6583fae
-# pg_map_hash: SHA-256 6583fae9a2fd23ecff0f9f03172fbbfb38ce5ad19064367167c03b8d1f12023e
+# pg_map_id: dcd5c51
+# pg_map_hash: SHA-256 dcd5c5196900ba8c4f413a2132deeb359de081cfa1d980a1f2ba8f1778807398
 android.support.customtabs.ICustomTabsCallback -> a.a:
 # {"id":"sourceFile","fileName":"ICustomTabsCallback.java"}
     java.lang.String DESCRIPTOR -> a
@@ -22694,15 +22694,15 @@ androidx.versionedparcelable.VersionedParcelParcel -> androidx.versionedparcelab
     1:6:void writeBoolean(boolean):181:181 -> y
 androidx.versionedparcelable.VersionedParcelable -> H.a:
 # {"id":"sourceFile","fileName":"VersionedParcelable.java"}
-app.vercel.restro_ai_u9kz.twa.Application -> app.vercel.restro_ai_u9kz.twa.Application:
+app.finverge.tech.twa.Application -> app.finverge.tech.twa.Application:
 # {"id":"sourceFile","fileName":"Application.java"}
     1:4:void <init>():20:20 -> <init>
     1:4:void onCreate():26:26 -> onCreate
-app.vercel.restro_ai_u9kz.twa.DelegationService -> app.vercel.restro_ai_u9kz.twa.DelegationService:
+app.finverge.tech.twa.DelegationService -> app.finverge.tech.twa.DelegationService:
 # {"id":"sourceFile","fileName":"DelegationService.java"}
     1:4:void <init>():5:5 -> <init>
     1:4:void onCreate():9:9 -> onCreate
-app.vercel.restro_ai_u9kz.twa.LauncherActivity -> app.vercel.restro_ai_u9kz.twa.LauncherActivity:
+app.finverge.tech.twa.LauncherActivity -> app.finverge.tech.twa.LauncherActivity:
 # {"id":"sourceFile","fileName":"LauncherActivity.java"}
     1:4:void <init>():25:25 -> <init>
     1:5:android.net.Uri getLaunchingUrl():48:48 -> i

@@ -94,45 +94,67 @@ const Dashboard = ({ user }) => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-orange-600">
               <AlertTriangle className="w-6 h-6" />
-              Subscription Required
+              Trial Expired - Subscription Required
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-gray-700">
-              You've reached 50 bills! To continue using RestoBill AI, please subscribe for just ₹99/year.
+              Your 7-day free trial has ended. Subscribe now for just ₹499/year to continue using RestoBill AI.
             </p>
             <div className="bg-violet-50 p-4 rounded-lg">
               <p className="font-medium text-violet-900">Get unlimited bills and premium features!</p>
               <ul className="text-sm text-violet-700 mt-2 space-y-1">
-                <li>✓ Unlimited bills</li>
+                <li>✓ Unlimited bills forever</li>
                 <li>✓ All AI features</li>
-                <li>✓ Priority support</li>
+                <li>✓ Priority 24/7 support</li>
                 <li>✓ Advanced analytics</li>
+                <li>✓ Multi-device access</li>
               </ul>
             </div>
             <Button 
               onClick={() => navigate('/subscription')} 
               className="w-full bg-gradient-to-r from-violet-600 to-purple-600"
             >
-              Subscribe Now - ₹99/Year
+              Subscribe Now - ₹499/Year
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <div className="space-y-6" data-testid="dashboard-page">
-        {subscriptionStatus?.needs_subscription && (
-          <Card className="border-0 shadow-lg border-l-4 border-l-orange-500">
+        {/* Trial Banner */}
+        {subscriptionStatus?.is_trial && (
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white">
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-orange-600" />
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                  <Sparkles className="w-5 h-5" />
+                </div>
                 <div>
-                  <p className="font-medium text-orange-900">Subscription Required</p>
-                  <p className="text-sm text-orange-700">You've used {subscriptionStatus.bill_count} bills. Subscribe to continue.</p>
+                  <p className="font-bold">🎁 Free Trial Active!</p>
+                  <p className="text-sm text-green-100">{subscriptionStatus.trial_days_left} days remaining • Enjoy all premium features</p>
+                </div>
+              </div>
+              <Button onClick={() => navigate('/subscription')} variant="secondary" className="bg-white text-green-600 hover:bg-green-50">
+                Upgrade to Premium
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Subscription Required Banner */}
+        {subscriptionStatus?.needs_subscription && (
+          <Card className="border-0 shadow-lg border-l-4 border-l-red-500 bg-red-50">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+                <div>
+                  <p className="font-bold text-red-900">Trial Expired - Subscription Required</p>
+                  <p className="text-sm text-red-700">Your 7-day trial has ended. Subscribe to continue using RestoBill AI.</p>
                 </div>
               </div>
               <Button onClick={() => navigate('/subscription')} className="bg-gradient-to-r from-violet-600 to-purple-600">
-                Subscribe
+                Subscribe - ₹499/year
               </Button>
             </CardContent>
           </Card>

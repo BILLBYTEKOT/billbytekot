@@ -21,9 +21,9 @@ plugins {
 }
 
 def twaManifest = [
-    applicationId: 'app.vercel.restro_ai_u9kz.twa',
-    hostName: 'restro-ai-u9kz.vercel.app', // The domain being opened in the TWA.
-    launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
+    applicationId: 'app.finverge.tech.twa',
+    hostName: 'finverge.tech', // The domain being opened in the TWA.
+    launchUrl: '/login', // The start path for the TWA. Must be relative to the domain.
     name: 'RestoBill AI - Restaurant Billing System', // The application name.
     launcherName: 'RestoBill', // The name shown on the Android Launcher.
     themeColor: '#7C3AED', // The color used for the status bar.
@@ -52,13 +52,13 @@ def twaManifest = [
 
 android {
     compileSdkVersion 36
-    namespace "app.vercel.restro_ai_u9kz.twa"
+    namespace "app.finverge.tech.twa"
     defaultConfig {
-        applicationId "app.vercel.restro_ai_u9kz.twa"
+        applicationId "app.finverge.tech.twa"
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 3
-        versionName "3"
+        versionCode 9
+        versionName "9"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -76,12 +76,12 @@ android {
             // The URL the Web Manifest for the Progressive Web App that the TWA points to. This
             // is used by Chrome OS and Meta Quest to open the Web version of the PWA instead of
             // the TWA, as it will probably give a better user experience for non-mobile devices.
-            resValue "string", "webManifestUrl", 'https://restro-ai-u9kz.vercel.app/manifest.json'
+            resValue "string", "webManifestUrl", 'https://finverge.tech/manifest.json'
         
 
         
             // This is used by Meta Quest.
-            resValue "string", "fullScopeUrl", 'https://restro-ai-u9kz.vercel.app/'
+            resValue "string", "fullScopeUrl", 'https://finverge.tech/'
         
 
         

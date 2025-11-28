@@ -3,9 +3,9 @@
 -keep class androidx.core.content.FileProvider { <init>(); }
 -keep class androidx.profileinstaller.ProfileInstallReceiver { <init>(); }
 -keep class androidx.startup.InitializationProvider { <init>(); }
--keep class app.vercel.restro_ai_u9kz.twa.Application { <init>(); }
--keep class app.vercel.restro_ai_u9kz.twa.DelegationService { <init>(); }
--keep class app.vercel.restro_ai_u9kz.twa.LauncherActivity { <init>(); }
+-keep class app.finverge.tech.twa.Application { <init>(); }
+-keep class app.finverge.tech.twa.DelegationService { <init>(); }
+-keep class app.finverge.tech.twa.LauncherActivity { <init>(); }
 -keep class com.google.androidbrowserhelper.trusted.FocusActivity { <init>(); }
 -keep class com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity { <init>(); }
 -keep class com.google.androidbrowserhelper.trusted.NotificationPermissionRequestActivity { <init>(); }

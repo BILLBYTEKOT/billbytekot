@@ -375,7 +375,7 @@ class PaymentCreate(BaseModel):
 
 
 class SubscriptionPayment(BaseModel):
-    amount: float = 99.0
+    amount: float = 499.0  # ₹499/year
 
 
 class InventoryItem(BaseModel):
@@ -457,12 +457,26 @@ async def get_current_user(
 
 
 async def check_subscription(user: dict):
+    # Check if user is in trial period (7 days from account creation)
+    created_at = user.get("created_at")
+    if isinstance(created_at, str):
+        try:
+            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except:
+            created_at = None
+    
+    if created_at:
+        trial_end = created_at + timedelta(days=7)
+        if datetime.now(timezone.utc) < trial_end:
+            return True  # Still in trial period
+    
+    # Check subscription status
     if user["bill_count"] >= 50 and not user["subscription_active"]:
         return False
     if user["subscription_active"] and user.get("subscription_expires_at"):
         expires = user["subscription_expires_at"]
         if isinstance(expires, str):
-            expires = datetime.fromisoformat(expires)
+            expires = datetime.fromisoformat(expires.replace("Z", "+00:00"))
         if expires < datetime.now(timezone.utc):
             await db.users.update_one(
                 {"id": user["id"]}, {"$set": {"subscription_active": False}}
@@ -1129,16 +1143,53 @@ async def get_razorpay_settings(current_user: dict = Depends(get_current_user)):
     }
 
 
-# Subscription
+# Subscription - ₹499/year with 7-day free trial
+SUBSCRIPTION_PRICE_PAISE = 49900  # ₹499 in paise
+TRIAL_DAYS = 7
+SUBSCRIPTION_DAYS = 365
+
+
 @api_router.get("/subscription/status")
 async def get_subscription_status(current_user: dict = Depends(get_current_user)):
     is_active = await check_subscription(current_user)
+    
+    # Check trial status
+    created_at = current_user.get("created_at")
+    if isinstance(created_at, str):
+        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    
+    trial_end = created_at + timedelta(days=TRIAL_DAYS) if created_at else None
+    is_trial = trial_end and datetime.now(timezone.utc) < trial_end if trial_end else False
+    trial_days_left = max(0, (trial_end - datetime.now(timezone.utc)).days) if trial_end else 0
+    
     return {
         "subscription_active": current_user.get("subscription_active", False),
         "bill_count": current_user.get("bill_count", 0),
-        "needs_subscription": current_user.get("bill_count", 0) >= 50
+        "needs_subscription": not is_trial and current_user.get("bill_count", 0) >= 50
         and not current_user.get("subscription_active", False),
         "subscription_expires_at": current_user.get("subscription_expires_at"),
+        "is_trial": is_trial,
+        "trial_days_left": trial_days_left,
+        "trial_end": trial_end.isoformat() if trial_end else None,
+        "price": 499,
+        "price_display": "₹499/year"
+    }
+
+
+@api_router.post("/subscription/start-trial")
+async def start_trial(current_user: dict = Depends(get_current_user)):
+    """Start 7-day free trial"""
+    # Trial is automatic based on account creation date
+    created_at = current_user.get("created_at")
+    if isinstance(created_at, str):
+        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    
+    trial_end = created_at + timedelta(days=TRIAL_DAYS) if created_at else None
+    
+    return {
+        "trial_started": True,
+        "trial_end": trial_end.isoformat() if trial_end else None,
+        "trial_days": TRIAL_DAYS
     }
 
 
@@ -1159,16 +1210,16 @@ async def create_subscription_order(current_user: dict = Depends(get_current_use
 
     razorpay_client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
 
-    amount_paise = 9900
     razor_order = razorpay_client.order.create(
-        {"amount": amount_paise, "currency": "INR", "payment_capture": 1}
+        {"amount": SUBSCRIPTION_PRICE_PAISE, "currency": "INR", "payment_capture": 1}
     )
 
     return {
         "razorpay_order_id": razor_order["id"],
-        "amount": amount_paise,
+        "amount": SUBSCRIPTION_PRICE_PAISE,
         "currency": "INR",
         "key_id": razorpay_key_id,
+        "price_display": "₹499"
     }
 
 
@@ -1178,7 +1229,7 @@ async def verify_subscription_payment(
     razorpay_order_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    expires_at = datetime.now(timezone.utc) + timedelta(days=365)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=SUBSCRIPTION_DAYS)
 
     await db.users.update_one(
         {"id": current_user["id"]},
@@ -1190,7 +1241,11 @@ async def verify_subscription_payment(
         },
     )
 
-    return {"status": "subscription_activated", "expires_at": expires_at.isoformat()}
+    return {
+        "status": "subscription_activated", 
+        "expires_at": expires_at.isoformat(),
+        "days": SUBSCRIPTION_DAYS
+    }
 
 
 # Image Upload

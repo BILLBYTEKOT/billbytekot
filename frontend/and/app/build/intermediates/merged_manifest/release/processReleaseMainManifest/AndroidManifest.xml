@@ -22,9 +22,9 @@
      the abbreviated format.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="app.vercel.restro_ai_u9kz.twa"
-    android:versionCode="3"
-    android:versionName="3" >
+    package="app.finverge.tech.twa"
+    android:versionCode="9"
+    android:versionName="9" >
 
     <uses-sdk
         android:minSdkVersion="21"
@@ -43,13 +43,13 @@
     </queries>
 
     <permission
-        android:name="app.vercel.restro_ai_u9kz.twa.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:name="app.finverge.tech.twa.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
 
-    <uses-permission android:name="app.vercel.restro_ai_u9kz.twa.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+    <uses-permission android:name="app.finverge.tech.twa.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
-        android:name="app.vercel.restro_ai_u9kz.twa.Application"
+        android:name="app.finverge.tech.twa.Application"
         android:allowBackup="true"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:extractNativeLibs="true"
@@ -84,7 +84,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="app.vercel.restro_ai_u9kz.twa.LauncherActivity"
+            android:name="app.finverge.tech.twa.LauncherActivity"
             android:alwaysRetainTaskState="true"
             android:exported="true"
             android:label="@string/launcherName" >
@@ -163,7 +163,7 @@
         </provider>
 
         <service
-            android:name="app.vercel.restro_ai_u9kz.twa.DelegationService"
+            android:name="app.finverge.tech.twa.DelegationService"
             android:enabled="@bool/enableNotification"
             android:exported="@bool/enableNotification" >
             <meta-data
@@ -181,7 +181,7 @@
 
         <provider
             android:name="androidx.startup.InitializationProvider"
-            android:authorities="app.vercel.restro_ai_u9kz.twa.androidx-startup"
+            android:authorities="app.finverge.tech.twa.androidx-startup"
             android:exported="false" >
             <meta-data
                 android:name="androidx.emoji2.text.EmojiCompatInitializer"

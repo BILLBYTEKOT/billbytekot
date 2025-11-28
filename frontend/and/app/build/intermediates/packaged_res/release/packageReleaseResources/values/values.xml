@@ -17,18 +17,18 @@
         \"relation\": [\"delegate_permission/common.handle_all_urls\"],
         \"target\": {
             \"namespace\": \"web\",
-            \"site\": \"https://restro-ai-u9kz.vercel.app\"
+            \"site\": \"https://finverge.tech\"
         }
     }]
     
   </string>
     <string name="fallbackType" translatable="false">customtabs</string>
-    <string name="fullScopeUrl" translatable="false">https://restro-ai-u9kz.vercel.app/</string>
+    <string name="fullScopeUrl" translatable="false">https://finverge.tech/</string>
     <string name="generatorApp" translatable="false">bubblewrap-cli</string>
-    <string name="hostName" translatable="false">restro-ai-u9kz.vercel.app</string>
-    <string name="launchUrl" translatable="false">https://restro-ai-u9kz.vercel.app/</string>
+    <string name="hostName" translatable="false">finverge.tech</string>
+    <string name="launchUrl" translatable="false">https://finverge.tech/login</string>
     <string name="launcherName" translatable="false">RestoBill</string>
     <string name="orientation" translatable="false">portrait</string>
-    <string name="providerAuthority" translatable="false">app.vercel.restro_ai_u9kz.twa.fileprovider</string>
-    <string name="webManifestUrl" translatable="false">https://restro-ai-u9kz.vercel.app/manifest.json</string>
+    <string name="providerAuthority" translatable="false">app.finverge.tech.twa.fileprovider</string>
+    <string name="webManifestUrl" translatable="false">https://finverge.tech/manifest.json</string>
 </resources>
