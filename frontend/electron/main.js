@@ -12,7 +12,6 @@ function createWindow() {
     height: CONFIG.WINDOW.HEIGHT,
     minWidth: CONFIG.WINDOW.MIN_WIDTH,
     minHeight: CONFIG.WINDOW.MIN_HEIGHT,
-    icon: path.join(__dirname, '../public/logo192.png'),
     title: CONFIG.APP_NAME,
     webPreferences: {
       nodeIntegration: false,
@@ -25,8 +24,11 @@ function createWindow() {
     backgroundColor: CONFIG.WINDOW.BACKGROUND_COLOR
   });
 
-  // Load the app - Use finverge.tech in production, localhost in dev
-  const startUrl = isDev ? CONFIG.DEV_URL : CONFIG.PRODUCTION_URL;
+  // Load the app
+  // In dev: localhost, In production: finverge.tech (web app)
+  const startUrl = isDev 
+    ? CONFIG.DEV_URL 
+    : CONFIG.PRODUCTION_URL;
   
   console.log(`[RestoBill Desktop] Loading from: ${startUrl}`);
   console.log(`[RestoBill Desktop] Backend: ${CONFIG.BACKEND_URL}`);

@@ -6,8 +6,8 @@
  */
 
 module.exports = {
-  // Your deployed frontend URL (finverge.tech)
-  PRODUCTION_URL: 'https://finverge.tech',
+  // Your deployed frontend URL (finverge.tech) - direct to login
+  PRODUCTION_URL: 'https://finverge.tech/login',
   
   // Backend API URL (Render deployment)
   BACKEND_URL: 'https://restro-ai.onrender.com',

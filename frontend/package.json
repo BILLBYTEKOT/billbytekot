@@ -124,8 +124,8 @@
       "output": "dist-electron"
     },
     "files": [
+      "build/**/*",
       "electron/**/*",
-      "node_modules/**/*",
       "package.json"
     ],
     "extraMetadata": {
@@ -135,41 +135,30 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
-        },
-        {
-          "target": "portable",
           "arch": ["x64"]
         }
       ],
-      "icon": "public/logo512.png",
-      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+      "artifactName": "${productName}-Setup-${version}-win.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "public/logo512.png",
-      "uninstallerIcon": "public/logo512.png",
-      "installerHeaderIcon": "public/logo512.png",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "RestoBill"
     },
     "mac": {
-      "target": ["dmg", "zip"],
-      "icon": "public/logo512.png",
+      "target": ["dmg"],
       "category": "public.app-category.business",
-      "artifactName": "${productName}-${version}-${os}.${ext}"
+      "artifactName": "${productName}-${version}-mac.${ext}"
     },
     "dmg": {
-      "title": "RestoBill Installer",
-      "icon": "public/logo512.png"
+      "title": "RestoBill Installer"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
-      "icon": "public/logo512.png",
+      "target": ["AppImage"],
       "category": "Office",
-      "artifactName": "${productName}-${version}-${os}.${ext}"
+      "artifactName": "${productName}-${version}-linux.${ext}"
     }
   }
 }
