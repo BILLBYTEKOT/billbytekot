@@ -232,6 +232,15 @@ const SettingsPage = ({ user }) => {
             <CreditCard className="w-4 h-4" />
             Payment
           </button>
+          <button
+            onClick={() => setActiveTab('aggregator')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'aggregator' ? 'bg-white shadow text-orange-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Palette className="w-4 h-4" />
+            Zomato/Swiggy
+          </button>
         </div>
 
         {/* Print Customization Tab */}
@@ -689,6 +698,93 @@ const SettingsPage = ({ user }) => {
           </CardContent>
         </Card>
         </>
+        )}
+
+        {/* Aggregator Tab - Zomato/Swiggy Integration */}
+        {activeTab === 'aggregator' && (
+          <Card className="border-0 shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="w-5 h-5 text-orange-600" />
+                Food Aggregator Integrations
+              </CardTitle>
+              <CardDescription>
+                Connect with Zomato and Swiggy to receive orders directly
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Zomato Integration */}
+              <div className="p-4 border-2 border-red-100 rounded-xl bg-red-50/50">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center">
+                      <span className="text-white font-bold text-xl">Z</span>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Zomato</h3>
+                      <p className="text-sm text-gray-500">Food Delivery Platform</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Coming Soon</span>
+                    <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-not-allowed">
+                      <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 shadow"></div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Connect your Zomato restaurant account to automatically receive and manage delivery orders.
+                  Contact Zomato support to get your API credentials.
+                </p>
+              </div>
+
+              {/* Swiggy Integration */}
+              <div className="p-4 border-2 border-orange-100 rounded-xl bg-orange-50/50">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
+                      <span className="text-white font-bold text-xl">S</span>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Swiggy</h3>
+                      <p className="text-sm text-gray-500">Food Delivery Platform</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Coming Soon</span>
+                    <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-not-allowed">
+                      <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 shadow"></div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Connect your Swiggy restaurant account to automatically receive and manage delivery orders.
+                  Contact Swiggy support to get your API credentials.
+                </p>
+              </div>
+
+              {/* Integration Benefits */}
+              <div className="bg-gradient-to-r from-orange-50 to-red-50 p-4 rounded-xl">
+                <h4 className="font-semibold mb-3">Integration Benefits</h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center gap-2">✓ Auto-receive orders from delivery platforms</li>
+                  <li className="flex items-center gap-2">✓ Real-time order status synchronization</li>
+                  <li className="flex items-center gap-2">✓ Unified order management dashboard</li>
+                  <li className="flex items-center gap-2">✓ Kitchen display integration</li>
+                  <li className="flex items-center gap-2">✓ Revenue analytics across platforms</li>
+                </ul>
+              </div>
+
+              <div className="text-center p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-600 mb-2">
+                  Want early access to aggregator integrations?
+                </p>
+                <Button variant="outline" onClick={() => window.open('mailto:support@finverge.tech?subject=Aggregator Integration Request', '_blank')}>
+                  Request Early Access
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </Layout>

@@ -331,6 +331,13 @@ const LandingPage = () => {
         "Works on any device. Install as Android app from Play Store",
       color: "from-purple-500 to-pink-600",
     },
+    {
+      icon: Rocket,
+      title: "Zomato & Swiggy",
+      description:
+        "Direct integration with food delivery platforms. Auto-receive orders",
+      color: "from-orange-500 to-red-600",
+    },
   ];
 
   const benefits = [
@@ -459,6 +466,13 @@ const LandingPage = () => {
                 className="text-gray-600 hover:text-violet-600 transition-colors"
               >
                 Pricing
+              </a>
+              <a
+                href="#integrations"
+                className="text-gray-600 hover:text-orange-600 transition-colors flex items-center gap-1"
+              >
+                <Globe className="w-4 h-4" />
+                Integrations
               </a>
               <a
                 href="#desktop-app"
@@ -610,6 +624,13 @@ const LandingPage = () => {
               </Button>
             </div>
 
+            {/* Product Hunt Badge */}
+            <div className="flex justify-center mb-8">
+              <a href="https://www.producthunt.com/products/restro-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-restro-ai" target="_blank" rel="noopener noreferrer">
+                <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1043247&theme=light&t=1764436989519" alt="RESTRO AI - RESTAURANT KOT | Product Hunt" style={{width: '250px', height: '54px'}} width="250" height="54" />
+              </a>
+            </div>
+
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto">
               {stats.map((stat, index) => (
@@ -621,6 +642,75 @@ const LandingPage = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Integrations Section */}
+      <section id="integrations" className="py-16 bg-gradient-to-r from-orange-50 to-red-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 rounded-full mb-4">
+              <Globe className="w-4 h-4 text-orange-600" />
+              <span className="text-sm font-medium text-orange-600">Seamless Integrations</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+              Connect with <span className="text-orange-600">Zomato</span> & <span className="text-red-500">Swiggy</span>
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Receive orders directly from food delivery platforms. Auto-sync menu, manage orders, and track deliveries - all in one place.
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Zomato Card */}
+            <Card className="border-2 border-red-100 hover:border-red-300 transition-all hover:shadow-xl">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 bg-red-500 rounded-2xl flex items-center justify-center">
+                    <span className="text-white font-bold text-2xl">Z</span>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">Zomato Integration</h3>
+                    <p className="text-sm text-gray-500">Food Delivery Partner</p>
+                  </div>
+                </div>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Auto-receive orders</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Real-time status sync</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Menu synchronization</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Delivery tracking</li>
+                </ul>
+              </CardContent>
+            </Card>
+            
+            {/* Swiggy Card */}
+            <Card className="border-2 border-orange-100 hover:border-orange-300 transition-all hover:shadow-xl">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center">
+                    <span className="text-white font-bold text-2xl">S</span>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">Swiggy Integration</h3>
+                    <p className="text-sm text-gray-500">Food Delivery Partner</p>
+                  </div>
+                </div>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Instant order alerts</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Auto-accept orders</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Kitchen display sync</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500" /> Revenue analytics</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div className="text-center mt-8">
+            <p className="text-sm text-gray-500 mb-4">More integrations coming soon: UberEats, DoorDash, Dunzo</p>
+            <Button onClick={handleGetStarted} className="bg-gradient-to-r from-orange-500 to-red-500">
+              <Rocket className="w-4 h-4 mr-2" /> Get Started with Integrations
+            </Button>
           </div>
         </div>
       </section>
