@@ -149,6 +149,35 @@ ipcMain.on('print-receipt', (event, content) => {
   });
 });
 
+// Handle WhatsApp integration
+ipcMain.on('send-whatsapp', (event, { phone, message }) => {
+  const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+  shell.openExternal(whatsappUrl);
+});
+
+// Handle WhatsApp Business integration
+ipcMain.on('send-whatsapp-business', (event, { phone, message, businessNumber }) => {
+  // If business number is provided, use WhatsApp Business API
+  if (businessNumber) {
+    const businessUrl = `https://wa.me/${businessNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    shell.openExternal(businessUrl);
+  } else {
+    // Fallback to regular WhatsApp
+    const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    shell.openExternal(whatsappUrl);
+  }
+});
+
+// Handle bulk WhatsApp messages
+ipcMain.on('send-bulk-whatsapp', (event, { contacts, message }) => {
+  contacts.forEach((contact, index) => {
+    setTimeout(() => {
+      const whatsappUrl = `https://wa.me/${contact.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message.replace('{name}', contact.name))}`;
+      shell.openExternal(whatsappUrl);
+    }, index * 2000); // 2 second delay between each message
+  });
+});
+
 function checkForUpdates() {
   // Placeholder for auto-update functionality
   mainWindow.webContents.send('check-updates');

@@ -12,6 +12,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Printing
   printReceipt: (content) => ipcRenderer.send('print-receipt', content),
   
+  // WhatsApp Integration
+  sendWhatsApp: (phone, message) => ipcRenderer.send('send-whatsapp', { phone, message }),
+  sendWhatsAppBusiness: (phone, message, businessNumber) => ipcRenderer.send('send-whatsapp-business', { phone, message, businessNumber }),
+  sendBulkWhatsApp: (contacts, message) => ipcRenderer.send('send-bulk-whatsapp', { contacts, message }),
+  
   // Updates
   onCheckUpdates: (callback) => ipcRenderer.on('check-updates', () => callback()),
   

@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, Palette, MessageCircle } from 'lucide-react';
+import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, Palette, MessageCircle, Package } from 'lucide-react';
 import PrintCustomization from '../components/PrintCustomization';
+import WhatsAppDesktop from '../components/WhatsAppDesktop';
 
 const SettingsPage = ({ user }) => {
   const [activeTab, setActiveTab] = useState('business');
@@ -241,6 +242,17 @@ const SettingsPage = ({ user }) => {
             <Palette className="w-4 h-4" />
             Zomato/Swiggy
           </button>
+          {window.electronAPI?.isElectron && (
+            <button
+              onClick={() => setActiveTab('whatsapp-desktop')}
+              className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+                activeTab === 'whatsapp-desktop' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp Pro
+            </button>
+          )}
         </div>
 
         {/* Print Customization Tab */}
@@ -702,89 +714,138 @@ const SettingsPage = ({ user }) => {
 
         {/* Aggregator Tab - Zomato/Swiggy Integration */}
         {activeTab === 'aggregator' && (
-          <Card className="border-0 shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-orange-600" />
-                Food Aggregator Integrations
-              </CardTitle>
-              <CardDescription>
-                Connect with Zomato and Swiggy to receive orders directly
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Zomato Integration */}
-              <div className="p-4 border-2 border-red-100 rounded-xl bg-red-50/50">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center">
-                      <span className="text-white font-bold text-xl">Z</span>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">Zomato</h3>
-                      <p className="text-sm text-gray-500">Food Delivery Platform</p>
-                    </div>
+          <div className="space-y-6">
+            {/* Zomato Integration */}
+            <Card className="border-0 shadow-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold">Z</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">Coming Soon</span>
-                    <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-not-allowed">
-                      <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 shadow"></div>
-                    </div>
+                  Zomato Integration
+                </CardTitle>
+                <CardDescription>
+                  Connect your Zomato restaurant to receive orders automatically
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Restaurant ID</Label>
+                    <Input placeholder="Enter Zomato Restaurant ID" />
+                  </div>
+                  <div>
+                    <Label>API Key</Label>
+                    <Input type="password" placeholder="Enter Zomato API Key" />
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">
-                  Connect your Zomato restaurant account to automatically receive and manage delivery orders.
-                  Contact Zomato support to get your API credentials.
-                </p>
-              </div>
-
-              {/* Swiggy Integration */}
-              <div className="p-4 border-2 border-orange-100 rounded-xl bg-orange-50/50">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
-                      <span className="text-white font-bold text-xl">S</span>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">Swiggy</h3>
-                      <p className="text-sm text-gray-500">Food Delivery Platform</p>
-                    </div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <span className="text-sm font-medium">Status: Disconnected</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">Coming Soon</span>
-                    <div className="w-10 h-6 bg-gray-200 rounded-full relative cursor-not-allowed">
-                      <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 shadow"></div>
-                    </div>
+                  <Button size="sm" className="bg-red-500 hover:bg-red-600">
+                    Connect Zomato
+                  </Button>
+                </div>
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>• Contact Zomato Partner Support to get your Restaurant ID and API credentials</p>
+                  <p>• Webhook URL: <code className="bg-gray-100 px-1 rounded">https://restro-ai.onrender.com/api/aggregator/webhook/zomato</code></p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Swiggy Integration */}
+            <Card className="border-0 shadow-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold">S</span>
+                  </div>
+                  Swiggy Integration
+                </CardTitle>
+                <CardDescription>
+                  Connect your Swiggy restaurant to receive orders automatically
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Restaurant ID</Label>
+                    <Input placeholder="Enter Swiggy Restaurant ID" />
+                  </div>
+                  <div>
+                    <Label>API Key</Label>
+                    <Input type="password" placeholder="Enter Swiggy API Key" />
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">
-                  Connect your Swiggy restaurant account to automatically receive and manage delivery orders.
-                  Contact Swiggy support to get your API credentials.
-                </p>
-              </div>
+                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <span className="text-sm font-medium">Status: Disconnected</span>
+                  </div>
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600">
+                    Connect Swiggy
+                  </Button>
+                </div>
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>• Contact Swiggy Partner Support to get your Restaurant ID and API credentials</p>
+                  <p>• Webhook URL: <code className="bg-gray-100 px-1 rounded">https://restro-ai.onrender.com/api/aggregator/webhook/swiggy</code></p>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Integration Benefits */}
-              <div className="bg-gradient-to-r from-orange-50 to-red-50 p-4 rounded-xl">
-                <h4 className="font-semibold mb-3">Integration Benefits</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-center gap-2">✓ Auto-receive orders from delivery platforms</li>
-                  <li className="flex items-center gap-2">✓ Real-time order status synchronization</li>
-                  <li className="flex items-center gap-2">✓ Unified order management dashboard</li>
-                  <li className="flex items-center gap-2">✓ Kitchen display integration</li>
-                  <li className="flex items-center gap-2">✓ Revenue analytics across platforms</li>
-                </ul>
-              </div>
+            {/* Order Management Settings */}
+            <Card className="border-0 shadow-xl">
+              <CardHeader>
+                <CardTitle>Order Management</CardTitle>
+                <CardDescription>Configure how aggregator orders are handled</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Auto-accept orders</p>
+                    <p className="text-sm text-gray-500">Automatically accept orders from delivery platforms</p>
+                  </div>
+                  <div className="w-12 h-6 bg-gray-200 rounded-full relative cursor-pointer">
+                    <div className="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 shadow transition-transform"></div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Order Prefix</Label>
+                    <Input defaultValue="AGG" placeholder="Order prefix" />
+                  </div>
+                  <div>
+                    <Label>Preparation Time (mins)</Label>
+                    <Input type="number" defaultValue="25" placeholder="25" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="text-center p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-gray-600 mb-2">
-                  Want early access to aggregator integrations?
-                </p>
-                <Button variant="outline" onClick={() => window.open('mailto:support@finverge.tech?subject=Aggregator Integration Request', '_blank')}>
-                  Request Early Access
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Recent Orders */}
+            <Card className="border-0 shadow-xl">
+              <CardHeader>
+                <CardTitle>Recent Aggregator Orders</CardTitle>
+                <CardDescription>Orders received from Zomato and Swiggy</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-gray-500">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Package className="w-8 h-8" />
+                  </div>
+                  <p>No aggregator orders yet</p>
+                  <p className="text-sm">Connect Zomato or Swiggy to start receiving orders</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* WhatsApp Desktop Tab */}
+        {activeTab === 'whatsapp-desktop' && (
+          <WhatsAppDesktop isElectron={window.electronAPI?.isElectron} />
         )}
       </div>
     </Layout>
