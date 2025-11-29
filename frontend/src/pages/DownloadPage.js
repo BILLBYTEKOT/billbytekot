@@ -1,15 +1,12 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
-import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import {
   ChefHat,
   Monitor,
   Apple,
   Download,
-  MessageCircle,
   ArrowLeft,
   Zap,
   Printer,
@@ -21,7 +18,6 @@ import {
 
 const DownloadPage = () => {
   const navigate = useNavigate();
-  const [phoneNumber, setPhoneNumber] = useState("");
 
   // Detect user's operating system
   const getOS = () => {
@@ -51,21 +47,6 @@ const DownloadPage = () => {
       toast.success(`Downloading RestoBill for ${platform.charAt(0).toUpperCase() + platform.slice(1)}...`);
     } else {
       toast.error("Download not available yet. Please try again later.");
-    }
-  };
-
-  const handleSendLink = (e) => {
-    e.preventDefault();
-    if (phoneNumber) {
-      const message = encodeURIComponent(
-        `🖥️ Download RestoBill Desktop App:\n\n` +
-        `Windows: ${downloadUrls.windows}\n\n` +
-        `Mac: ${downloadUrls.mac}\n\n` +
-        `Or visit: https://finverge.tech/download`
-      );
-      window.open(`https://wa.me/${phoneNumber.replace(/\D/g, "")}?text=${message}`, "_blank");
-      toast.success("Opening WhatsApp to send download link!");
-      setPhoneNumber("");
     }
   };
 
@@ -200,48 +181,16 @@ const DownloadPage = () => {
                     <h3 className="font-bold text-lg mb-2">On Mobile?</h3>
                     <p className="text-gray-600 mb-4">
                       The desktop app is for Windows, Mac, and Linux computers. 
-                      You can use RestoBill on mobile through our web app or send the download link to your computer.
+                      You can use RestoBill on mobile through our web app.
                     </p>
-                    <div className="flex flex-wrap gap-3">
-                      <Button onClick={() => navigate("/login")} className="bg-green-600">
-                        Use Web App
-                      </Button>
-                      <Button variant="outline" onClick={() => document.getElementById("send-link").scrollIntoView({ behavior: "smooth" })}>
-                        Send Link to Computer
-                      </Button>
-                    </div>
+                    <Button onClick={() => navigate("/login")} className="bg-green-600">
+                      Use Web App
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
-
-          {/* Send Link via WhatsApp */}
-          <Card id="send-link" className="border-2 border-gray-200 mb-12">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <MessageCircle className="w-6 h-6 text-green-600" />
-                <h3 className="font-bold text-lg">Send Download Link via WhatsApp</h3>
-              </div>
-              <p className="text-gray-600 mb-4">
-                Enter a phone number to send the download links via WhatsApp
-              </p>
-              <form onSubmit={handleSendLink} className="flex gap-3">
-                <Input
-                  type="tel"
-                  placeholder="+91 9876543210"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="flex-1"
-                  required
-                />
-                <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Send Link
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
 
           {/* Features */}
           <div className="mb-12">

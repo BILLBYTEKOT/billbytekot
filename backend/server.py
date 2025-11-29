@@ -244,6 +244,8 @@ class User(BaseModel):
     username: str
     email: str
     role: str
+    phone: Optional[str] = None
+    login_method: str = "password"  # password, whatsapp
     organization_id: Optional[str] = None  # Links staff to their admin/organization
     business_settings: Optional[BusinessSettings] = None
     razorpay_key_id: Optional[str] = None
@@ -265,6 +267,17 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+
+
+class WhatsAppOTPRequest(BaseModel):
+    phone: str
+    country_code: str = "+91"
+
+
+class WhatsAppOTPVerify(BaseModel):
+    phone: str
+    otp: str
+    country_code: str = "+91"
 
 
 class RazorpaySettings(BaseModel):
@@ -844,6 +857,129 @@ async def login(credentials: UserLogin):
 @api_router.get("/auth/me", response_model=User)
 async def get_me(current_user: dict = Depends(get_current_user)):
     return current_user
+
+
+# WhatsApp OTP Login
+import random
+import string
+
+# In-memory OTP storage (use Redis in production)
+otp_storage: Dict[str, Dict[str, Any]] = {}
+
+
+@api_router.post("/auth/whatsapp/send-otp")
+async def send_whatsapp_otp(request: WhatsAppOTPRequest):
+    """Send OTP via WhatsApp for login/registration"""
+    phone = f"{request.country_code}{request.phone}".replace(" ", "").replace("-", "")
+    
+    # Generate 6-digit OTP
+    otp = ''.join(random.choices(string.digits, k=6))
+    
+    # Store OTP with expiry (5 minutes)
+    otp_storage[phone] = {
+        "otp": otp,
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5),
+        "attempts": 0
+    }
+    
+    # Check if user exists
+    user = await db.users.find_one({"phone": phone}, {"_id": 0})
+    is_new_user = user is None
+    
+    # In production, integrate with WhatsApp Business API
+    # For now, we'll use a webhook or return OTP for testing
+    whatsapp_message = f"🔐 Your RestoBill OTP is: *{otp}*\n\nValid for 5 minutes. Do not share this code."
+    
+    # Try to send via WhatsApp (if configured)
+    try:
+        # This would integrate with WhatsApp Business API
+        # For demo, we'll just log it
+        print(f"[WhatsApp OTP] Phone: {phone}, OTP: {otp}")
+    except Exception as e:
+        print(f"WhatsApp send failed: {e}")
+    
+    return {
+        "success": True,
+        "message": "OTP sent to WhatsApp",
+        "is_new_user": is_new_user,
+        "phone": phone[-4:],  # Last 4 digits for confirmation
+        # Remove in production - only for testing
+        "debug_otp": otp if os.getenv("DEBUG_MODE", "false").lower() == "true" else None
+    }
+
+
+@api_router.post("/auth/whatsapp/verify-otp")
+async def verify_whatsapp_otp(request: WhatsAppOTPVerify):
+    """Verify OTP and login/register user"""
+    phone = f"{request.country_code}{request.phone}".replace(" ", "").replace("-", "")
+    
+    # Check if OTP exists
+    stored = otp_storage.get(phone)
+    if not stored:
+        raise HTTPException(status_code=400, detail="OTP expired or not found. Please request a new one.")
+    
+    # Check expiry
+    if datetime.now(timezone.utc) > stored["expires_at"]:
+        del otp_storage[phone]
+        raise HTTPException(status_code=400, detail="OTP expired. Please request a new one.")
+    
+    # Check attempts
+    if stored["attempts"] >= 3:
+        del otp_storage[phone]
+        raise HTTPException(status_code=400, detail="Too many attempts. Please request a new OTP.")
+    
+    # Verify OTP
+    if stored["otp"] != request.otp:
+        stored["attempts"] += 1
+        raise HTTPException(status_code=400, detail=f"Invalid OTP. {3 - stored['attempts']} attempts remaining.")
+    
+    # OTP verified - clean up
+    del otp_storage[phone]
+    
+    # Find or create user
+    user = await db.users.find_one({"phone": phone}, {"_id": 0})
+    
+    if not user:
+        # Create new user with phone
+        user_obj = User(
+            username=f"user_{phone[-6:]}",
+            email=f"{phone}@whatsapp.restobill",
+            role="admin",
+            phone=phone
+        )
+        user_obj.organization_id = user_obj.id
+        
+        doc = user_obj.model_dump()
+        doc["password"] = hash_password(str(uuid.uuid4()))  # Random password
+        doc["created_at"] = doc["created_at"].isoformat()
+        doc["phone"] = phone
+        doc["login_method"] = "whatsapp"
+        
+        await db.users.insert_one(doc)
+        user = doc
+        is_new_user = True
+    else:
+        is_new_user = False
+    
+    # Generate token
+    token = create_access_token({"user_id": user["id"], "role": user["role"]})
+    
+    return {
+        "success": True,
+        "token": token,
+        "is_new_user": is_new_user,
+        "user": {
+            "id": user["id"],
+            "username": user["username"],
+            "role": user["role"],
+            "email": user.get("email", ""),
+            "phone": phone,
+            "subscription_active": user.get("subscription_active", False),
+            "bill_count": user.get("bill_count", 0),
+            "setup_completed": user.get("setup_completed", False),
+            "business_settings": user.get("business_settings"),
+        }
+    }
 
 
 # Staff Management
