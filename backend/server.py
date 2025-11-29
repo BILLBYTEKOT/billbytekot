@@ -846,6 +846,8 @@ async def login(credentials: UserLogin):
             "username": user["username"],
             "role": user["role"],
             "email": user["email"],
+            "phone": user.get("phone"),
+            "login_method": user.get("login_method", "password"),
             "subscription_active": user.get("subscription_active", False),
             "bill_count": user.get("bill_count", 0),
             "setup_completed": user.get("setup_completed", False),
