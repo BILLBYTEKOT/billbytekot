@@ -12,10 +12,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Printing
   printReceipt: (content) => ipcRenderer.send('print-receipt', content),
   
-  // WhatsApp Integration
+  // WhatsApp Integration (legacy - opens external browser)
   sendWhatsApp: (phone, message) => ipcRenderer.send('send-whatsapp', { phone, message }),
   sendWhatsAppBusiness: (phone, message, businessNumber) => ipcRenderer.send('send-whatsapp-business', { phone, message, businessNumber }),
   sendBulkWhatsApp: (contacts, message) => ipcRenderer.send('send-bulk-whatsapp', { contacts, message }),
+  
+  // WhatsApp Web Integration (built-in with persistent session)
+  openWhatsAppWeb: () => ipcRenderer.send('open-whatsapp-web'),
+  closeWhatsAppWeb: () => ipcRenderer.send('close-whatsapp-web'),
+  getWhatsAppStatus: () => ipcRenderer.invoke('get-whatsapp-status'),
+  sendWhatsAppDirect: (phone, message) => ipcRenderer.invoke('send-whatsapp-direct', { phone, message }),
+  sendWhatsAppBulkDirect: (contacts, message) => ipcRenderer.invoke('send-whatsapp-bulk-direct', { contacts, message }),
+  logoutWhatsApp: () => ipcRenderer.invoke('logout-whatsapp'),
+  
+  // WhatsApp event listeners
+  onWhatsAppStatus: (callback) => ipcRenderer.on('whatsapp-status', (_event, data) => callback(data)),
+  onWhatsAppBulkProgress: (callback) => ipcRenderer.on('whatsapp-bulk-progress', (_event, data) => callback(data)),
   
   // Updates
   onCheckUpdates: (callback) => ipcRenderer.on('check-updates', () => callback()),
