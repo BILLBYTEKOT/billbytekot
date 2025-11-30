@@ -190,9 +190,17 @@ const SettingsPage = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="space-y-6" data-testid="settings-page">
-        <div>
-          <h1 className="text-4xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Settings</h1>
-          <p className="text-gray-600 mt-2">Configure your restaurant billing system</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Settings</h1>
+            <p className="text-gray-600 mt-2">Configure your restaurant billing system</p>
+          </div>
+          {window.electronAPI?.getVersion && (
+            <div className="text-right">
+              <p className="text-sm text-gray-500">Desktop App</p>
+              <p className="text-lg font-bold text-violet-600">v{window.electronAPI.getVersion()}</p>
+            </div>
+          )}
         </div>
 
         {/* Settings Tabs */}
@@ -242,17 +250,15 @@ const SettingsPage = ({ user }) => {
             <Palette className="w-4 h-4" />
             Zomato/Swiggy
           </button>
-          {window.electronAPI?.isElectron && (
-            <button
-              onClick={() => setActiveTab('whatsapp-desktop')}
-              className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
-                activeTab === 'whatsapp-desktop' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <MessageCircle className="w-4 h-4" />
-              WhatsApp Pro
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab('whatsapp-desktop')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'whatsapp-desktop' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <MessageCircle className="w-4 h-4" />
+            WhatsApp Pro
+          </button>
         </div>
 
         {/* Print Customization Tab */}
@@ -845,7 +851,7 @@ const SettingsPage = ({ user }) => {
 
         {/* WhatsApp Desktop Tab */}
         {activeTab === 'whatsapp-desktop' && (
-          <WhatsAppDesktop isElectron={window.electronAPI?.isElectron} />
+          <WhatsAppDesktop isElectron={!!window.electronAPI?.isElectron} />
         )}
       </div>
     </Layout>

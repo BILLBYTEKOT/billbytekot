@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // WhatsApp Web Integration (built-in with persistent session)
   openWhatsAppWeb: () => ipcRenderer.send('open-whatsapp-web'),
   closeWhatsAppWeb: () => ipcRenderer.send('close-whatsapp-web'),
+  toggleWhatsAppView: () => ipcRenderer.send('toggle-whatsapp-view'),
   getWhatsAppStatus: () => ipcRenderer.invoke('get-whatsapp-status'),
   sendWhatsAppDirect: (phone, message) => ipcRenderer.invoke('send-whatsapp-direct', { phone, message }),
   sendWhatsAppBulkDirect: (contacts, message) => ipcRenderer.invoke('send-whatsapp-bulk-direct', { contacts, message }),
@@ -28,6 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // WhatsApp event listeners
   onWhatsAppStatus: (callback) => ipcRenderer.on('whatsapp-status', (_event, data) => callback(data)),
   onWhatsAppBulkProgress: (callback) => ipcRenderer.on('whatsapp-bulk-progress', (_event, data) => callback(data)),
+  onWhatsAppViewState: (callback) => ipcRenderer.on('whatsapp-view-state', (_event, data) => callback(data)),
   
   // Updates
   onCheckUpdates: (callback) => ipcRenderer.on('check-updates', () => callback()),

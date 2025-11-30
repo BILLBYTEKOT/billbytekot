@@ -1,15 +1,13 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, Notification, session } = require('electron');
+const { app, BrowserWindow, BrowserView, Menu, shell, ipcMain, Notification, session } = require('electron');
 const path = require('path');
 const CONFIG = require('./config');
 
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
-let whatsappWindow = null;
+let whatsappView = null;
 let whatsappConnected = false;
-
-// WhatsApp session data path for persistence
-const whatsappSessionPath = path.join(app.getPath('userData'), 'whatsapp-session');
+let whatsappViewVisible = false;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -183,76 +181,45 @@ ipcMain.on('send-bulk-whatsapp', (event, { contacts, message }) => {
   });
 });
 
-// ============ WHATSAPP WEB INTEGRATION ============
+// ============ WHATSAPP WEB INTEGRATION (EMBEDDED) ============
 
-// Create WhatsApp Web window with persistent session
-function createWhatsAppWindow() {
-  if (whatsappWindow && !whatsappWindow.isDestroyed()) {
-    whatsappWindow.focus();
-    return whatsappWindow;
+// Create persistent WhatsApp session
+const getWhatsAppSession = () => {
+  return session.fromPartition('persist:whatsapp', { cache: true });
+};
+
+// Create embedded WhatsApp BrowserView
+function createWhatsAppView() {
+  if (whatsappView) {
+    return whatsappView;
   }
 
-  // Create a separate session for WhatsApp to persist login
-  const whatsappSession = session.fromPartition('persist:whatsapp', { cache: true });
+  const whatsappSession = getWhatsAppSession();
 
-  whatsappWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    title: 'WhatsApp Web - RestoBill',
+  whatsappView = new BrowserView({
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       session: whatsappSession,
-      // Allow WhatsApp Web to work properly
-      webSecurity: true,
-      allowRunningInsecureContent: false
-    },
-    autoHideMenuBar: true,
-    icon: path.join(__dirname, '../public/favicon.ico')
+      webSecurity: true
+    }
   });
 
-  whatsappWindow.loadURL('https://web.whatsapp.com');
+  whatsappView.webContents.loadURL('https://web.whatsapp.com');
+
+  // Set user agent to avoid WhatsApp blocking
+  whatsappView.webContents.setUserAgent(
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  );
 
   // Monitor connection status
-  whatsappWindow.webContents.on('did-finish-load', () => {
-    // Inject script to monitor WhatsApp connection status
-    whatsappWindow.webContents.executeJavaScript(`
-      (function() {
-        let lastStatus = null;
-        
-        const checkConnection = () => {
-          const chatList = document.querySelector('[data-testid="chat-list"]') || 
-                          document.querySelector('[aria-label="Chat list"]') ||
-                          document.querySelector('div[data-tab="3"]');
-          const qrCode = document.querySelector('[data-testid="qrcode"]') || 
-                        document.querySelector('canvas[aria-label="Scan me!"]') ||
-                        document.querySelector('div[data-ref]');
-          const loading = document.querySelector('[data-testid="startup"]') ||
-                         document.querySelector('.landing-wrapper');
-          
-          let status = 'loading';
-          if (chatList && !qrCode) {
-            status = 'connected';
-          } else if (qrCode) {
-            status = 'qr_visible';
-          }
-          
-          if (status !== lastStatus) {
-            lastStatus = status;
-            console.log('WHATSAPP_STATUS:' + status);
-          }
-        };
-        
-        // Check immediately and then every 2 seconds
-        checkConnection();
-        setInterval(checkConnection, 2000);
-      })();
-    `).catch(err => console.log('WhatsApp script injection error:', err));
+  whatsappView.webContents.on('did-finish-load', () => {
+    injectWhatsAppMonitor();
   });
 
   // Listen for console messages to detect connection status
-  whatsappWindow.webContents.on('console-message', (event, level, message) => {
-    if (message.startsWith('WHATSAPP_STATUS:')) {
+  whatsappView.webContents.on('console-message', (_, __, message) => {
+    if (message && message.startsWith('WHATSAPP_STATUS:')) {
       const status = message.replace('WHATSAPP_STATUS:', '');
       whatsappConnected = (status === 'connected');
       
@@ -266,46 +233,130 @@ function createWhatsAppWindow() {
     }
   });
 
-  whatsappWindow.on('closed', () => {
-    whatsappWindow = null;
-    // Don't reset connected status - session persists
-  });
-
-  return whatsappWindow;
+  return whatsappView;
 }
 
-// Open WhatsApp Web window
-ipcMain.on('open-whatsapp-web', (event) => {
-  createWhatsAppWindow();
+// Inject monitoring script into WhatsApp Web
+function injectWhatsAppMonitor() {
+  if (!whatsappView) return;
+  
+  whatsappView.webContents.executeJavaScript(`
+    (function() {
+      if (window.__whatsappMonitorInjected) return;
+      window.__whatsappMonitorInjected = true;
+      
+      let lastStatus = null;
+      
+      const checkConnection = () => {
+        try {
+          const chatList = document.querySelector('[data-testid="chat-list"]') || 
+                          document.querySelector('[aria-label="Chat list"]') ||
+                          document.querySelector('div[data-tab="3"]') ||
+                          document.querySelector('[data-testid="conversation-panel-wrapper"]');
+          const qrCode = document.querySelector('[data-testid="qrcode"]') || 
+                        document.querySelector('canvas[aria-label="Scan me!"]') ||
+                        document.querySelector('div[data-ref]') ||
+                        document.querySelector('[data-testid="intro-md-beta-logo-dark"]');
+          
+          let status = 'loading';
+          if (chatList && !qrCode) {
+            status = 'connected';
+          } else if (qrCode) {
+            status = 'qr_visible';
+          }
+          
+          if (status !== lastStatus) {
+            lastStatus = status;
+            console.log('WHATSAPP_STATUS:' + status);
+          }
+        } catch(e) {}
+      };
+      
+      checkConnection();
+      setInterval(checkConnection, 2000);
+    })();
+  `).catch(() => {});
+}
+
+// Show WhatsApp view embedded in main window
+function showWhatsAppView() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  
+  if (!whatsappView) {
+    createWhatsAppView();
+  }
+  
+  mainWindow.setBrowserView(whatsappView);
+  
+  // Position the view (full window or split)
+  const bounds = mainWindow.getBounds();
+  whatsappView.setBounds({ 
+    x: 0, 
+    y: 0, 
+    width: bounds.width, 
+    height: bounds.height 
+  });
+  whatsappView.setAutoResize({ width: true, height: true });
+  whatsappViewVisible = true;
+  
+  mainWindow.webContents.send('whatsapp-view-state', { visible: true });
+}
+
+// Hide WhatsApp view
+function hideWhatsAppView() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  
+  mainWindow.setBrowserView(null);
+  whatsappViewVisible = false;
+  
+  mainWindow.webContents.send('whatsapp-view-state', { visible: false });
+}
+
+// Toggle WhatsApp view
+ipcMain.on('toggle-whatsapp-view', () => {
+  if (whatsappViewVisible) {
+    hideWhatsAppView();
+  } else {
+    showWhatsAppView();
+  }
+});
+
+// Open WhatsApp Web view
+ipcMain.on('open-whatsapp-web', () => {
+  showWhatsAppView();
+});
+
+// Close/Hide WhatsApp view
+ipcMain.on('close-whatsapp-web', () => {
+  hideWhatsAppView();
 });
 
 // Get WhatsApp connection status
 ipcMain.handle('get-whatsapp-status', () => {
   return { 
     connected: whatsappConnected,
-    windowOpen: whatsappWindow && !whatsappWindow.isDestroyed()
+    viewVisible: whatsappViewVisible
   };
 });
 
 // Send message via WhatsApp Web directly
-ipcMain.handle('send-whatsapp-direct', async (event, { phone, message }) => {
+ipcMain.handle('send-whatsapp-direct', async (_, { phone, message }) => {
   try {
-    // Clean phone number
     const cleanPhone = phone.replace(/\D/g, '');
     
-    // If WhatsApp window doesn't exist or is closed, create it
-    if (!whatsappWindow || whatsappWindow.isDestroyed()) {
-      createWhatsAppWindow();
-      // Wait for window to load
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    if (!whatsappView) {
+      createWhatsAppView();
     }
-
-    // Focus the WhatsApp window
-    whatsappWindow.focus();
-
-    // Navigate to chat and send message
+    
+    // Show the WhatsApp view
+    showWhatsAppView();
+    
+    // Wait a bit for view to be ready
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Navigate to chat with message
     const chatUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
-    whatsappWindow.loadURL(chatUrl);
+    whatsappView.webContents.loadURL(chatUrl);
 
     return { success: true, message: 'Opening chat...' };
   } catch (error) {
@@ -315,23 +366,22 @@ ipcMain.handle('send-whatsapp-direct', async (event, { phone, message }) => {
 });
 
 // Send bulk messages via WhatsApp Web
-ipcMain.handle('send-whatsapp-bulk-direct', async (event, { contacts, message }) => {
+ipcMain.handle('send-whatsapp-bulk-direct', async (_, { contacts, message }) => {
   try {
-    if (!whatsappWindow || whatsappWindow.isDestroyed()) {
-      createWhatsAppWindow();
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    if (!whatsappView) {
+      createWhatsAppView();
     }
+    
+    showWhatsAppView();
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-    whatsappWindow.focus();
-
-    // Send messages with delay
     for (let i = 0; i < contacts.length; i++) {
       const contact = contacts[i];
       const cleanPhone = contact.phone.replace(/\D/g, '');
       const personalizedMessage = message.replace(/{name}/g, contact.name || 'Customer');
       
       const chatUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(personalizedMessage)}`;
-      whatsappWindow.loadURL(chatUrl);
+      whatsappView.webContents.loadURL(chatUrl);
       
       // Notify progress
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -344,7 +394,7 @@ ipcMain.handle('send-whatsapp-bulk-direct', async (event, { contacts, message })
       
       // Wait between messages
       if (i < contacts.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, 4000));
       }
     }
 
@@ -355,22 +405,19 @@ ipcMain.handle('send-whatsapp-bulk-direct', async (event, { contacts, message })
   }
 });
 
-// Close WhatsApp window
-ipcMain.on('close-whatsapp-web', () => {
-  if (whatsappWindow && !whatsappWindow.isDestroyed()) {
-    whatsappWindow.close();
-  }
-});
-
 // Logout from WhatsApp (clear session)
 ipcMain.handle('logout-whatsapp', async () => {
   try {
-    const whatsappSession = session.fromPartition('persist:whatsapp');
+    hideWhatsAppView();
+    
+    const whatsappSession = getWhatsAppSession();
     await whatsappSession.clearStorageData();
     whatsappConnected = false;
     
-    if (whatsappWindow && !whatsappWindow.isDestroyed()) {
-      whatsappWindow.close();
+    // Destroy and recreate view
+    if (whatsappView) {
+      whatsappView.webContents.destroy();
+      whatsappView = null;
     }
     
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -383,13 +430,26 @@ ipcMain.handle('logout-whatsapp', async () => {
   }
 });
 
+// Initialize WhatsApp on app start (to check if already logged in)
+function initWhatsApp() {
+  createWhatsAppView();
+  // Don't show it, just create it to check login status
+  setTimeout(() => {
+    injectWhatsAppMonitor();
+  }, 3000);
+}
+
 function checkForUpdates() {
   // Placeholder for auto-update functionality
   mainWindow.webContents.send('check-updates');
 }
 
 // App lifecycle
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  // Initialize WhatsApp in background to check login status
+  setTimeout(initWhatsApp, 2000);
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

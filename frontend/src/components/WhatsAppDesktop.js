@@ -15,16 +15,32 @@ import {
   LogOut,
   ExternalLink,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  X,
+  Maximize2
 } from 'lucide-react';
 
-const WhatsAppDesktop = ({ isElectron = false }) => {
+const WhatsAppDesktop = ({ isElectron: isElectronProp }) => {
+  // Auto-detect Electron environment - check multiple ways
+  const isElectron = isElectronProp !== undefined 
+    ? isElectronProp 
+    : (typeof window !== 'undefined' && (
+        window.electronAPI?.isElectron === true || 
+        window.electronAPI !== undefined ||
+        navigator.userAgent.toLowerCase().includes('electron')
+      ));
+  
+  // Debug log
+  useEffect(() => {
+    console.log('WhatsApp Desktop - isElectron:', isElectron);
+    console.log('WhatsApp Desktop - window.electronAPI:', window.electronAPI);
+  }, [isElectron]);
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
   const [bulkContacts, setBulkContacts] = useState('');
   const [bulkMessage, setBulkMessage] = useState('');
   const [whatsappConnected, setWhatsappConnected] = useState(false);
-  const [whatsappWindowOpen, setWhatsappWindowOpen] = useState(false);
+  const [whatsappViewVisible, setWhatsappViewVisible] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [sending, setSending] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(null);
@@ -33,33 +49,27 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
   const quickMessages = [
     {
       title: 'Order Ready',
-      message:
-        'Hi {name}! Your order is ready for pickup. Thank you for choosing us! 🍽️'
+      message: 'Hi {name}! Your order is ready for pickup. Thank you for choosing us! 🍽️'
     },
     {
       title: 'Order Confirmation',
-      message:
-        'Thank you for your order! We have received it and will prepare it shortly. Order ID: {orderId}'
+      message: 'Thank you for your order! We have received it and will prepare it shortly. Order ID: {orderId}'
     },
     {
       title: 'Delivery Update',
-      message:
-        'Your order is out for delivery and will reach you in 15-20 minutes. Track: {trackingLink}'
+      message: 'Your order is out for delivery and will reach you in 15-20 minutes. Track: {trackingLink}'
     },
     {
       title: 'Feedback Request',
-      message:
-        'Hi {name}! How was your dining experience? We would love to hear your feedback! ⭐'
+      message: 'Hi {name}! How was your dining experience? We would love to hear your feedback! ⭐'
     },
     {
       title: 'Special Offer',
-      message:
-        'Hi {name}! We have a special 20% discount for you today. Use code SPECIAL20 on your next order! 🎉'
+      message: 'Hi {name}! We have a special 20% discount for you today. Use code SPECIAL20 on your next order! 🎉'
     },
     {
       title: 'Payment Reminder',
-      message:
-        'Hi {name}! Your pending amount is ₹{amount}. Please complete the payment at your convenience. Thank you!'
+      message: 'Hi {name}! Your pending amount is ₹{amount}. Please complete the payment at your convenience. Thank you!'
     }
   ];
 
@@ -69,7 +79,7 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
       try {
         const status = await window.electronAPI.getWhatsAppStatus();
         setWhatsappConnected(status.connected);
-        setWhatsappWindowOpen(status.windowOpen);
+        setWhatsappViewVisible(status.viewVisible || false);
       } catch (err) {
         console.error('Failed to get WhatsApp status:', err);
       }
@@ -84,13 +94,20 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
       window.electronAPI.onWhatsAppStatus((data) => {
         setWhatsappConnected(data.connected);
         if (data.status === 'connected') {
-          toast.success('WhatsApp connected successfully!');
+          toast.success('WhatsApp connected! You can now send messages.');
           setConnecting(false);
         } else if (data.status === 'qr_visible') {
-          toast.info('Please scan the QR code with your phone');
+          setConnecting(false);
         } else if (data.status === 'logged_out') {
           toast.info('WhatsApp logged out');
         }
+      });
+    }
+
+    // Listen for view state changes
+    if (isElectron && window.electronAPI?.onWhatsAppViewState) {
+      window.electronAPI.onWhatsAppViewState((data) => {
+        setWhatsappViewVisible(data.visible);
       });
     }
 
@@ -114,11 +131,18 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
 
     if (isElectron && window.electronAPI?.openWhatsAppWeb) {
       window.electronAPI.openWhatsAppWeb();
-      toast.info('WhatsApp Web window opened. Please scan the QR code.');
+      toast.info('WhatsApp Web opened. Scan the QR code with your phone to login.');
     } else {
       window.open('https://web.whatsapp.com', '_blank');
       toast.info('Please login to WhatsApp Web in the new window');
       setConnecting(false);
+    }
+  };
+
+  const handleCloseWhatsAppView = () => {
+    if (isElectron && window.electronAPI?.closeWhatsAppWeb) {
+      window.electronAPI.closeWhatsAppWeb();
+      setWhatsappViewVisible(false);
     }
   };
 
@@ -127,8 +151,8 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
       const result = await window.electronAPI.logoutWhatsApp();
       if (result.success) {
         setWhatsappConnected(false);
-        setWhatsappWindowOpen(false);
-        toast.success('WhatsApp disconnected');
+        setWhatsappViewVisible(false);
+        toast.success('WhatsApp disconnected and logged out');
       } else {
         toast.error('Failed to disconnect: ' + result.error);
       }
@@ -148,28 +172,19 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
 
     try {
       if (isElectron && window.electronAPI?.sendWhatsAppDirect) {
-        // Use direct WhatsApp Web integration
         const result = await window.electronAPI.sendWhatsAppDirect(phone, message);
         if (result.success) {
-          toast.success('Opening WhatsApp chat...');
-          setPhone('');
-          setMessage('');
+          toast.success('Opening WhatsApp chat - click Send button in WhatsApp to send!');
         } else {
           toast.error('Failed to send: ' + result.error);
         }
       } else if (isElectron && window.electronAPI?.sendWhatsApp) {
-        // Fallback to external browser
         window.electronAPI.sendWhatsApp(phone, message);
         toast.success('Opening WhatsApp...');
-        setPhone('');
-        setMessage('');
       } else {
-        // Web fallback
         const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
         toast.success('Opening WhatsApp in browser...');
-        setPhone('');
-        setMessage('');
       }
     } catch (error) {
       toast.error('Error sending message');
@@ -178,7 +193,6 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
     }
   };
 
-
   const sendBulkMessages = async () => {
     if (!bulkContacts || !bulkMessage) {
       toast.error('Please enter contacts and message');
@@ -186,7 +200,6 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
     }
 
     try {
-      // Parse contacts (format: name:phone, one per line)
       const contacts = bulkContacts
         .split('\n')
         .filter((line) => line.trim())
@@ -208,26 +221,20 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
       setBulkProgress({ current: 0, total: contacts.length });
 
       if (isElectron && window.electronAPI?.sendWhatsAppBulkDirect) {
-        // Use direct WhatsApp Web integration for bulk
-        const result = await window.electronAPI.sendWhatsAppBulkDirect(
-          contacts,
-          bulkMessage
-        );
+        const result = await window.electronAPI.sendWhatsAppBulkDirect(contacts, bulkMessage);
         if (result.success) {
-          toast.success(`Sent ${result.sent} messages successfully!`);
+          toast.success(`Opened ${result.sent} chats! Click Send in each WhatsApp chat.`);
           setBulkContacts('');
           setBulkMessage('');
         } else {
           toast.error('Failed to send bulk messages: ' + result.error);
         }
       } else if (isElectron && window.electronAPI?.sendBulkWhatsApp) {
-        // Fallback to external browser
         window.electronAPI.sendBulkWhatsApp(contacts, bulkMessage);
         toast.success(`Sending ${contacts.length} WhatsApp messages...`);
         setBulkContacts('');
         setBulkMessage('');
       } else {
-        // Web fallback
         contacts.forEach((contact, index) => {
           setTimeout(() => {
             const personalizedMsg = bulkMessage.replace(/{name}/g, contact.name);
@@ -247,57 +254,84 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
     }
   };
 
-  // Non-Electron fallback UI
-  if (!isElectron) {
+  // Show info banner if not in Electron
+  const showElectronBanner = !isElectron;
+
+
+  // Show message when WhatsApp view is visible (fullscreen overlay)
+  if (whatsappViewVisible) {
     return (
-      <Card className="border-0 shadow-lg">
-        <CardContent className="p-6 text-center">
-          <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="font-semibold mb-2">WhatsApp Integration</h3>
-          <p className="text-sm text-gray-500 mb-4">
-            Full WhatsApp Web integration with persistent login is available in
-            the desktop app
-          </p>
-          <div className="space-y-2">
-            <Button
-              onClick={() => (window.location.href = '/download')}
-              className="w-full bg-green-600 hover:bg-green-700"
-            >
-              Download Desktop App
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (phone && message) {
-                  const url = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-                  window.open(url, '_blank');
-                } else {
-                  window.open('https://web.whatsapp.com', '_blank');
-                }
-              }}
-              className="w-full"
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Open WhatsApp Web
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+        <Card className="w-96 border-0 shadow-2xl">
+          <CardContent className="p-6 text-center">
+            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MessageCircle className="w-8 h-8 text-white" />
+            </div>
+            <h3 className="font-bold text-xl mb-2">WhatsApp Web is Open</h3>
+            <p className="text-gray-600 mb-4">
+              {whatsappConnected 
+                ? 'You are logged in! Send your messages in the WhatsApp window.'
+                : 'Scan the QR code with your phone to login. Your session will be saved.'}
+            </p>
+            <div className="space-y-2">
+              <Button
+                onClick={handleCloseWhatsAppView}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Close WhatsApp View
+              </Button>
+              {whatsappConnected && (
+                <Button
+                  variant="outline"
+                  onClick={handleDisconnect}
+                  className="w-full border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout from WhatsApp
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Desktop App Banner */}
+      {showElectronBanner && (
+        <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-medium text-blue-900">Enhanced WhatsApp Features</p>
+                  <p className="text-sm text-blue-700">Download desktop app for persistent WhatsApp login & direct messaging</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => (window.location.href = '/download')}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Download App
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       {/* Connection Status Card */}
-      <Card
-        className={`border-0 shadow-xl ${whatsappConnected ? 'bg-gradient-to-r from-green-50 to-emerald-50' : 'bg-gradient-to-r from-gray-50 to-slate-50'}`}
-      >
+      <Card className={`border-0 shadow-xl ${whatsappConnected ? 'bg-gradient-to-r from-green-50 to-emerald-50' : 'bg-gradient-to-r from-gray-50 to-slate-50'}`}>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center ${whatsappConnected ? 'bg-green-500' : 'bg-gray-400'}`}
-              >
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${whatsappConnected ? 'bg-green-500' : 'bg-gray-400'}`}>
                 <MessageCircle className="w-7 h-7 text-white" />
               </div>
               <div>
@@ -306,23 +340,17 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
                   {whatsappConnected ? (
                     <>
                       <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <span className="text-sm text-green-600 font-medium">
-                        Connected & Ready
-                      </span>
+                      <span className="text-sm text-green-600 font-medium">Connected & Ready to Send</span>
                     </>
-                  ) : whatsappWindowOpen ? (
+                  ) : connecting ? (
                     <>
                       <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
-                      <span className="text-sm text-orange-600">
-                        Waiting for QR scan...
-                      </span>
+                      <span className="text-sm text-orange-600">Opening WhatsApp...</span>
                     </>
                   ) : (
                     <>
                       <AlertCircle className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-500">
-                        Not Connected
-                      </span>
+                      <span className="text-sm text-gray-500">Not Connected - Login Required</span>
                     </>
                   )}
                 </div>
@@ -335,13 +363,10 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() =>
-                      window.electronAPI?.openWhatsAppWeb &&
-                      window.electronAPI.openWhatsAppWeb()
-                    }
+                    onClick={() => window.electronAPI?.openWhatsAppWeb && window.electronAPI.openWhatsAppWeb()}
                   >
-                    <ExternalLink className="w-4 h-4 mr-1" />
-                    Open
+                    <Maximize2 className="w-4 h-4 mr-1" />
+                    Open WhatsApp
                   </Button>
                   <Button
                     variant="outline"
@@ -360,14 +385,9 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {connecting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />{' '}
-                      Connecting...
-                    </>
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening...</>
                   ) : (
-                    <>
-                      <QrCode className="w-4 h-4 mr-2" /> Connect WhatsApp
-                    </>
+                    <><QrCode className="w-4 h-4 mr-2" /> Login to WhatsApp</>
                   )}
                 </Button>
               )}
@@ -375,17 +395,16 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
           </div>
 
           {/* Connection Instructions */}
-          {!whatsappConnected && !whatsappWindowOpen && (
+          {!whatsappConnected && !connecting && (
             <div className="mt-4 p-4 bg-white rounded-xl border border-gray-200">
               <h4 className="font-medium mb-2 flex items-center gap-2">
-                <Smartphone className="w-4 h-4" /> How to Connect
+                <Smartphone className="w-4 h-4" /> How to Connect (One-time Setup)
               </h4>
               <ol className="text-sm text-gray-600 space-y-1">
-                <li>1. Click "Connect WhatsApp" button above</li>
-                <li>2. WhatsApp Web will open in a new window</li>
-                <li>3. Open WhatsApp on your phone</li>
-                <li>4. Go to Settings → Linked Devices → Link a Device</li>
-                <li>5. Scan the QR code - you'll stay logged in!</li>
+                <li>1. Click "Login to WhatsApp" button above</li>
+                <li>2. WhatsApp Web will open inside the app</li>
+                <li>3. Open WhatsApp on your phone → Settings → Linked Devices</li>
+                <li>4. Scan the QR code - <strong>you'll stay logged in!</strong></li>
               </ol>
             </div>
           )}
@@ -394,31 +413,22 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
           {bulkProgress && (
             <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-700">
-                  Sending messages...
-                </span>
-                <span className="text-sm text-blue-600">
-                  {bulkProgress.current} / {bulkProgress.total}
-                </span>
+                <span className="text-sm font-medium text-blue-700">Sending messages...</span>
+                <span className="text-sm text-blue-600">{bulkProgress.current} / {bulkProgress.total}</span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-2">
                 <div
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${(bulkProgress.current / bulkProgress.total) * 100}%`
-                  }}
+                  style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
                 ></div>
               </div>
               {bulkProgress.contact && (
-                <p className="text-xs text-blue-600 mt-1">
-                  Sending to: {bulkProgress.contact}
-                </p>
+                <p className="text-xs text-blue-600 mt-1">Current: {bulkProgress.contact}</p>
               )}
             </div>
           )}
         </CardContent>
       </Card>
-
 
       {/* Tabs */}
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
@@ -431,9 +441,7 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all ${
-              activeTab === tab.id
-                ? 'bg-white shadow text-green-600'
-                : 'text-gray-600 hover:bg-gray-200'
+              activeTab === tab.id ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-200'
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -459,9 +467,7 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Include country code (e.g., +91 for India)
-              </p>
+              <p className="text-xs text-gray-500 mt-1">Include country code (e.g., +91 for India)</p>
             </div>
             <div>
               <Label>Message</Label>
@@ -496,18 +502,17 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
               className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
             >
               {sending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...
-                </>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Opening...</>
               ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  {whatsappConnected
-                    ? 'Send via WhatsApp Web'
-                    : 'Send WhatsApp'}
-                </>
+                <><Send className="w-4 h-4 mr-2" /> Send Message</>
               )}
             </Button>
+            
+            {!whatsappConnected && (
+              <p className="text-xs text-center text-orange-600">
+                💡 Login to WhatsApp first for the best experience
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -532,8 +537,7 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
                 onChange={(e) => setBulkContacts(e.target.value)}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Format: Name:Phone (one contact per line). Use {'{name}'} in
-                message for personalization.
+                Format: Name:Phone (one per line). Use {'{name}'} in message for personalization.
               </p>
             </div>
             <div>
@@ -547,34 +551,19 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
               />
             </div>
 
-            {!whatsappConnected && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-700 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  Connect WhatsApp first for best bulk messaging experience
-                </p>
-              </div>
-            )}
-
             <Button
               onClick={sendBulkMessages}
               disabled={sending || !bulkContacts || !bulkMessage}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400"
             >
               {sending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...
-                </>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</>
               ) : (
-                <>
-                  <Users className="w-4 h-4 mr-2" />
-                  Send Bulk Messages
-                </>
+                <><Users className="w-4 h-4 mr-2" /> Send Bulk Messages</>
               )}
             </Button>
             <p className="text-xs text-gray-500 text-center">
-              Messages will be sent with 3-second intervals to avoid spam
-              detection
+              Messages will be sent with 4-second intervals
             </p>
           </CardContent>
         </Card>
@@ -603,35 +592,21 @@ const WhatsAppDesktop = ({ isElectron = false }) => {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h4 className="font-medium">{template.title}</h4>
-                    <Button size="sm" variant="outline" className="text-xs">
-                      Use
-                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs">Use</Button>
                   </div>
-                  <p className="text-sm text-gray-600 line-clamp-3">
-                    {template.message}
-                  </p>
+                  <p className="text-sm text-gray-600 line-clamp-3">{template.message}</p>
                 </div>
               ))}
             </div>
 
             <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
               <h4 className="font-medium mb-2">Available Variables</h4>
-              <p className="text-xs text-gray-600 mb-3">
-                Use these in your messages for personalization:
-              </p>
+              <p className="text-xs text-gray-600 mb-3">Use these in your messages for personalization:</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                <code className="bg-white px-2 py-1 rounded border">
-                  {'{name}'}
-                </code>
-                <code className="bg-white px-2 py-1 rounded border">
-                  {'{orderId}'}
-                </code>
-                <code className="bg-white px-2 py-1 rounded border">
-                  {'{trackingLink}'}
-                </code>
-                <code className="bg-white px-2 py-1 rounded border">
-                  {'{amount}'}
-                </code>
+                <code className="bg-white px-2 py-1 rounded border">{'{name}'}</code>
+                <code className="bg-white px-2 py-1 rounded border">{'{orderId}'}</code>
+                <code className="bg-white px-2 py-1 rounded border">{'{trackingLink}'}</code>
+                <code className="bg-white px-2 py-1 rounded border">{'{amount}'}</code>
               </div>
             </div>
           </CardContent>
