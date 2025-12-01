@@ -37,7 +37,7 @@ const ElectronNavigator = () => {
   return null;
 };
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://restro-ai.onrender.com';
 export const API = `${BACKEND_URL}/api`;
 
 export const setAuthToken = (token) => {
