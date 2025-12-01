@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package app.finverge.tech.twa;
+package app.vercel.restro_ai_u9kz.twa;
 
 import android.content.pm.ActivityInfo;
 import android.net.Uri;

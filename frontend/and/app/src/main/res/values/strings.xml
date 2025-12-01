@@ -34,7 +34,7 @@
         \"relation\": [\"delegate_permission/common.handle_all_urls\"],
         \"target\": {
             \"namespace\": \"web\",
-            \"site\": \"https://finverge.tech\"
+            \"site\": \"https://restro-ai-u9kz.vercel.app\"
         }
     }]
     

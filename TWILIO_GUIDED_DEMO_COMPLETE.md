@@ -229,9 +229,9 @@ curl -X POST http://localhost:8000/api/auth/verify-otp \
 ```env
 # SMS
 SMS_PROVIDER=twilio
-TWILIO_ACCOUNT_SID=your_account_sid
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_VERIFY_SERVICE_SID=your_verify_service_sid
+TWILIO_ACCOUNT_SID=AC7d1b5339f42fe305334b9865cb5bdce7 
+TWILIO_AUTH_TOKEN=AC7d1b5339f42fe305334b9865cb5bdce7
+TWILIO_VERIFY_SERVICE_SID=VA27c45f00ea6087cebc716c1af1bdfdbd
 DEBUG_MODE=false
 ```
 
