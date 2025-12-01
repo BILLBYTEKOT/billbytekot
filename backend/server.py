@@ -1362,8 +1362,8 @@ async def start_trial(current_user: dict = Depends(get_current_user)):
 @api_router.post("/subscription/create-order")
 async def create_subscription_order(current_user: dict = Depends(get_current_user)):
     # Default Razorpay keys for RestoBill subscription
-    DEFAULT_RAZORPAY_KEY_ID = "rzp_live_Rkrije1wn9KaCC"
-    DEFAULT_RAZORPAY_KEY_SECRET = "hZ4eIAxyhF77lShkyQS48l3D"
+    DEFAULT_RAZORPAY_KEY_ID = "rzp_live_RmGqVf5JPGOT6G"
+    DEFAULT_RAZORPAY_KEY_SECRET = "SKYS5tgjwU3H3Pf2ch3ZFtuH"
     SUBSCRIPTION_PRICE_PAISE = 49900  # ₹499 in paise
     
     razorpay_key_id = os.environ.get("RAZORPAY_KEY_ID") or DEFAULT_RAZORPAY_KEY_ID
@@ -1401,8 +1401,8 @@ async def verify_subscription_payment(
     data: SubscriptionVerifyRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    DEFAULT_RAZORPAY_KEY_ID = "rzp_live_Rkrije1wn9KaCC"
-    DEFAULT_RAZORPAY_KEY_SECRET = "hZ4eIAxyhF77lShkyQS48l3D"
+    DEFAULT_RAZORPAY_KEY_ID = "rzp_live_RmGqVf5JPGOT6G"
+    DEFAULT_RAZORPAY_KEY_SECRET = "SKYS5tgjwU3H3Pf2ch3ZFtuH"
     
     razorpay_key_id = os.environ.get("RAZORPAY_KEY_ID") or DEFAULT_RAZORPAY_KEY_ID
     razorpay_key_secret = os.environ.get("RAZORPAY_KEY_SECRET") or DEFAULT_RAZORPAY_KEY_SECRET
@@ -2874,7 +2874,11 @@ class ZomatoCredentials(BaseModel):
     api_key: str
 
 
-class SwiggyCredentials(BaseMo
+class SwiggyCredentials(BaseModel):
+    restaurant_id: str
+    api_key: str
+
+
 # These endpoints are for customer-facing features like order tracking and self-ordering
 
 @app.get("/api/public/track/{tracking_token}")
