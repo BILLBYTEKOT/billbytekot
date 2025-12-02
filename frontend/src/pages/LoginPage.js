@@ -94,7 +94,7 @@ const LoginPage = ({ setUser }) => {
           </h2>
           
           <p className="text-lg text-white/90">
-            Complete POS system with order management, billing, analytics, and WhatsApp integration.
+            Complete POS system with order management, billing, analytics, and more. Login with email OTP - no password needed!
           </p>
 
           <div className="grid grid-cols-2 gap-4 pt-4">
@@ -149,7 +149,7 @@ const LoginPage = ({ setUser }) => {
 
           <div className="text-center mt-4 text-white text-sm">
             <p>
-              Don't have an account? OTP login will auto-register you!
+              Don't have an account? Email OTP will auto-register you!
             </p>
           </div>
         </div>

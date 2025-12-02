@@ -9,25 +9,27 @@ import axios from 'axios';
 import { API } from '../App';
 
 const OTPLogin = ({ onLoginSuccess }) => {
-  const [step, setStep] = useState('phone'); // phone, otp
-  const [phone, setPhone] = useState('');
+  const [step, setStep] = useState('email'); // email, otp
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
 
   const handleSendOTP = async () => {
-    if (!phone || phone.length < 10) {
-      toast.error('Please enter a valid phone number');
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setLoading(true);
     try {
       // Send OTP via backend
-      await axios.post(`${API}/auth/send-otp`, { phone });
+      await axios.post(`${API}/auth/send-otp`, { email });
       setOtpSent(true);
       setStep('otp');
-      toast.success('OTP sent to your phone!');
+      toast.success('OTP sent to your email!');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to send OTP');
     } finally {
@@ -43,7 +45,7 @@ const OTPLogin = ({ onLoginSuccess }) => {
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API}/auth/verify-otp`, { phone, otp });
+      const response = await axios.post(`${API}/auth/verify-otp`, { email, otp });
       const { access_token, user } = response.data;
       
       // Store token
@@ -62,7 +64,7 @@ const OTPLogin = ({ onLoginSuccess }) => {
   const handleResendOTP = async () => {
     setLoading(true);
     try {
-      await axios.post(`${API}/auth/send-otp`, { phone });
+      await axios.post(`${API}/auth/send-otp`, { email });
       toast.success('OTP resent!');
     } catch (error) {
       toast.error('Failed to resend OTP');
@@ -79,33 +81,33 @@ const OTPLogin = ({ onLoginSuccess }) => {
             <Shield className="w-8 h-8 text-white" />
           </div>
           <CardTitle className="text-2xl">
-            {step === 'phone' ? 'Welcome Back!' : 'Verify OTP'}
+            {step === 'email' ? 'Welcome Back!' : 'Verify OTP'}
           </CardTitle>
           <p className="text-gray-600 text-sm mt-2">
-            {step === 'phone' 
-              ? 'Enter your phone number to continue' 
-              : `We sent a code to ${phone}`}
+            {step === 'email' 
+              ? 'Enter your email to continue' 
+              : `We sent a code to ${email}`}
           </p>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {step === 'phone' ? (
+          {step === 'email' ? (
             <>
               <div>
-                <Label>Phone Number</Label>
+                <Label>Email Address</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
-                    type="tel"
-                    placeholder="+91 9876543210"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
-                    maxLength={13}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendOTP()}
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Include country code (e.g., +91 for India)
+                  We'll send a 6-digit OTP to your email
                 </p>
               </div>
 
@@ -134,6 +136,7 @@ const OTPLogin = ({ onLoginSuccess }) => {
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     className="pl-10 text-center text-2xl tracking-widest"
                     maxLength={6}
+                    onKeyPress={(e) => e.key === 'Enter' && handleVerifyOTP()}
                   />
                 </div>
               </div>
@@ -152,10 +155,10 @@ const OTPLogin = ({ onLoginSuccess }) => {
 
               <div className="flex items-center justify-between text-sm">
                 <button
-                  onClick={() => setStep('phone')}
+                  onClick={() => setStep('email')}
                   className="text-gray-600 hover:text-gray-900"
                 >
-                  Change Number
+                  Change Email
                 </button>
                 <button
                   onClick={handleResendOTP}

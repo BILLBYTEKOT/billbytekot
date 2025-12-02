@@ -906,11 +906,21 @@ async def send_otp(request: OTPRequest):
     # Store OTP with 5-minute expiry
     otp_storage[email] = {
         "otp": otp,
-        "expires": datetime.now(timezone.utc) + timedelta(minutes=5)
+        "expires": datetime.now(timezone.utc) + timedelta(minutes=5),
+        "attempts": 0
     }
     
+    # Validate email format
+    import re
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_regex, email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+    
+    # Get username from email (before @)
+    username = email.split('@')[0].capitalize()
+    
     # Send OTP via email
-    email_result = await send_otp_email(email, otp)
+    email_result = await send_otp_email(email, otp, username)
     
     return {
         "message": "OTP sent to your email", 
@@ -936,9 +946,15 @@ async def verify_otp(request: OTPVerify):
         del otp_storage[email]
         raise HTTPException(status_code=400, detail="OTP expired. Please request a new one.")
     
+    # Check attempts
+    if stored_data.get("attempts", 0) >= 3:
+        del otp_storage[email]
+        raise HTTPException(status_code=400, detail="Too many attempts. Please request a new OTP.")
+    
     # Verify OTP
     if stored_data["otp"] != otp:
-        raise HTTPException(status_code=401, detail="Invalid OTP")
+        stored_data["attempts"] = stored_data.get("attempts", 0) + 1
+        raise HTTPException(status_code=401, detail=f"Invalid OTP. {3 - stored_data['attempts']} attempts remaining.")
     
     # OTP verified, remove from storage
     del otp_storage[email]
@@ -954,10 +970,10 @@ async def verify_otp(request: OTPVerify):
         new_user = {
             "id": user_id,
             "username": username,
-            "phone": phone,
-            "email": f"{username}@restobill.app",
+            "email": email,
+            "phone": None,
             "role": "admin",
-            "login_method": "otp",
+            "login_method": "email_otp",
             "password": "",  # No password for OTP users
             "created_at": datetime.now(timezone.utc).isoformat(),
             "subscription_active": False,
@@ -980,9 +996,9 @@ async def verify_otp(request: OTPVerify):
             "id": user["id"],
             "username": user["username"],
             "role": user["role"],
-            "phone": user.get("phone"),
             "email": user.get("email"),
-            "login_method": user.get("login_method", "otp"),
+            "phone": user.get("phone"),
+            "login_method": user.get("login_method", "email_otp"),
             "subscription_active": user.get("subscription_active", False),
             "onboarding_completed": user.get("onboarding_completed", False),
             "setup_completed": user.get("setup_completed", False),
