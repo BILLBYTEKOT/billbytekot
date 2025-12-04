@@ -9,13 +9,15 @@ import axios from 'axios';
 import { API } from '../App';
 
 const OTPLogin = ({ onLoginSuccess }) => {
-  const [step, setStep] = useState('email'); // email, otp
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
 
-  const handleSendOTP = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
@@ -23,51 +25,47 @@ const OTPLogin = ({ onLoginSuccess }) => {
       return;
     }
 
-    setLoading(true);
-    try {
-      // Send OTP via backend
-      await axios.post(`${API}/auth/send-otp`, { email });
-      setOtpSent(true);
-      setStep('otp');
-      toast.success('OTP sent to your email!');
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to send OTP');
-    } finally {
-      setLoading(false);
+    if (!password || password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
     }
-  };
 
-  const handleVerifyOTP = async () => {
-    if (!otp || otp.length !== 6) {
-      toast.error('Please enter a valid 6-digit OTP');
+    if (!isLogin && password !== confirmPassword) {
+      toast.error('Passwords do not match');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API}/auth/verify-otp`, { email, otp });
-      const { access_token, user } = response.data;
-      
-      // Store token
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      toast.success('Login successful!');
-      onLoginSuccess(user);
+      if (isLogin) {
+        // Login
+        const response = await axios.post(`${API}/auth/login`, { 
+          username: email, 
+          password 
+        });
+        
+        // Store token
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        toast.success('Login successful!');
+        onLoginSuccess(response.data.user);
+      } else {
+        // Register
+        await axios.post(`${API}/auth/register`, {
+          username: email.split('@')[0],
+          email,
+          password,
+          role: 'admin'
+        });
+        
+        toast.success('Account created! Please login.');
+        setIsLogin(true);
+        setPassword('');
+        setConfirmPassword('');
+      }
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Invalid OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendOTP = async () => {
-    setLoading(true);
-    try {
-      await axios.post(`${API}/auth/send-otp`, { email });
-      toast.success('OTP resent!');
-    } catch (error) {
-      toast.error('Failed to resend OTP');
+      toast.error(error.response?.data?.detail || 'Authentication failed');
     } finally {
       setLoading(false);
     }
@@ -81,95 +79,95 @@ const OTPLogin = ({ onLoginSuccess }) => {
             <Shield className="w-8 h-8 text-white" />
           </div>
           <CardTitle className="text-2xl">
-            {step === 'email' ? 'Welcome Back!' : 'Verify OTP'}
+            {isLogin ? 'Welcome Back!' : 'Create Account'}
           </CardTitle>
           <p className="text-gray-600 text-sm mt-2">
-            {step === 'email' 
-              ? 'Enter your email to continue' 
-              : `We sent a code to ${email}`}
+            {isLogin 
+              ? 'Enter your credentials to continue' 
+              : 'Sign up to get started with BillByteKOT'}
           </p>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {step === 'email' ? (
-            <>
-              <div>
-                <Label>Email Address</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendOTP()}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  We'll send a 6-digit OTP to your email
-                </p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label>Email Address</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                />
               </div>
+            </div>
 
-              <Button 
-                onClick={handleSendOTP} 
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-violet-600 to-purple-600"
-              >
-                {loading ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending OTP...</>
-                ) : (
-                  <>Send OTP <ArrowRight className="w-4 h-4 ml-2" /></>
-                )}
-              </Button>
-            </>
-          ) : (
-            <>
+            <div>
+              <Label>Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Input
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                At least 6 characters
+              </p>
+            </div>
+
+            {!isLogin && (
               <div>
-                <Label>Enter 6-Digit OTP</Label>
+                <Label>Confirm Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
-                    type="text"
-                    placeholder="000000"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="pl-10 text-center text-2xl tracking-widest"
-                    maxLength={6}
-                    onKeyPress={(e) => e.key === 'Enter' && handleVerifyOTP()}
+                    type="password"
+                    placeholder="Confirm password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="pl-10"
+                    required={!isLogin}
+                    minLength={6}
                   />
                 </div>
               </div>
+            )}
 
-              <Button 
-                onClick={handleVerifyOTP} 
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-violet-600 to-purple-600"
+            <Button 
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600"
+            >
+              {loading ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {isLogin ? 'Logging in...' : 'Creating account...'}</>
+              ) : (
+                <>{isLogin ? 'Login' : 'Create Account'} <ArrowRight className="w-4 h-4 ml-2" /></>
+              )}
+            </Button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setPassword('');
+                  setConfirmPassword('');
+                }}
+                className="text-sm text-violet-600 hover:text-violet-700 font-medium"
               >
-                {loading ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
-                ) : (
-                  <>Verify & Login <ArrowRight className="w-4 h-4 ml-2" /></>
-                )}
-              </Button>
-
-              <div className="flex items-center justify-between text-sm">
-                <button
-                  onClick={() => setStep('email')}
-                  className="text-gray-600 hover:text-gray-900"
-                >
-                  Change Email
-                </button>
-                <button
-                  onClick={handleResendOTP}
-                  disabled={loading}
-                  className="text-violet-600 hover:text-violet-700 font-medium"
-                >
-                  Resend OTP
-                </button>
-              </div>
-            </>
-          )}
+                {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Login'}
+              </button>
+            </div>
+          </form>
 
           <div className="pt-4 border-t text-center">
             <p className="text-xs text-gray-500">

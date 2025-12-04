@@ -1,32 +1,74 @@
 import { useState } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { setAuthToken } from '../App';
+import { API, setAuthToken } from '../App';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { ChefHat, Phone, Lock, Sparkles } from 'lucide-react';
-import OTPLogin from '../components/OTPLogin';
+import { ChefHat, Mail, Lock, User } from 'lucide-react';
 import GuidedDemo from '../components/GuidedDemo';
 
 const LoginPage = ({ setUser }) => {
-  const [loginMethod, setLoginMethod] = useState('otp'); // otp or password
+  const [isLogin, setIsLogin] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [tempUser, setTempUser] = useState(null);
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+  });
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLoginSuccess = (user) => {
-    setTempUser(user);
-    
-    // Show onboarding for new users
-    if (!user.onboarding_completed) {
-      setShowOnboarding(true);
-    } else {
-      completeLogin(user);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        // Login
+        const response = await axios.post(`${API}/auth/login`, {
+          username: formData.username,
+          password: formData.password
+        });
+        
+        const { access_token, user } = response.data;
+        setAuthToken(access_token);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        setTempUser(user);
+        
+        // Show onboarding for new users
+        if (!user.onboarding_completed) {
+          setShowOnboarding(true);
+        } else {
+          completeLogin(user);
+        }
+      } else {
+        // Register
+        const response = await axios.post(`${API}/auth/register`, {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password
+        });
+        
+        const { access_token, user } = response.data;
+        setAuthToken(access_token);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        setTempUser(user);
+        setShowOnboarding(true); // Always show onboarding for new registrations
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'An error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
   const completeLogin = (user) => {
-    setAuthToken(localStorage.getItem('token'));
     setUser(user);
     toast.success('Welcome to BillByteKOT!');
     
@@ -38,17 +80,12 @@ const LoginPage = ({ setUser }) => {
   };
 
   const handleOnboardingComplete = async () => {
-    // Mark onboarding as completed
     try {
       const token = localStorage.getItem('token');
-      await fetch(`${process.env.REACT_APP_API_URL || 'https://restro-ai.onrender.com'}/api/users/me/onboarding`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ onboarding_completed: true })
-      });
+      await axios.put(`${API}/users/me/onboarding`, 
+        { onboarding_completed: true },
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
     } catch (error) {
       console.error('Failed to update onboarding status');
     }
@@ -73,7 +110,7 @@ const LoginPage = ({ setUser }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-600 via-purple-600 to-pink-600 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated background elements */}
+      {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
@@ -94,7 +131,7 @@ const LoginPage = ({ setUser }) => {
           </h2>
           
           <p className="text-lg text-white/90">
-            Complete POS system with order management, billing, analytics, and more. Login with email OTP - no password needed!
+            Complete POS system with order management, billing, analytics, and WhatsApp integration.
           </p>
 
           <div className="grid grid-cols-2 gap-4 pt-4">
@@ -107,52 +144,88 @@ const LoginPage = ({ setUser }) => {
               <div className="text-sm text-white/80">Restaurants</div>
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm">Free Trial</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
-              <Lock className="w-4 h-4" />
-              <span className="text-sm">Secure</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
-              <Phone className="w-4 h-4" />
-              <span className="text-sm">24/7 Support</span>
-            </div>
-          </div>
         </div>
 
-        {/* Right side - Login */}
-        <div>
-          {loginMethod === 'otp' ? (
-            <OTPLogin onLoginSuccess={handleLoginSuccess} />
-          ) : (
-            <Card className="border-0 shadow-2xl">
-              <CardHeader className="text-center">
-                <CardTitle className="text-2xl">Password Login</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center text-gray-600">
-                  Password login coming soon. Use OTP login for now.
-                </p>
-                <Button 
-                  onClick={() => setLoginMethod('otp')}
-                  className="w-full mt-4 bg-gradient-to-r from-violet-600 to-purple-600"
+        {/* Right side - Login Form */}
+        <Card className="border-0 shadow-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">{isLogin ? 'Welcome Back!' : 'Create Account'}</CardTitle>
+            <CardDescription>
+              {isLogin ? 'Login to your account' : 'Sign up to get started'}
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    id="username"
+                    placeholder="Enter username"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+                disabled={loading}
+              >
+                {loading ? 'Please wait...' : (isLogin ? 'Login' : 'Register')}
+              </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  className="text-sm text-violet-600 hover:underline"
+                  onClick={() => setIsLogin(!isLogin)}
                 >
-                  Back to OTP Login
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="text-center mt-4 text-white text-sm">
-            <p>
-              Don't have an account? Email OTP will auto-register you!
-            </p>
-          </div>
-        </div>
+                  {isLogin ? "Don't have an account? Register" : 'Already have an account? Login'}
+                </button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
