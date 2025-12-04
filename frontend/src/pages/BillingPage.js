@@ -215,30 +215,179 @@ const BillingPage = ({ user }) => {
               .btn-close:hover {
                 background: #4b5563;
               }
+              .preview-container {
+                max-width: 400px;
+                margin: 0 auto;
+                background: #ffffff;
+                border-radius: 16px;
+                overflow: hidden;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+              }
               .preview-header {
                 text-align: center;
-                padding: 15px;
-                background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+                padding: 24px 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
-                margin: -5mm -5mm 10px -5mm;
-                font-family: Arial, sans-serif;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                position: relative;
+                overflow: hidden;
+              }
+              .preview-header::before {
+                content: '';
+                position: absolute;
+                top: -50%;
+                right: -50%;
+                width: 200%;
+                height: 200%;
+                background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+                animation: shimmer 3s infinite;
+              }
+              @keyframes shimmer {
+                0%, 100% { transform: translate(0, 0); }
+                50% { transform: translate(-20px, -20px); }
+              }
+              .preview-header h2 {
+                margin: 0;
+                font-size: 24px;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                position: relative;
+                z-index: 1;
+              }
+              .preview-header p {
+                margin: 8px 0 0 0;
+                font-size: 13px;
+                opacity: 0.95;
+                position: relative;
+                z-index: 1;
+              }
+              .preview-badge {
+                display: inline-block;
+                background: rgba(255, 255, 255, 0.2);
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 11px;
+                margin-top: 8px;
+                backdrop-filter: blur(10px);
+              }
+              .receipt-content {
+                padding: 20px;
+                background: #f8f9fa;
+              }
+              .receipt-paper {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+                border: 1px solid #e5e7eb;
+              }
+              .action-buttons {
+                padding: 20px;
+                display: flex;
+                gap: 12px;
+                background: white;
+                border-top: 1px solid #e5e7eb;
+              }
+              .btn {
+                flex: 1;
+                padding: 14px 24px;
+                border: none;
+                border-radius: 10px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+              }
+              .btn-print {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+              }
+              .btn-print:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+              }
+              .btn-print:active {
+                transform: translateY(0);
+              }
+              .btn-close {
+                background: #f3f4f6;
+                color: #374151;
+              }
+              .btn-close:hover {
+                background: #e5e7eb;
               }
               @media print {
-                .preview-header {
+                .preview-header,
+                .action-buttons,
+                .receipt-content {
                   display: none;
+                }
+                .receipt-paper {
+                  box-shadow: none;
+                  border: none;
+                  padding: 0;
+                }
+                .preview-container {
+                  box-shadow: none;
+                  max-width: none;
                 }
               }
             </style>
           </head>
           <body>
-            <div class="preview-header no-print">
-              <h2 style="margin: 0; font-size: 18px;">🧾 Thermal Receipt Preview</h2>
-              <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.9;">Format: ${businessSettings?.receipt_theme || 'classic'} (${paperWidth})</p>
-            </div>
-            <pre>${response.data.content}</pre>
-            <div class="no-print">
-              <button onclick="window.print()" class="btn btn-print">🖨️ Print Receipt</button>
-              <button onclick="window.close()" class="btn btn-close">✕ Close</button>
+            <div class="preview-container">
+              <div class="preview-header no-print">
+                <h2>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  Thermal Receipt Preview
+                </h2>
+                <p>Ready to print on ${paperWidth} thermal paper</p>
+                <div class="preview-badge">
+                  ${businessSettings?.receipt_theme || 'classic'} theme
+                </div>
+              </div>
+              
+              <div class="receipt-content no-print">
+                <div class="receipt-paper">
+                  <pre>${response.data.content}</pre>
+                </div>
+              </div>
+              
+              <div class="receipt-paper" style="display: none;">
+                <pre>${response.data.content}</pre>
+              </div>
+              
+              <div class="action-buttons no-print">
+                <button onclick="window.print()" class="btn btn-print">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                    <rect x="6" y="14" width="12" height="8"></rect>
+                  </svg>
+                  Print Receipt
+                </button>
+                <button onclick="window.close()" class="btn btn-close">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  Close
+                </button>
+              </div>
             </div>
           </body>
         </html>
