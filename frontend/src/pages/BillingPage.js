@@ -46,20 +46,32 @@ const BillingPage = ({ user }) => {
   };
 
   const releaseTable = async () => {
-    if (!order?.table_id) return;
+    if (!order?.table_id) {
+      console.log('No table_id found in order');
+      return;
+    }
     
     try {
+      // First, get the current table data
+      const tableResponse = await axios.get(`${API}/tables/${order.table_id}`);
+      const currentTable = tableResponse.data;
+      
       // Update table status to available
       await axios.put(`${API}/tables/${order.table_id}`, {
-        table_number: order.table_number,
-        capacity: 4, // Default capacity
+        table_number: currentTable.table_number,
+        capacity: currentTable.capacity || 4,
         status: 'available',
         current_order_id: null
       });
-      toast.success(`Table ${order.table_number} is now available`);
+      
+      console.log(`Table ${order.table_number} released successfully`);
+      toast.success(`✅ Table ${order.table_number} is now available`, {
+        duration: 3000,
+        icon: '🪑'
+      });
     } catch (error) {
-      console.error('Failed to release table', error);
-      // Don't show error to user, it's not critical
+      console.error('Failed to release table:', error);
+      toast.error(`Could not release table ${order.table_number}`);
     }
   };
 
