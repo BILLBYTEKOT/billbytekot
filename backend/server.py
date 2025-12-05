@@ -373,6 +373,7 @@ class Order(BaseModel):
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None  # For WhatsApp notifications
     tracking_token: Optional[str] = None  # For customer live tracking
+    order_type: Optional[str] = "dine_in"  # dine_in, takeaway, delivery
     organization_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -385,6 +386,7 @@ class OrderCreate(BaseModel):
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None  # For WhatsApp notifications
     frontend_origin: Optional[str] = None  # For generating tracking links
+    order_type: Optional[str] = "dine_in"  # dine_in, takeaway, delivery
 
 
 class Payment(BaseModel):
@@ -1859,6 +1861,7 @@ async def create_order(
         customer_name=order_data.customer_name,
         customer_phone=order_data.customer_phone,
         tracking_token=tracking_token,
+        order_type=order_data.order_type or "dine_in",
         organization_id=user_org_id,
     )
 
