@@ -526,7 +526,21 @@ const BillingPage = ({ user }) => {
 
         <Card className="border-0 shadow-xl">
           <CardHeader>
-            <CardTitle>Order Details</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Order Details</CardTitle>
+              {/* Order Type Badge */}
+              {order.order_type && (
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  order.order_type === 'dine_in' ? 'bg-blue-100 text-blue-800' :
+                  order.order_type === 'takeaway' ? 'bg-green-100 text-green-800' :
+                  'bg-purple-100 text-purple-800'
+                }`}>
+                  {order.order_type === 'dine_in' && '🍽️ Dine In'}
+                  {order.order_type === 'takeaway' && '📦 Takeaway'}
+                  {order.order_type === 'delivery' && '🚚 Delivery'}
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-sm">

@@ -299,6 +299,19 @@ const OrderDisplayPage = () => {
                     </div>
                   )}
 
+                  {/* Order Type */}
+                  {order.order_type && (
+                    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                      order.order_type === 'dine_in' ? 'bg-blue-100 text-blue-800' :
+                      order.order_type === 'takeaway' ? 'bg-green-100 text-green-800' :
+                      'bg-purple-100 text-purple-800'
+                    }`}>
+                      {order.order_type === 'dine_in' && '🍽️ Dine In'}
+                      {order.order_type === 'takeaway' && '📦 Takeaway'}
+                      {order.order_type === 'delivery' && '🚚 Delivery'}
+                    </div>
+                  )}
+
                   {/* Items */}
                   <div className="border-t pt-3">
                     <div className="text-sm font-semibold text-gray-700 mb-2">

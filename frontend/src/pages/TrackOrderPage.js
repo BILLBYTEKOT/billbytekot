@@ -194,6 +194,16 @@ const TrackOrderPage = () => {
               <span className="text-gray-500">Table</span>
               <span className="font-medium">Table {order.table_number}</span>
             </div>
+            {order.order_type && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Order Type</span>
+                <span className="font-medium">
+                  {order.order_type === 'dine_in' && '🍽️ Dine In'}
+                  {order.order_type === 'takeaway' && '📦 Takeaway'}
+                  {order.order_type === 'delivery' && '🚚 Delivery'}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Customer</span>
               <span className="font-medium">{order.customer_name || 'Guest'}</span>
