@@ -8,7 +8,11 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Printer, CreditCard, Wallet, Smartphone, Download, MessageCircle, X } from 'lucide-react';
+import { 
+  Printer, CreditCard, Wallet, Smartphone, Download, MessageCircle, X,
+  Calculator, Percent, DollarSign, Gift, Users, Clock, CheckCircle,
+  AlertCircle, TrendingUp, Receipt, Zap, Star
+} from 'lucide-react';
 
 const BillingPage = ({ user }) => {
   const { orderId } = useParams();
@@ -21,6 +25,15 @@ const BillingPage = ({ user }) => {
   const [whatsappPhone, setWhatsappPhone] = useState('');
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState('percentage'); // percentage or fixed
+  const [tip, setTip] = useState(0);
+  const [splitBill, setSplitBill] = useState(1);
+  const [customAmount, setCustomAmount] = useState('');
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [showSplitBill, setShowSplitBill] = useState(false);
+  const [showDiscount, setShowDiscount] = useState(false);
+  const [showTip, setShowTip] = useState(false);
 
   useEffect(() => {
     fetchOrder();
@@ -516,6 +529,35 @@ const BillingPage = ({ user }) => {
     return symbols[businessSettings?.currency || 'INR'] || '₹';
   };
 
+  const calculateDiscount = () => {
+    if (!order) return 0;
+    if (discountType === 'percentage') {
+      return (order.subtotal * discount) / 100;
+    }
+    return discount;
+  };
+
+  const calculateFinalTotal = () => {
+    if (!order) return 0;
+    const discountAmount = calculateDiscount();
+    return order.total - discountAmount + tip;
+  };
+
+  const calculateSplitAmount = () => {
+    return calculateFinalTotal() / splitBill;
+  };
+
+  const applyQuickDiscount = (percentage) => {
+    setDiscountType('percentage');
+    setDiscount(percentage);
+    setShowDiscount(true);
+  };
+
+  const applyQuickTip = (amount) => {
+    setTip(amount);
+    setShowTip(true);
+  };
+
   return (
     <Layout user={user}>
       <div className="max-w-2xl mx-auto space-y-6" data-testid="billing-page">
@@ -588,6 +630,234 @@ const BillingPage = ({ user }) => {
               <div className="flex justify-between text-2xl font-bold text-violet-600 pt-2 border-t" data-testid="order-total">
                 <span>Total:</span>
                 <span>{getCurrencySymbol()}{order.total.toFixed(2)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card className="border-0 shadow-xl bg-gradient-to-br from-violet-50 to-purple-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-violet-600" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDiscount(!showDiscount)}
+                className="h-20 flex-col gap-2"
+              >
+                <Percent className="w-6 h-6 text-green-600" />
+                <span className="text-sm">Discount</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowTip(!showTip)}
+                className="h-20 flex-col gap-2"
+              >
+                <Gift className="w-6 h-6 text-blue-600" />
+                <span className="text-sm">Add Tip</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowSplitBill(!showSplitBill)}
+                className="h-20 flex-col gap-2"
+              >
+                <Users className="w-6 h-6 text-purple-600" />
+                <span className="text-sm">Split Bill</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowCalculator(!showCalculator)}
+                className="h-20 flex-col gap-2"
+              >
+                <Calculator className="w-6 h-6 text-orange-600" />
+                <span className="text-sm">Calculator</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Discount Section */}
+        {showDiscount && (
+          <Card className="border-0 shadow-xl border-l-4 border-l-green-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-700">
+                <Percent className="w-5 h-5" />
+                Apply Discount
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                {[5, 10, 15, 20].map(percent => (
+                  <Button
+                    key={percent}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyQuickDiscount(percent)}
+                    className={discount === percent && discountType === 'percentage' ? 'bg-green-100 border-green-500' : ''}
+                  >
+                    {percent}%
+                  </Button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Discount Type</Label>
+                  <select
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value)}
+                    className="w-full h-10 px-3 border rounded-md"
+                  >
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="fixed">Fixed Amount ({getCurrencySymbol()})</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Amount</Label>
+                  <Input
+                    type="number"
+                    value={discount}
+                    onChange={(e) => setDiscount(Number(e.target.value))}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="p-3 bg-green-50 rounded-lg">
+                <p className="text-sm text-green-800">
+                  Discount: <strong>{getCurrencySymbol()}{calculateDiscount().toFixed(2)}</strong>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Tip Section */}
+        {showTip && (
+          <Card className="border-0 shadow-xl border-l-4 border-l-blue-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-700">
+                <Gift className="w-5 h-5" />
+                Add Tip
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-4 gap-2">
+                {[10, 20, 50, 100].map(amount => (
+                  <Button
+                    key={amount}
+                    variant="outline"
+                    onClick={() => applyQuickTip(amount)}
+                    className={tip === amount ? 'bg-blue-100 border-blue-500' : ''}
+                  >
+                    {getCurrencySymbol()}{amount}
+                  </Button>
+                ))}
+              </div>
+              <div>
+                <Label>Custom Tip Amount</Label>
+                <Input
+                  type="number"
+                  value={tip}
+                  onChange={(e) => setTip(Number(e.target.value))}
+                  placeholder="0"
+                />
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  Tip Amount: <strong>{getCurrencySymbol()}{tip.toFixed(2)}</strong>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Split Bill Section */}
+        {showSplitBill && (
+          <Card className="border-0 shadow-xl border-l-4 border-l-purple-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-700">
+                <Users className="w-5 h-5" />
+                Split Bill
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Number of People</Label>
+                <div className="flex gap-2 items-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSplitBill(Math.max(1, splitBill - 1))}
+                  >
+                    -
+                  </Button>
+                  <Input
+                    type="number"
+                    value={splitBill}
+                    onChange={(e) => setSplitBill(Math.max(1, Number(e.target.value)))}
+                    className="text-center"
+                    min="1"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => setSplitBill(splitBill + 1)}
+                  >
+                    +
+                  </Button>
+                </div>
+              </div>
+              <div className="p-4 bg-purple-50 rounded-lg">
+                <div className="text-center">
+                  <p className="text-sm text-purple-600 mb-2">Amount per person</p>
+                  <p className="text-3xl font-bold text-purple-700">
+                    {getCurrencySymbol()}{calculateSplitAmount().toFixed(2)}
+                  </p>
+                  <p className="text-xs text-purple-500 mt-2">
+                    Total: {getCurrencySymbol()}{calculateFinalTotal().toFixed(2)} ÷ {splitBill} people
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Final Total Summary */}
+        <Card className="border-0 shadow-2xl bg-gradient-to-br from-violet-600 to-purple-600 text-white">
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm opacity-90">
+                <span>Subtotal:</span>
+                <span>{getCurrencySymbol()}{order?.subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm opacity-90">
+                <span>Tax:</span>
+                <span>{getCurrencySymbol()}{order?.tax.toFixed(2)}</span>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-sm text-green-300">
+                  <span>Discount:</span>
+                  <span>- {getCurrencySymbol()}{calculateDiscount().toFixed(2)}</span>
+                </div>
+              )}
+              {tip > 0 && (
+                <div className="flex justify-between text-sm text-blue-300">
+                  <span>Tip:</span>
+                  <span>+ {getCurrencySymbol()}{tip.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="border-t border-white/20 pt-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xl font-bold">Final Total:</span>
+                  <span className="text-3xl font-bold">{getCurrencySymbol()}{calculateFinalTotal().toFixed(2)}</span>
+                </div>
+                {splitBill > 1 && (
+                  <div className="text-right text-sm opacity-90 mt-1">
+                    {getCurrencySymbol()}{calculateSplitAmount().toFixed(2)} per person
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

@@ -1991,6 +1991,117 @@ async def update_order_status(
     }
 
 
+# Order Management - Edit/Cancel/Delete
+@api_router.put("/orders/{order_id}")
+async def update_order(
+    order_id: str,
+    order_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update an existing order"""
+    user_org_id = current_user.get("organization_id") or current_user["id"]
+    
+    # Verify order belongs to user's organization
+    existing_order = await db.orders.find_one(
+        {"id": order_id, "organization_id": user_org_id}
+    )
+    
+    if not existing_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Don't allow editing completed orders
+    if existing_order.get("status") == "completed":
+        raise HTTPException(status_code=400, detail="Cannot edit completed orders")
+    
+    # Update order
+    update_data = {
+        "items": order_data.get("items", existing_order["items"]),
+        "subtotal": order_data.get("subtotal", existing_order["subtotal"]),
+        "tax": order_data.get("tax", existing_order["tax"]),
+        "total": order_data.get("total", existing_order["total"]),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.orders.update_one(
+        {"id": order_id, "organization_id": user_org_id},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Order updated successfully"}
+
+
+@api_router.put("/orders/{order_id}/cancel")
+async def cancel_order(
+    order_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Cancel an order"""
+    user_org_id = current_user.get("organization_id") or current_user["id"]
+    
+    order = await db.orders.find_one(
+        {"id": order_id, "organization_id": user_org_id}
+    )
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if order.get("status") == "completed":
+        raise HTTPException(status_code=400, detail="Cannot cancel completed orders")
+    
+    # Update order status to cancelled
+    await db.orders.update_one(
+        {"id": order_id, "organization_id": user_org_id},
+        {
+            "$set": {
+                "status": "cancelled",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Release table if order had one
+    if order.get("table_id"):
+        await db.tables.update_one(
+            {"id": order["table_id"], "organization_id": user_org_id},
+            {"$set": {"status": "available", "current_order_id": None}}
+        )
+    
+    return {"message": "Order cancelled successfully"}
+
+
+@api_router.delete("/orders/{order_id}")
+async def delete_order(
+    order_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete an order (admin only)"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can delete orders")
+    
+    user_org_id = current_user.get("organization_id") or current_user["id"]
+    
+    order = await db.orders.find_one(
+        {"id": order_id, "organization_id": user_org_id}
+    )
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Release table if order had one
+    if order.get("table_id"):
+        await db.tables.update_one(
+            {"id": order["table_id"], "organization_id": user_org_id},
+            {"$set": {"status": "available", "current_order_id": None}}
+        )
+    
+    # Delete order
+    await db.orders.delete_one(
+        {"id": order_id, "organization_id": user_org_id}
+    )
+    
+    return {"message": "Order deleted successfully"}
+
+
 # Payment routes
 @api_router.post("/payments/create-order")
 async def create_payment_order(
