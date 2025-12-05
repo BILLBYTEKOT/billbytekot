@@ -1494,11 +1494,13 @@ async def start_trial(current_user: dict = Depends(get_current_user)):
 
 @api_router.post("/subscription/create-order")
 async def create_subscription_order(current_user: dict = Depends(get_current_user)):
-    # Default Razorpay keys for RestoBill subscription
+    # IMPORTANT: These are YOUR (platform owner's) Razorpay keys for subscription payments
+    # Money from subscriptions comes to YOU, not to individual restaurants
     DEFAULT_RAZORPAY_KEY_ID = "rzp_live_RmGqVf5JPGOT6G"
     DEFAULT_RAZORPAY_KEY_SECRET = "SKYS5tgjwU3H3Pf2ch3ZFtuH"
     SUBSCRIPTION_PRICE_PAISE = 49900  # ₹499 in paise
     
+    # Use platform owner's keys (YOUR account)
     razorpay_key_id = os.environ.get("RAZORPAY_KEY_ID") or DEFAULT_RAZORPAY_KEY_ID
     razorpay_key_secret = os.environ.get("RAZORPAY_KEY_SECRET") or DEFAULT_RAZORPAY_KEY_SECRET
 
@@ -2004,15 +2006,16 @@ async def create_payment_order(
         raise HTTPException(status_code=404, detail="Order not found")
 
     if payment_data.payment_method == "razorpay":
-        razorpay_key_id = current_user.get("razorpay_key_id") or os.environ.get(
-            "RAZORPAY_KEY_ID"
-        )
-        razorpay_key_secret = current_user.get("razorpay_key_secret") or os.environ.get(
-            "RAZORPAY_KEY_SECRET"
-        )
+        # IMPORTANT: Use restaurant's own Razorpay keys for billing payments
+        # NOT the platform subscription keys
+        razorpay_key_id = current_user.get("razorpay_key_id")
+        razorpay_key_secret = current_user.get("razorpay_key_secret")
 
         if not razorpay_key_id or not razorpay_key_secret:
-            raise HTTPException(status_code=400, detail="Razorpay not configured")
+            raise HTTPException(
+                status_code=400, 
+                detail="Razorpay not configured. Please add your Razorpay API keys in Settings > Payment Gateway to accept online payments."
+            )
 
         razorpay_client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
 
