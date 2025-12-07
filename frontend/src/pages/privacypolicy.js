@@ -106,7 +106,7 @@ const PrivacyPolicyPage = ({ user }) => {
               <p>
                 If you have questions or concerns, contact support at:
                 <br />
-                <span className="font-semibold">support@yourbusiness.com</span>
+                <span className="font-semibold">support@billbytekot.in</span>
               </p>
             </section>
           </CardContent>

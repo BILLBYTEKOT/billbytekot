@@ -82,7 +82,7 @@ const ContactWidget = () => {
       setAiMessages([
         ...aiMessages,
         { role: 'user', content: userMessage },
-        { role: 'assistant', content: 'Sorry, I\'m having trouble connecting. Please use the contact form or email support@finverge.tech' }
+        { role: 'assistant', content: 'Sorry, I\'m having trouble connecting. Please use the contact form or email support@billbytekot.in' }
       ]);
     } finally {
       setLoading(false);

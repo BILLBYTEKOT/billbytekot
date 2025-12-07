@@ -134,9 +134,9 @@ cd frontend && npm run electron:build:linux
 
 ## 📞 Support
 
-**Email**: support@finverge.tech  
+**Email**: support@billbytekot.in or contact@billbytekot.in  
 **Phone**: +91-98765-43210  
-**Website**: https://finverge.tech  
+**Website**: https://billbytekot.in  
 **Live Chat**: Available 24/7  
 
 ---

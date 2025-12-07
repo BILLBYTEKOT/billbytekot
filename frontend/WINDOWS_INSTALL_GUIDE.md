@@ -94,7 +94,7 @@ Some antivirus software may also flag the app:
 
 ## 📞 Need Help?
 
-- Email: support@finverge.tech
+- Email: support@billbytekot.in or contact@billbytekot.in
 - The app is safe - Windows just doesn't recognize unsigned apps
 - Thousands of legitimate apps show this warning
 

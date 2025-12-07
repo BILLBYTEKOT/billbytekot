@@ -156,7 +156,7 @@ The AI chat can answer questions about:
 
 ## 📱 Contact Methods Available
 
-1. **Email**: support@finverge.tech
+1. **Email**: support@billbytekot.in or contact@billbytekot.in
 2. **Phone**: +91-98765-43210 (Mon-Sat, 9 AM-6 PM IST)
 3. **Live Chat**: AI-powered instant responses
 4. **Contact Form**: Submit detailed support tickets

@@ -16,7 +16,7 @@ Disallow: /setup
 Disallow: /admin
 
 # Sitemap location
-Sitemap: https://finverge.tech/sitemap.xml
+Sitemap: https://billbytekot.in/sitemap.xml
 Sitemap: https://restro-ai-u9kz.vercel.app/sitemap.xml
 
 # Crawl-delay for respectful crawling

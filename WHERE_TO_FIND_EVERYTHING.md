@@ -328,7 +328,7 @@ If you can see:
 4. Check browser console (F12)
 
 ### Need More Help?
-- **Email**: support@finverge.tech
+- **Email**: support@billbytekot.in or contact@billbytekot.in
 - **Phone**: +91-98765-43210
 - **Documentation**: See CONTACT_AND_ORDER_DISPLAY_COMPLETE.md
 

@@ -242,5 +242,5 @@ For SMS gateway issues:
 - **TextLocal**: https://www.textlocal.com/support
 
 For BillByteKOT issues:
-- Email: support@finverge.tech
+- Email: support@billbytekot.in or contact@billbytekot.in
 - GitHub: https://github.com/shivshankar9/restro-ai/issues

@@ -164,7 +164,7 @@ All versions include:
 ## 📞 Need Help?
 
 **Support**:
-- 📧 Email: support@finverge.tech
+- 📧 Email: support@billbytekot.in or contact@billbytekot.in
 - 📱 Phone: +91-98765-43210
 - 💬 Live Chat: Available on website
 - 🤖 AI Assistant: Built into the app

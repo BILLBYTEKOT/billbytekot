@@ -138,7 +138,7 @@ async def send_otp_email(email: str, otp: str, username: str = "User") -> dict:
                 </p>
                 
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://finverge.tech" class="button">Visit BillByteKOT</a>
+                    <a href="https://billbytekot.in" class="button">Visit BillByteKOT</a>
                 </div>
             </div>
             

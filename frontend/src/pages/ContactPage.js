@@ -82,9 +82,29 @@ const ContactPage = () => {
         <div className="max-w-6xl mx-auto px-4 text-center">
           <HeadphonesIcon className="w-16 h-16 mx-auto mb-4" />
           <h1 className="text-4xl md:text-5xl font-bold mb-4">Get in Touch</h1>
-          <p className="text-xl text-violet-100 max-w-2xl mx-auto">
+          <p className="text-xl text-violet-100 max-w-2xl mx-auto mb-6">
             Have questions? Need support? We're here to help you succeed with BillByteKOT
           </p>
+          
+          {/* Contact Info */}
+          <div className="flex flex-wrap justify-center gap-6 mt-8">
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-lg">
+              <Mail className="w-5 h-5" />
+              <a href="mailto:support@billbytekot.in" className="hover:underline font-medium">
+                support@billbytekot.in
+              </a>
+            </div>
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-lg">
+              <Mail className="w-5 h-5" />
+              <a href="mailto:contact@billbytekot.in" className="hover:underline font-medium">
+                contact@billbytekot.in
+              </a>
+            </div>
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2 rounded-lg">
+              <Phone className="w-5 h-5" />
+              <span className="font-medium">+91-98765-43210</span>
+            </div>
+          </div>
         </div>
       </div>
 

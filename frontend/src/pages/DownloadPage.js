@@ -33,17 +33,23 @@ const DownloadPage = () => {
   const os = getOS();
   const isMobile = os === "android" || os === "ios";
 
-  // Download URLs - GitHub Releases
+  // Download URLs - Direct from billbytekot.in
   const downloadUrls = {
-    windows: "https://github.com/shivshankar9/restro-ai/releases/download/v1-desktop-win-exe/BillByteKOT-Setup-1.0.0-win.exe",
-    mac: "https://github.com/shivshankar9/restro-ai/releases/download/v1-desktop-win-exe/BillByteKOT-1.0.0-mac.dmg",
-    linux: "https://github.com/shivshankar9/restro-ai/releases/download/v1-desktop-win-exe/BillByteKOT-1.0.0-linux.AppImage",
+    windows: "https://billbytekot.in/downloads/BillByteKOT-Setup-1.0.0-win.exe",
+    mac: "https://billbytekot.in/downloads/BillByteKOT-1.0.0-mac.dmg",
+    linux: "https://billbytekot.in/downloads/BillByteKOT-1.0.0-linux.AppImage",
   };
 
   const handleDownload = (platform) => {
     const url = downloadUrls[platform];
     if (url) {
-      window.open(url, "_blank");
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = url.split('/').pop();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       toast.success(`Downloading BillByteKOT for ${platform.charAt(0).toUpperCase() + platform.slice(1)}...`);
     } else {
       toast.error("Download not available yet. Please try again later.");
@@ -213,7 +219,7 @@ const DownloadPage = () => {
           {/* Version Info */}
           <div className="text-center text-gray-500 text-sm">
             <p>Version 1.0.0 • Released November 2024</p>
-            <p className="mt-1">Connects to finverge.tech • Auto-updates enabled</p>
+            <p className="mt-1">Connects to billbytekot.in • Auto-updates enabled</p>
           </div>
         </div>
       </div>

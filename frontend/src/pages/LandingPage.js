@@ -57,17 +57,23 @@ const DesktopDownloadSection = () => {
   const os = getOS();
   const isMobile = os === "android" || os === "ios";
   
-  // Download URLs - GitHub Releases
+  // Download URLs - Direct from billbytekot.in
   const downloadUrls = {
-    windows: "https://github.com/shivshankar9/restro-ai/releases/download/v1-desktop-win-exe/BillByteKOT-Setup-1.0.0-win.exe",
-    mac: "https://github.com/shivshankar9/restro-ai/releases/download/v1-desktop-win-exe/BillByteKOT-1.0.0-mac.dmg",
-    linux: "https://github.com/shivshankar9/restro-ai/releases/download/v1-desktop-win-exe/BillByteKOT-1.0.0-linux.AppImage",
+    windows: "https://billbytekot.in/downloads/BillByteKOT-Setup-1.0.0-win.exe",
+    mac: "https://billbytekot.in/downloads/BillByteKOT-1.0.0-mac.dmg",
+    linux: "https://billbytekot.in/downloads/BillByteKOT-1.0.0-linux.AppImage",
   };
   
   const handleDownload = (platform) => {
     const url = downloadUrls[platform];
     if (url) {
-      window.open(url, "_blank");
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = url.split('/').pop();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       toast.success(`Downloading BillByteKOT for ${platform.charAt(0).toUpperCase() + platform.slice(1)}...`);
     } else {
       toast.error("Download not available yet. Please try again later.");
@@ -82,7 +88,7 @@ const DesktopDownloadSection = () => {
         `🖥️ Download BillByteKOT Desktop App:\n\n` +
         `Windows: ${downloadUrls.windows}\n\n` +
         `Mac: ${downloadUrls.mac}\n\n` +
-        `Or visit: https://finverge.tech/download`
+        `Or visit: https://billbytekot.in/download`
       );
       window.open(`https://wa.me/${phoneNumber.replace(/\D/g, "")}?text=${message}`, "_blank");
       toast.success("Opening WhatsApp to send download link!");
@@ -247,7 +253,7 @@ const DesktopDownloadSection = () => {
                   <strong>Version 1.0.0</strong> • Released Nov 2024
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Connects to finverge.tech • Auto-updates enabled
+                  Connects to billbytekot.in • Auto-updates enabled
                 </p>
               </div>
             </div>
@@ -1340,6 +1346,21 @@ const LandingPage = () => {
                   </a>
                 </li>
               </ul>
+              <div className="mt-6 space-y-2">
+                <h4 className="font-semibold mb-2">Contact Us</h4>
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Mail className="w-4 h-4" />
+                  <a href="mailto:support@billbytekot.in" className="hover:text-white">
+                    support@billbytekot.in
+                  </a>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Mail className="w-4 h-4" />
+                  <a href="mailto:contact@billbytekot.in" className="hover:text-white">
+                    contact@billbytekot.in
+                  </a>
+                </div>
+              </div>
             </div>
 
             <div>

@@ -6,8 +6,8 @@
  */
 
 module.exports = {
-  // Your deployed frontend URL (finverge.tech) - direct to login
-  PRODUCTION_URL: 'https://finverge.tech/login',
+  // Your deployed frontend URL (billbytekot.in) - direct to login
+  PRODUCTION_URL: 'https://billbytekot.in/login',
   
   // Backend API URL (Render deployment)
   BACKEND_URL: 'https://restro-ai.onrender.com',
@@ -19,8 +19,9 @@ module.exports = {
   
   // Company Information
   COMPANY_NAME: 'BillByte',
-  COMPANY_URL: 'https://finverge.tech',
-  SUPPORT_EMAIL: 'support@billbytekot.com',
+  COMPANY_URL: 'https://billbytekot.in',
+  SUPPORT_EMAIL: 'support@billbytekot.in',
+  CONTACT_EMAIL: 'contact@billbytekot.in',
   
   // Window Settings
   WINDOW: {
@@ -36,7 +37,7 @@ module.exports = {
   DEV_TOOLS: true,
   
   // Update Settings (for future auto-update feature)
-  UPDATE_URL: 'https://finverge.tech/updates',
+  UPDATE_URL: 'https://billbytekot.in/updates',
   CHECK_FOR_UPDATES: true,
   
   // Feature Flags

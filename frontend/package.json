@@ -4,12 +4,12 @@
   "description": "BillByteKOT - Restaurant Billing & KOT Management System",
   "author": {
     "name": "BillByte",
-    "email": "support@billbytekot.com",
-    "url": "https://finverge.tech"
+    "email": "support@billbytekot.in",
+    "url": "https://billbytekot.in"
   },
   "private": true,
   "main": "electron/main.js",
-  "homepage": "https://finverge.tech",
+  "homepage": "https://billbytekot.in",
   "overrides": {
     "react-day-picker": "9.10.0",
     "date-fns": "4.1.0"

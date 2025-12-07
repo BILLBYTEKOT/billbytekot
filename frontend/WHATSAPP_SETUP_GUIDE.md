@@ -82,5 +82,5 @@ Check in: Settings → About or Help menu
 ---
 
 **Need Help?**
-- Email: support@finverge.tech
+- Email: support@billbytekot.in or contact@billbytekot.in
 - Check console logs (F12) for debug info

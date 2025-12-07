@@ -27,7 +27,7 @@ function createWindow() {
     backgroundColor: CONFIG.WINDOW.BACKGROUND_COLOR
   });
 
-  // Load the app from web (finverge.tech)
+  // Load the app from web (billbytekot.in)
   const startUrl = isDev ? CONFIG.DEV_URL : CONFIG.PRODUCTION_URL;
   
   console.log(`[BillByteKOT Desktop] Loading from: ${startUrl}`);
@@ -220,9 +220,9 @@ function createMenu() {
     {
       label: 'Help',
       submenu: [
-        { label: 'Documentation', click: () => shell.openExternal('https://finverge.tech/docs') },
-        { label: 'Support', click: () => shell.openExternal('https://finverge.tech/support') },
-        { label: 'Visit Website', click: () => shell.openExternal('https://finverge.tech') },
+        { label: 'Documentation', click: () => shell.openExternal('https://billbytekot.in/docs') },
+        { label: 'Support', click: () => shell.openExternal('https://billbytekot.in/contact') },
+        { label: 'Visit Website', click: () => shell.openExternal('https://billbytekot.in') },
         { type: 'separator' },
         { label: 'Check for Updates', click: () => checkForUpdates() }
       ]
