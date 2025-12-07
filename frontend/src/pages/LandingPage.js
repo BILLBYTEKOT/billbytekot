@@ -36,6 +36,7 @@ import {
   Monitor,
   Apple,
   MessageCircle,
+  Mail,
 } from "lucide-react";
 
 // Desktop App Download Section Component
