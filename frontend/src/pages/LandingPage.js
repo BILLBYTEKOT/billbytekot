@@ -1280,6 +1280,186 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Coming Soon - Integrations Section */}
+      <section className="py-20 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white px-6 py-2 rounded-full mb-4">
+              <Rocket className="w-5 h-5" />
+              <span className="font-semibold">Coming Soon</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Exciting Integrations on the Way! 🚀
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              We're working hard to bring you seamless integrations with India's leading food delivery platforms
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto mb-12">
+            {/* Zomato Integration */}
+            <Card className="border-0 shadow-2xl hover:shadow-3xl transition-all duration-300 overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardHeader className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </div>
+                  <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold">
+                    Q1 2025
+                  </span>
+                </div>
+                <CardTitle className="text-2xl">Zomato Integration</CardTitle>
+              </CardHeader>
+              <CardContent className="relative">
+                <p className="text-gray-600 mb-6">
+                  Sync your menu, receive orders directly, and manage everything from one dashboard
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-gray-700">Auto-sync menu items and prices</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-gray-700">Real-time order notifications</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-gray-700">Unified order management</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-gray-700">Automatic inventory updates</span>
+                  </div>
+                </div>
+                <div className="mt-6 pt-6 border-t">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-red-500 text-red-600 hover:bg-red-50"
+                    onClick={() => {
+                      toast.success("We'll notify you when Zomato integration is ready!");
+                    }}
+                  >
+                    <Bell className="w-4 h-4 mr-2" />
+                    Notify Me
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Swiggy Integration */}
+            <Card className="border-0 shadow-2xl hover:shadow-3xl transition-all duration-300 overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardHeader className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
+                    </svg>
+                  </div>
+                  <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-semibold">
+                    Q1 2025
+                  </span>
+                </div>
+                <CardTitle className="text-2xl">Swiggy Integration</CardTitle>
+              </CardHeader>
+              <CardContent className="relative">
+                <p className="text-gray-600 mb-6">
+                  Connect with Swiggy and streamline your delivery operations effortlessly
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-gray-700">Seamless menu synchronization</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-gray-700">Instant order alerts</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-gray-700">Centralized dashboard</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-gray-700">Smart inventory tracking</span>
+                  </div>
+                </div>
+                <div className="mt-6 pt-6 border-t">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-orange-500 text-orange-600 hover:bg-orange-50"
+                    onClick={() => {
+                      toast.success("We'll notify you when Swiggy integration is ready!");
+                    }}
+                  >
+                    <Bell className="w-4 h-4 mr-2" />
+                    Notify Me
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Benefits Section */}
+          <div className="bg-white rounded-3xl shadow-xl p-8 md:p-12 max-w-4xl mx-auto">
+            <h3 className="text-2xl md:text-3xl font-bold text-center mb-8">
+              Why These Integrations Matter 💡
+            </h3>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Zap className="w-8 h-8 text-white" />
+                </div>
+                <h4 className="font-semibold text-lg mb-2">Save Time</h4>
+                <p className="text-gray-600 text-sm">
+                  No more manual order entry. Orders flow directly into your system
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="w-8 h-8 text-white" />
+                </div>
+                <h4 className="font-semibold text-lg mb-2">Increase Revenue</h4>
+                <p className="text-gray-600 text-sm">
+                  Reach millions of customers on India's top food delivery platforms
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 className="w-8 h-8 text-white" />
+                </div>
+                <h4 className="font-semibold text-lg mb-2">Better Insights</h4>
+                <p className="text-gray-600 text-sm">
+                  Unified analytics across all channels in one dashboard
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="text-center mt-12">
+            <p className="text-gray-600 mb-4">
+              Want early access? Join our waitlist!
+            </p>
+            <Button 
+              size="lg"
+              className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-8"
+              onClick={() => {
+                document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              Join Waitlist
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="container mx-auto px-4">
