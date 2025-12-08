@@ -495,20 +495,112 @@ const BillingPage = ({ user }) => {
   const downloadBill = async () => {
     if (!order) return;
     try {
-      const response = await axios.post(`${API}/print/bill/${orderId}`, null, {
-        params: { theme: businessSettings?.receipt_theme || 'classic' }
+      // Generate PDF using jsPDF
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      
+      // Restaurant details
+      const restaurantName = businessSettings?.restaurant_name || 'Restaurant';
+      const address = businessSettings?.address || '';
+      const phone = businessSettings?.phone || '';
+      const gst = businessSettings?.gst_number || '';
+      
+      // Header
+      doc.setFontSize(20);
+      doc.setFont(undefined, 'bold');
+      doc.text(restaurantName, 105, 20, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      if (address) doc.text(address, 105, 28, { align: 'center' });
+      if (phone) doc.text(`Phone: ${phone}`, 105, 34, { align: 'center' });
+      if (gst) doc.text(`GSTIN: ${gst}`, 105, 40, { align: 'center' });
+      
+      // Line
+      doc.line(20, 45, 190, 45);
+      
+      // Invoice details
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('INVOICE', 105, 52, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Invoice #: ${order.id.slice(0, 8).toUpperCase()}`, 20, 60);
+      doc.text(`Date: ${new Date(order.created_at).toLocaleString()}`, 20, 66);
+      if (order.table_number) doc.text(`Table: ${order.table_number}`, 20, 72);
+      if (order.customer_name) doc.text(`Customer: ${order.customer_name}`, 20, 78);
+      
+      // Items table
+      let yPos = 90;
+      doc.setFont(undefined, 'bold');
+      doc.text('Item', 20, yPos);
+      doc.text('Qty', 120, yPos, { align: 'right' });
+      doc.text('Price', 150, yPos, { align: 'right' });
+      doc.text('Total', 180, yPos, { align: 'right' });
+      
+      doc.line(20, yPos + 2, 190, yPos + 2);
+      yPos += 8;
+      
+      doc.setFont(undefined, 'normal');
+      order.items.forEach(item => {
+        doc.text(item.name, 20, yPos);
+        doc.text(item.quantity.toString(), 120, yPos, { align: 'right' });
+        doc.text(`${getCurrencySymbol()}${item.price.toFixed(2)}`, 150, yPos, { align: 'right' });
+        doc.text(`${getCurrencySymbol()}${(item.quantity * item.price).toFixed(2)}`, 180, yPos, { align: 'right' });
+        yPos += 6;
       });
       
-      const blob = new Blob([response.data.content], { type: 'text/plain' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `receipt-${order.id.slice(0, 8)}.txt`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast.success('Receipt downloaded!');
+      // Totals
+      yPos += 5;
+      doc.line(20, yPos, 190, yPos);
+      yPos += 8;
+      
+      const subtotal = order.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+      const tax = order.tax || 0;
+      const discount = order.discount || 0;
+      const total = order.total;
+      
+      doc.text('Subtotal:', 130, yPos);
+      doc.text(`${getCurrencySymbol()}${subtotal.toFixed(2)}`, 180, yPos, { align: 'right' });
+      yPos += 6;
+      
+      if (discount > 0) {
+        doc.text('Discount:', 130, yPos);
+        doc.text(`-${getCurrencySymbol()}${discount.toFixed(2)}`, 180, yPos, { align: 'right' });
+        yPos += 6;
+      }
+      
+      if (tax > 0) {
+        doc.text('Tax:', 130, yPos);
+        doc.text(`${getCurrencySymbol()}${tax.toFixed(2)}`, 180, yPos, { align: 'right' });
+        yPos += 6;
+      }
+      
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(12);
+      doc.text('Total:', 130, yPos);
+      doc.text(`${getCurrencySymbol()}${total.toFixed(2)}`, 180, yPos, { align: 'right' });
+      
+      // Payment method
+      yPos += 10;
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Payment Method: ${order.payment_method || 'Cash'}`, 20, yPos);
+      
+      // Footer
+      yPos += 15;
+      doc.setFontSize(9);
+      doc.text('Thank you for your business!', 105, yPos, { align: 'center' });
+      yPos += 5;
+      doc.text('Powered by BillByteKOT - billbytekot.in', 105, yPos, { align: 'center' });
+      
+      // Save PDF
+      doc.save(`invoice-${order.id.slice(0, 8)}.pdf`);
+      toast.success('Invoice downloaded as PDF!');
     } catch (error) {
-      toast.error('Failed to download receipt');
+      console.error('Failed to generate PDF', error);
+      toast.error('Failed to download invoice');
     }
   };
 

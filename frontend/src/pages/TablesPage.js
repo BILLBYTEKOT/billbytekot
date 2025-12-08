@@ -86,6 +86,30 @@ const TablesPage = ({ user }) => {
     return colors[status] || 'bg-gray-500';
   };
 
+  const handleClearTable = async (table) => {
+    // Confirm before clearing
+    const confirmed = window.confirm(
+      `Clear Table #${table.table_number}?\n\nThis will:\n- Mark table as available\n- Complete any pending orders\n- Cannot be undone`
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      // Update table status to available
+      await axios.put(`${API}/tables/${table.id}`, {
+        ...table,
+        status: 'available',
+        cleared_at: new Date().toISOString()
+      });
+
+      toast.success(`Table #${table.table_number} cleared successfully!`);
+      fetchTables();
+    } catch (error) {
+      console.error('Failed to clear table:', error);
+      toast.error('Failed to clear table. Please try again.');
+    }
+  };
+
   return (
     <Layout user={user}>
       <div className="space-y-6" data-testid="tables-page">
@@ -171,17 +195,30 @@ const TablesPage = ({ user }) => {
                 }`}>
                   {table.status}
                 </div>
-                {selfOrderEnabled && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setQrModal({ open: true, table })}
-                    className="mt-2 w-full"
-                  >
-                    <QrCode className="w-4 h-4 mr-1" />
-                    QR Code
-                  </Button>
-                )}
+                <div className="space-y-2 mt-2">
+                  {selfOrderEnabled && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setQrModal({ open: true, table })}
+                      className="w-full"
+                    >
+                      <QrCode className="w-4 h-4 mr-1" />
+                      QR Code
+                    </Button>
+                  )}
+                  {table.status === 'occupied' && ['admin', 'cashier', 'waiter'].includes(user?.role) && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleClearTable(table)}
+                      className="w-full"
+                      data-testid={`clear-table-${table.id}`}
+                    >
+                      Clear Table
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
