@@ -9,6 +9,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Search, Upload, X } from 'lucide-react';
+import BulkUpload from '../components/BulkUpload';
 
 const MenuPage = ({ user }) => {
   const [menuItems, setMenuItems] = useState([]);
@@ -299,6 +300,14 @@ const MenuPage = ({ user }) => {
             />
           </div>
         </div>
+
+        {/* Bulk Upload Component */}
+        {['admin', 'manager'].includes(user?.role) && (
+          <BulkUpload 
+            type="menu" 
+            onSuccess={fetchMenuItems}
+          />
+        )}
 
         {categories.map((category) => {
           const categoryItems = filteredItems.filter(item => item.category === category);

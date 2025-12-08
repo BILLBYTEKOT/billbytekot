@@ -9,6 +9,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { Plus, AlertTriangle, Package } from 'lucide-react';
+import BulkUpload from '../components/BulkUpload';
 
 const InventoryPage = ({ user }) => {
   const [inventory, setInventory] = useState([]);
@@ -200,6 +201,17 @@ const InventoryPage = ({ user }) => {
             </Dialog>
           )}
         </div>
+
+        {/* Bulk Upload Component */}
+        {['admin', 'manager'].includes(user?.role) && (
+          <BulkUpload 
+            type="inventory" 
+            onSuccess={() => {
+              fetchInventory();
+              fetchLowStock();
+            }}
+          />
+        )}
 
         {lowStock.length > 0 && (
           <Card className="border-0 shadow-lg border-l-4 border-l-orange-500" data-testid="low-stock-alert">
