@@ -30,7 +30,7 @@
         />
         <meta
             name="keywords"
-            content="restaurant billing software, KOT system, kitchen order ticket, restaurant POS India, thermal printer billing, restaurant management software, billing software India, POS system India, restaurant inventory management, WhatsApp billing, GST billing software, cloud POS, restaurant software, billing app, KOT app, thermal printing software, restaurant automation, food billing software, cafe billing system, QSR POS"
+            content="restaurant billing software, KOT system, kitchen order ticket, restaurant POS India, thermal printer billing, restaurant management software, billing software India, POS system India, restaurant inventory management, WhatsApp billing, GST billing software, cloud POS, restaurant software, billing app, KOT app, thermal printing software, restaurant automation, food billing software, cafe billing system, QSR POS, best restaurant billing software India, free restaurant POS, restaurant billing app, online restaurant management, restaurant software free trial, restaurant billing system with GST, thermal receipt printer software, restaurant order management, table management system, restaurant analytics software, multi-currency POS, restaurant staff management, cloud based restaurant software, restaurant reporting software, food delivery management, quick service restaurant POS, fine dining POS system, cafe management software, bakery billing software, bar POS system, hotel restaurant software"
         />
         <meta name="author" content="BillByteKOT - FinVerge Technologies" />
         <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
@@ -105,10 +105,10 @@
         <!-- External Scripts -->
         <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
-        <!-- Google Analytics (Add your tracking ID) -->
+        <!-- Google Analytics 4 -->
         <script
             async
-            src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"
+            src="https://www.googletagmanager.com/gtag/js?id=G-HBK92PNEQV"
         ></script>
         <script>
             window.dataLayer = window.dataLayer || [];
@@ -116,7 +116,29 @@
                 dataLayer.push(arguments);
             }
             gtag("js", new Date());
-            gtag("config", "G-XXXXXXXXXX");
+            gtag("config", "G-HBK92PNEQV", {
+                'send_page_view': true,
+                'anonymize_ip': true
+            });
+            
+            // Track custom events
+            gtag('event', 'page_view', {
+                'page_title': document.title,
+                'page_location': window.location.href,
+                'page_path': window.location.pathname
+            });
+        </script>
+
+        <!-- Google Tag Manager (Optional - for advanced tracking) -->
+        <!-- Add GTM-XXXXXXX when ready -->
+
+        <!-- Microsoft Clarity (Optional - for heatmaps) -->
+        <script type="text/javascript">
+            (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "XXXXXXXXXX");
         </script>
 
         <!-- Schema.org Structured Data -->
@@ -231,23 +253,99 @@
                 "name": "How much does BillByteKOT cost?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "BillByteKOT offers a free trial for 50 bills. After that, it costs only ₹499 per year with unlimited bills and all premium features included."
+                    "text": "BillByteKOT offers a 7-day free trial with unlimited bills. After that, it costs only ₹499 per year with unlimited bills and all premium features included. No hidden fees, no per-transaction charges."
                 }
             }, {
                 "@type": "Question",
                 "name": "Does BillByteKOT support thermal printers?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Yes! BillByteKOT supports all ESC/POS compatible thermal printers with multiple receipt themes (classic, modern, minimal, elegant, compact, detailed) and customizable formats."
+                    "text": "Yes! BillByteKOT supports all ESC/POS compatible thermal printers with multiple receipt themes (classic, modern, minimal, elegant, compact, detailed) and customizable formats. Works with 58mm and 80mm thermal printers."
                 }
             }, {
                 "@type": "Question",
                 "name": "Can I use BillByteKOT on mobile?",
                 "acceptedAnswer": {
                     "@type": "Answer",
-                    "text": "Yes, BillByteKOT works on web browsers, Windows desktop app, and Android mobile app. You can manage your restaurant from anywhere."
+                    "text": "Yes, BillByteKOT works on web browsers, Windows desktop app, and Android mobile app. You can manage your restaurant from anywhere with internet connection."
+                }
+            }, {
+                "@type": "Question",
+                "name": "Does BillByteKOT work offline?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "BillByteKOT is a cloud-based system that requires internet connection. However, the desktop app has limited offline capabilities for viewing existing data. Full functionality requires internet."
+                }
+            }, {
+                "@type": "Question",
+                "name": "Is BillByteKOT GST compliant?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes, BillByteKOT is fully GST compliant with automatic tax calculations, GST reports, and invoice generation as per Indian tax regulations."
+                }
+            }, {
+                "@type": "Question",
+                "name": "Can I integrate WhatsApp with BillByteKOT?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes! BillByteKOT has built-in WhatsApp Cloud API integration to send automated receipts, order confirmations, and notifications to customers directly via WhatsApp."
+                }
+            }, {
+                "@type": "Question",
+                "name": "What payment methods does BillByteKOT support?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "BillByteKOT supports cash, card, UPI, and online payments. It integrates with Razorpay for secure online payment processing with support for all major payment methods."
                 }
             }]
+        }
+        </script>
+
+        <!-- BreadcrumbList Schema -->
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [{
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://billbytekot.in/"
+            }, {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Download",
+                "item": "https://billbytekot.in/download"
+            }, {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Blog",
+                "item": "https://billbytekot.in/blog"
+            }, {
+                "@type": "ListItem",
+                "position": 4,
+                "name": "Contact",
+                "item": "https://billbytekot.in/contact"
+            }]
+        }
+        </script>
+
+        <!-- WebSite Schema with Search -->
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "BillByteKOT",
+            "alternateName": "BillByteKOT Restaurant Billing Software",
+            "url": "https://billbytekot.in",
+            "potentialAction": {
+                "@type": "SearchAction",
+                "target": {
+                    "@type": "EntryPoint",
+                    "urlTemplate": "https://billbytekot.in/search?q={search_term_string}"
+                },
+                "query-input": "required name=search_term_string"
+            }
         }
         </script>
 

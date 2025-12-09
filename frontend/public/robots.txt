@@ -1,23 +1,66 @@
-# BillByteKOT - Restaurant Billing & KOT System
-# Allow all search engines to crawl
+# BillByteKOT - Restaurant Billing Software
+# https://billbytekot.in
 
 User-agent: *
 Allow: /
-Allow: /blog/
-Allow: /features
-Allow: /pricing
+Allow: /blog
+Allow: /blog/*
+Allow: /contact
 Allow: /download
-Allow: /demo
+Allow: /pricing
+Allow: /*.css
+Allow: /*.js
+Allow: /*.jpg
+Allow: /*.jpeg
+Allow: /*.png
+Allow: /*.gif
+Allow: /*.svg
+Allow: /*.webp
 
 # Disallow admin and private pages
-Disallow: /dashboard
 Disallow: /login
-Disallow: /setup
+Disallow: /dashboard
 Disallow: /admin
+Disallow: /api/
+Disallow: /setup
+Disallow: /settings
+Disallow: /staff
+Disallow: /subscription
+Disallow: /billing/
+Disallow: /orders
+Disallow: /menu
+Disallow: /inventory
+Disallow: /reports
+Disallow: /kitchen
+Disallow: /tables
+
+# Disallow tracking and order pages
+Disallow: /track/
+Disallow: /order/
+
+# Allow specific bots
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+# Crawl delay for polite bots
+Crawl-delay: 1
 
 # Sitemap location
 Sitemap: https://billbytekot.in/sitemap.xml
-Sitemap: https://restro-ai-u9kz.vercel.app/sitemap.xml
-
-# Crawl-delay for respectful crawling
-Crawl-delay: 1
+Sitemap: https://billbytekot.in/sitemap-blog.xml
+Sitemap: https://billbytekot.in/sitemap-images.xml

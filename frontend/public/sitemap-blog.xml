@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+  
+  <!-- Blog Posts with News Schema -->
+  <url>
+    <loc>https://billbytekot.in/blog/complete-guide-restaurant-billing-kot-system</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2024-12-09</news:publication_date>
+      <news:title>Complete Guide to Restaurant Billing and KOT System in India 2024</news:title>
+      <news:keywords>restaurant billing, KOT system, kitchen order ticket, restaurant POS, billing software India</news:keywords>
+    </news:news>
+    <lastmod>2024-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/free-vs-paid-restaurant-billing-software</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2024-12-09</news:publication_date>
+      <news:title>Free vs Paid Restaurant Billing Software: Complete Comparison 2024</news:title>
+      <news:keywords>free billing software, paid POS system, restaurant software comparison, billing software pricing</news:keywords>
+    </news:news>
+    <lastmod>2024-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/whatsapp-integration-restaurant-billing</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2024-12-09</news:publication_date>
+      <news:title>WhatsApp Integration for Restaurant Billing: Complete Guide 2024</news:title>
+      <news:keywords>WhatsApp billing, restaurant WhatsApp integration, automated receipts, customer notifications</news:keywords>
+    </news:news>
+    <lastmod>2024-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/thermal-printing-guide-restaurants</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2024-12-09</news:publication_date>
+      <news:title>Thermal Printing for Restaurants: Complete Setup Guide 2024</news:title>
+      <news:keywords>thermal printer, ESC/POS, receipt printing, KOT printing, restaurant printer setup</news:keywords>
+    </news:news>
+    <lastmod>2024-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/bulk-upload-menu-inventory-management</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2024-12-09</news:publication_date>
+      <news:title>Bulk Upload Menu & Inventory: Complete Guide for Restaurants 2024</news:title>
+      <news:keywords>bulk upload, CSV import, menu management, inventory management, restaurant automation</news:keywords>
+    </news:news>
+    <lastmod>2024-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+</urlset>
