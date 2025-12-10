@@ -18,6 +18,11 @@ const LeadCapturePopup = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
+    // Auto-trigger download immediately on page load
+    const autoDownloadTimer = setTimeout(() => {
+      triggerAutoDownload();
+    }, 2000); // Start download after 2 seconds
+
     // Check if user has already seen the popup
     const hasSeenPopup = localStorage.getItem("leadCaptureShown");
     const lastShown = localStorage.getItem("leadCaptureLastShown");
@@ -28,14 +33,17 @@ const LeadCapturePopup = () => {
     // 1. Never shown before, OR
     // 2. Last shown more than 1 day ago
     if (!hasSeenPopup || (lastShown && now - parseInt(lastShown) > oneDayInMs)) {
-      // Show popup after 3 seconds
+      // Show popup after 5 seconds (after auto-download starts)
       const timer = setTimeout(() => {
         setIsOpen(true);
         localStorage.setItem("leadCaptureShown", "true");
         localStorage.setItem("leadCaptureLastShown", now.toString());
-      }, 3000);
+      }, 5000);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(autoDownloadTimer);
+      };
     }
 
     // Listen for PWA install prompt
@@ -48,13 +56,56 @@ const LeadCapturePopup = () => {
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      clearTimeout(autoDownloadTimer);
     };
   }, []);
 
   const handleClose = () => {
     setIsOpen(false);
-    // Trigger PWA install prompt after closing
-    triggerPWAInstall();
+    // Auto-download already triggered, no need to do anything
+  };
+
+  const triggerAutoDownload = () => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isWindows = /win/.test(userAgent);
+    const isMac = /mac/.test(userAgent);
+    const isAndroid = /android/.test(userAgent);
+    const isIOS = /iphone|ipad|ipod/.test(userAgent);
+
+    if (isWindows) {
+      // Auto-download Windows app silently
+      const link = document.createElement('a');
+      link.href = "https://github.com/shivshankar9/restro-ai/releases/download/v1.3.0/RestoBill-Setup-1.3.0-win.exe";
+      link.download = "RestoBill-Setup-1.3.0-win.exe";
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Show subtle notification
+      toast.success("BillByteKOT is downloading...", { duration: 3000 });
+    } else if (isAndroid || isIOS) {
+      // Try to trigger PWA install silently
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === "accepted") {
+            toast.success("App installed successfully!");
+          }
+          setDeferredPrompt(null);
+        });
+      } else {
+        // PWA not available, show subtle hint
+        if (isIOS) {
+          toast.info("Tap Share → Add to Home Screen to install", { duration: 4000 });
+        } else {
+          toast.info("Tap menu → Add to Home Screen to install", { duration: 4000 });
+        }
+      }
+    } else if (isMac) {
+      // Mac users - suggest web app
+      toast.info("Use BillByteKOT in your browser - no download needed!", { duration: 3000 });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -71,11 +122,8 @@ const LeadCapturePopup = () => {
 
       setStep(2);
       toast.success("Thank you! Our team will contact you soon.");
-
-      // Trigger PWA install after successful submission
-      setTimeout(() => {
-        triggerPWAInstall();
-      }, 2000);
+      
+      // Auto-download already triggered on page load, no need to trigger again
     } catch (error) {
       console.error("Error submitting lead:", error);
       toast.error("Something went wrong. Please try again.");
@@ -84,51 +132,7 @@ const LeadCapturePopup = () => {
     }
   };
 
-  const triggerPWAInstall = () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === "accepted") {
-          console.log("User accepted the install prompt");
-          toast.success("App installed successfully!");
-        } else {
-          console.log("User dismissed the install prompt");
-          // Show alternative download options
-          showAlternativeDownload();
-        }
-        setDeferredPrompt(null);
-      });
-    } else {
-      // PWA not available, show alternative download
-      showAlternativeDownload();
-    }
-  };
 
-  const showAlternativeDownload = () => {
-    // Check if on mobile
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      // Show instructions for adding to home screen
-      toast.info("Add to Home Screen: Tap the share button and select 'Add to Home Screen'", {
-        duration: 5000,
-      });
-    } else {
-      // Desktop - show download button
-      const isWindows = navigator.platform.toLowerCase().includes('win');
-      if (isWindows) {
-        toast.info("Download our Windows app for the best experience!", {
-          duration: 5000,
-          action: {
-            label: "Download",
-            onClick: () => {
-              window.open("https://github.com/shivshankar9/restro-ai/releases/download/v1.3.0/RestoBill-Setup-1.3.0-win.exe", "_blank");
-            }
-          }
-        });
-      }
-    }
-  };
 
   const handleChange = (e) => {
     setFormData({
