@@ -58,9 +58,7 @@ const DesktopDownloadSection = () => {
   const isMobile = os === "android" || os === "ios";
   
   // Windows desktop app download URL
-  // TODO: Replace with your actual download URL after building the app
-  // See BUILD_WINDOWS_APP.md for instructions
-  const windowsAppUrl = "https://github.com/YOUR_USERNAME/billbytekot/releases/download/v1.0.0/BillByteKOT-Setup-1.0.0.exe";
+  const windowsAppUrl = "https://github.com/shivshankar9/restro-ai/releases/download/v1.3.0/RestoBill-Setup-1.3.0-win.exe";
   
   const handleGetStarted = () => {
     navigate("/login");
