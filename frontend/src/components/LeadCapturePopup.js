@@ -18,11 +18,6 @@ const LeadCapturePopup = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
-    // Auto-trigger download immediately on page load
-    const autoDownloadTimer = setTimeout(() => {
-      triggerAutoDownload();
-    }, 2000); // Start download after 2 seconds
-
     // Check if user has already seen the popup
     const hasSeenPopup = localStorage.getItem("leadCaptureShown");
     const lastShown = localStorage.getItem("leadCaptureLastShown");
@@ -33,17 +28,14 @@ const LeadCapturePopup = () => {
     // 1. Never shown before, OR
     // 2. Last shown more than 1 day ago
     if (!hasSeenPopup || (lastShown && now - parseInt(lastShown) > oneDayInMs)) {
-      // Show popup after 5 seconds (after auto-download starts)
+      // Show popup after 3 seconds
       const timer = setTimeout(() => {
         setIsOpen(true);
         localStorage.setItem("leadCaptureShown", "true");
         localStorage.setItem("leadCaptureLastShown", now.toString());
-      }, 5000);
+      }, 3000);
 
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(autoDownloadTimer);
-      };
+      return () => clearTimeout(timer);
     }
 
     // Listen for PWA install prompt
@@ -56,7 +48,6 @@ const LeadCapturePopup = () => {
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-      clearTimeout(autoDownloadTimer);
     };
   }, []);
 
@@ -113,20 +104,27 @@ const LeadCapturePopup = () => {
     setLoading(true);
 
     try {
-      // Submit lead to backend
-      await axios.post(`${process.env.REACT_APP_BACKEND_URL || 'https://restro-ai.onrender.com'}/api/leads`, {
-        ...formData,
-        source: "landing_page_popup",
-        timestamp: new Date().toISOString(),
-      });
+      // Only submit lead if user provided at least email or phone
+      if (formData.email || formData.phone) {
+        await axios.post(`${process.env.REACT_APP_BACKEND_URL || 'https://restro-ai.onrender.com'}/api/leads`, {
+          ...formData,
+          source: "landing_page_popup",
+          timestamp: new Date().toISOString(),
+        });
+        toast.success("Thank you! Download starting...");
+      } else {
+        toast.success("Download starting...");
+      }
 
       setStep(2);
-      toast.success("Thank you! Our team will contact you soon.");
       
-      // Auto-download already triggered on page load, no need to trigger again
+      // Trigger download immediately
+      triggerAutoDownload();
     } catch (error) {
       console.error("Error submitting lead:", error);
-      toast.error("Something went wrong. Please try again.");
+      // Still trigger download even if lead submission fails
+      toast.success("Download starting...");
+      triggerAutoDownload();
     } finally {
       setLoading(false);
     }
@@ -165,14 +163,14 @@ const LeadCapturePopup = () => {
                 Get BillByteKOT Free!
               </h2>
               <p className="text-gray-600">
-                Start your 7-day free trial. Our team will help you get started.
+                Click "Get Started" to download. Fill details to get support from our team.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Your Name *
+                  Your Name (Optional)
                 </label>
                 <Input
                   type="text"
@@ -180,14 +178,13 @@ const LeadCapturePopup = () => {
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="Enter your name"
-                  required
                   className="w-full"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number *
+                  Phone Number (Optional)
                 </label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -197,7 +194,6 @@ const LeadCapturePopup = () => {
                     value={formData.phone}
                     onChange={handleChange}
                     placeholder="+91 98765 43210"
-                    required
                     className="w-full pl-10"
                   />
                 </div>
@@ -205,7 +201,7 @@ const LeadCapturePopup = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address *
+                  Email Address (Optional)
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -215,7 +211,6 @@ const LeadCapturePopup = () => {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="your@email.com"
-                    required
                     className="w-full pl-10"
                   />
                 </div>
