@@ -2,8 +2,9 @@ import { useElectron } from '../hooks/useElectron';
 import { Mail } from 'lucide-react';
 
 /**
- * Component to display desktop app info
+ * Component to display desktop app info at the top
  * Only visible when running in Electron
+ * Integrates seamlessly with page layout
  */
 const DesktopInfo = () => {
   const { isElectron, platform, getVersion } = useElectron();
@@ -17,35 +18,29 @@ const DesktopInfo = () => {
   };
   
   return (
-    <>
-      {/* Top Header with Contact Info */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-violet-600 to-purple-600 text-white py-2 px-4 shadow-md">
-        <div className="container mx-auto flex items-center justify-between text-sm">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              <span className="font-medium">Support:</span>
-              <a href="mailto:support@billbytekot.in" className="hover:underline">
-                support@billbytekot.in
-              </a>
-            </div>
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              <span className="font-medium">Contact:</span>
-              <a href="mailto:contact@billbytekot.in" className="hover:underline">
-                contact@billbytekot.in
-              </a>
-            </div>
+    <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white py-1.5 px-4">
+      <div className="container mx-auto flex items-center justify-between text-xs">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <Mail className="w-3.5 h-3.5" />
+            <span className="font-medium">Support:</span>
+            <a href="mailto:support@billbytekot.in" className="hover:underline">
+              support@billbytekot.in
+            </a>
           </div>
-          <div className="text-xs opacity-90">
-            BillByteKOT Desktop v{getVersion()} • {platformNames[platform] || platform}
+          <div className="flex items-center gap-1.5">
+            <Mail className="w-3.5 h-3.5" />
+            <span className="font-medium">Contact:</span>
+            <a href="mailto:contact@billbytekot.in" className="hover:underline">
+              contact@billbytekot.in
+            </a>
           </div>
         </div>
+        <div className="opacity-90">
+          BillByteKOT Desktop v{getVersion()} • {platformNames[platform] || platform}
+        </div>
       </div>
-      
-      {/* Spacer to prevent content from going under fixed header */}
-      <div className="h-10"></div>
-    </>
+    </div>
   );
 };
 
