@@ -4544,7 +4544,6 @@ async def get_assetlinks():
             "Access-Control-Allow-Origin": "*"
         }
     )
-    )
 
 
 logging.basicConfig(
