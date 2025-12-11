@@ -58,8 +58,8 @@ const DesktopDownloadSection = () => {
   const os = getOS();
   const isMobile = os === "android" || os === "ios";
   
-  // Windows desktop app download URL
-  const windowsAppUrl = "https://github.com/shivshankar9/restro-ai/releases/download/v1.3.0/RestoBill-Setup-1.3.0-win.exe";
+  // Windows desktop app download URL (Google Drive)
+  const windowsAppUrl = "https://drive.google.com/uc?export=download&id=1k-3AhQlDhj3c4VtlUbGCAhDW0VY3wOES";
   
   const handleGetStarted = () => {
     navigate("/login");

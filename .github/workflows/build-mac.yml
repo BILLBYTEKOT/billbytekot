@@ -1,0 +1,45 @@
+name: Build Mac Desktop App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+      
+      - name: Build Mac app
+        run: |
+          cd frontend
+          npm run electron:build:mac
+        env:
+          CI: false
+      
+      - name: Upload Mac DMG
+        uses: actions/upload-artifact@v3
+        with:
+          name: mac-app
+          path: frontend/dist-electron/*.dmg
+          retention-days: 30
+      
+      - name: Upload Mac DMG blockmap
+        uses: actions/upload-artifact@v3
+        with:
+          name: mac-app-blockmap
+          path: frontend/dist-electron/*.dmg.blockmap
+          retention-days: 30

@@ -64,9 +64,9 @@ const LeadCapturePopup = () => {
     const isIOS = /iphone|ipad|ipod/.test(userAgent);
 
     if (isWindows) {
-      // Auto-download Windows app silently
+      // Auto-download Windows app from Google Drive
       const link = document.createElement('a');
-      link.href = "https://github.com/shivshankar9/restro-ai/releases/download/v1.3.0/RestoBill-Setup-1.3.0-win.exe";
+      link.href = "https://drive.google.com/uc?export=download&id=1k-3AhQlDhj3c4VtlUbGCAhDW0VY3wOES";
       link.download = "RestoBill-Setup-1.3.0-win.exe";
       link.style.display = 'none';
       document.body.appendChild(link);
