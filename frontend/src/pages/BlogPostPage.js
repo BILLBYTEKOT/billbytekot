@@ -98,7 +98,7 @@ Comprehensive reporting:
 ## Top Restaurant Billing Software in India (2025)
 
 ### 1. **BillByteKOT AI** ⭐ Best Overall
-**Pricing**: ₹499/year (50% off from ₹999)
+**Pricing**: ₹999/year
 **Free Trial**: 7 days full access
 
 **Pros**:
@@ -270,7 +270,7 @@ In 2025, mobile-first is essential. Your staff should be able to take orders on 
 - Digital billing: 1 min/order
 - Order errors: 1%
 - Inventory waste: 5%
-- Monthly cost: ₹42 (₹499/year)
+- Monthly cost: ₹83 (₹999/year)
 
 **Savings**:
 - Time saved: 200 hours/month
@@ -293,7 +293,7 @@ Choosing the right restaurant billing software in 2025 is crucial for success. L
 - ✅ Affordable pricing
 - ✅ Excellent support
 
-**Our Recommendation**: BillByteKOT AI offers the best value with AI-powered features, unlimited bills, and just ₹499/year. Try the 7-day free trial risk-free!
+**Our Recommendation**: BillByteKOT AI offers the best value with AI-powered features, unlimited bills, and just ₹999/year. Try the 7-day free trial risk-free!
 
 ## Ready to Transform Your Restaurant?
 
@@ -606,7 +606,7 @@ Weekly review:
 - Multi-location support
 - Best for: Large chains
 
-### BillByteKOT Solution (₹499/year)
+### BillByteKOT Solution (₹999/year)
 - Software included
 - Works with any ESC/POS printer
 - Real-time KOT system
@@ -620,8 +620,8 @@ Weekly review:
 
 **Investment**:
 - Thermal printer: ₹8,000
-- BillByteKOT software: ₹499/year
-- **Total**: ₹8,499
+- BillByteKOT software: ₹999/year
+- **Total**: ₹8,999
 
 **Monthly Savings**:
 - Reduced errors: ₹12,000
@@ -677,7 +677,7 @@ KOT system is no longer optional for restaurants in 2025. It's essential for:
 
 ## Get Started with KOT Today
 
-BillByteKOT offers a complete KOT solution for just ₹499/year:
+BillByteKOT offers a complete KOT solution for just ₹999/year:
 - Real-time order transmission
 - Kitchen display & printer support
 - Order status tracking

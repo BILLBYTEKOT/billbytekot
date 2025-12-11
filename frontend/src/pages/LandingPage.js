@@ -397,9 +397,9 @@ const LandingPage = () => {
     },
     {
       name: "Premium",
-      price: "₹499",
+      price: "₹999",
       period: "per year",
-      originalPrice: "₹999",
+      originalPrice: "",
       features: [
         "Unlimited bills forever",
         "All premium features",
@@ -970,7 +970,7 @@ const LandingPage = () => {
             {[
               {
                 q: "How does the free trial work?",
-                a: "You get 7 days of full access to all premium features, completely free. No credit card required. After the trial, upgrade to Premium for just ₹499/year (50% off!).",
+                a: "You get 7 days of full access to all premium features, completely free. No credit card required. After the trial, upgrade to Premium for just ₹999/year.",
               },
               {
                 q: "Can I use my own Razorpay account?",
@@ -994,7 +994,7 @@ const LandingPage = () => {
               },
               {
                 q: "What's included in the Premium plan?",
-                a: "Unlimited bills, 6 thermal print formats, advanced AI analytics, priority 24/7 support, multi-currency, and all future features. Just ₹499/year!",
+                a: "Unlimited bills, 6 thermal print formats, advanced AI analytics, priority 24/7 support, multi-currency, and all future features. Just ₹999/year!",
               },
             ].map((faq, index) => (
               <Card key={index} className="border-0 shadow-lg">

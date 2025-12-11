@@ -4,17 +4,22 @@ import { API } from '../App';
 import Layout from '../components/Layout';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { 
   Crown, CheckCircle, AlertCircle, Sparkles, Zap, Shield, 
   Clock, Gift, Star, TrendingUp, Users, Printer, BarChart3,
-  Smartphone, Globe, HeadphonesIcon, Rocket
+  Smartphone, Globe, HeadphonesIcon, Rocket, Tag, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const SubscriptionPage = ({ user }) => {
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,17 +35,52 @@ const SubscriptionPage = ({ user }) => {
     }
   };
 
+  const handleValidateCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast.error('Please enter a coupon code');
+      return;
+    }
+
+    setValidatingCoupon(true);
+    try {
+      const response = await axios.post(`${API}/subscription/validate-coupon`, {
+        coupon_code: couponCode
+      });
+      setCouponApplied(response.data);
+      toast.success(`🎉 Coupon applied! ${response.data.description}`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Invalid coupon code');
+      setCouponApplied(null);
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    setCouponApplied(null);
+    toast.info('Coupon removed');
+  };
+
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      const response = await axios.post(`${API}/subscription/create-order`);
+      const response = await axios.post(`${API}/subscription/create-order`, {
+        coupon_code: couponApplied ? couponApplied.coupon_code : null
+      });
+      
+      const finalAmount = response.data.amount;
+      const discountInfo = response.data.coupon_applied 
+        ? ` (${response.data.coupon_applied.discount_display} discount applied!)` 
+        : '';
+      
       const options = {
         key: response.data.key_id,
-        amount: response.data.amount,
+        amount: finalAmount,
         currency: response.data.currency,
         order_id: response.data.razorpay_order_id,
         name: 'BillByteKOT AI',
-        description: 'Premium Subscription - 1 Year Unlimited Access',
+        description: `Premium Subscription - 1 Year${discountInfo}`,
         handler: async (razorpayResponse) => {
           try {
             await axios.post(`${API}/subscription/verify`, {
@@ -135,6 +175,50 @@ const SubscriptionPage = ({ user }) => {
           </Card>
         )}
 
+        {/* Special Offers Banner */}
+        {!subscriptionStatus?.subscription_active && (
+          <Card className="border-0 shadow-xl bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Gift className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">🎉 Limited Time Offers!</h3>
+                    <p className="text-orange-100">Use coupon codes to save up to 50% on your subscription</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {['LAUNCH50', 'WELCOME25', 'EARLYBIRD'].map((code) => (
+                    <button
+                      key={code}
+                      onClick={async () => {
+                        setCouponCode(code);
+                        setValidatingCoupon(true);
+                        try {
+                          const response = await axios.post(`${API}/subscription/validate-coupon`, {
+                            coupon_code: code
+                          });
+                          setCouponApplied(response.data);
+                          toast.success(`🎉 ${code} applied! ${response.data.description}`);
+                        } catch (error) {
+                          toast.error('Failed to apply coupon');
+                        } finally {
+                          setValidatingCoupon(false);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-bold transition-all border border-white/30"
+                    >
+                      {code}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-2 gap-8">
           {/* Free Trial Card */}
@@ -193,15 +277,81 @@ const SubscriptionPage = ({ user }) => {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl text-gray-400 line-through">₹999</span>
-                  <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-sm font-bold">50% OFF</span>
-                </div>
-                <p className="text-6xl font-black bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                  ₹499
-                </p>
-                <p className="text-gray-500">per year • Just ₹41/month</p>
+                {couponApplied ? (
+                  <>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-2xl text-gray-400 line-through">{couponApplied.original_price_display}</span>
+                      <span className="bg-green-100 text-green-600 px-2 py-0.5 rounded text-sm font-bold">
+                        {couponApplied.discount_percent}% OFF
+                      </span>
+                    </div>
+                    <p className="text-6xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                      {couponApplied.final_price_display}
+                    </p>
+                    <p className="text-gray-500">per year • Just ₹{Math.round(couponApplied.final_price / 100 / 12)}/month</p>
+                    <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-700 font-medium">
+                        🎉 {couponApplied.description} - Save {couponApplied.discount_display}!
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-6xl font-black bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                      ₹999
+                    </p>
+                    <p className="text-gray-500">per year • Just ₹83/month</p>
+                  </>
+                )}
               </div>
+
+              {/* Coupon Code Section */}
+              {!subscriptionStatus?.subscription_active && (
+                <div className="space-y-3 p-4 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-200">
+                  <Label className="flex items-center gap-2 text-sm font-semibold text-violet-700">
+                    <Tag className="w-4 h-4" />
+                    Have a coupon code?
+                  </Label>
+                  {couponApplied ? (
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border-2 border-green-500">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <span className="font-bold text-green-700">{couponApplied.coupon_code}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveCoupon}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter code (e.g., LAUNCH50)"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        className="flex-1"
+                        onKeyPress={(e) => e.key === 'Enter' && handleValidateCoupon()}
+                      />
+                      <Button
+                        onClick={handleValidateCoupon}
+                        disabled={validatingCoupon || !couponCode.trim()}
+                        variant="outline"
+                        className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                      >
+                        {validatingCoupon ? 'Checking...' : 'Apply'}
+                      </Button>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 text-center">
+                    Try: LAUNCH50, WELCOME25, SAVE100, EARLYBIRD, FIRSTYEAR
+                  </p>
+                </div>
+              )}
+
               <ul className="space-y-3">
                 {['Unlimited Bills Forever', 'All Premium Features', 'Priority 24/7 Support', 'Advanced AI Analytics', 'Multi-Device Access', 'Custom Integrations'].map((item, i) => (
                   <li key={i} className="flex items-center gap-3">
@@ -225,7 +375,9 @@ const SubscriptionPage = ({ user }) => {
                 <Button onClick={handleSubscribe} disabled={loading}
                   className="w-full h-14 text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-lg">
                   <Rocket className="w-5 h-5 mr-2" />
-                  {loading ? 'Processing...' : 'Subscribe Now - ₹499/year'}
+                  {loading ? 'Processing...' : couponApplied 
+                    ? `Subscribe Now - ${couponApplied.final_price_display}/year` 
+                    : 'Subscribe Now - ₹999/year'}
                 </Button>
               )}
             </CardContent>
@@ -299,7 +451,8 @@ const SubscriptionPage = ({ user }) => {
           <CardContent className="space-y-4">
             {[
               { q: 'How long is the free trial?', a: 'You get 7 days of full access to all premium features, no credit card required.' },
-              { q: 'What happens after the trial?', a: 'After 7 days, you can subscribe for ₹499/year or continue with limited features.' },
+              { q: 'What happens after the trial?', a: 'After 7 days, you can subscribe for ₹999/year or continue with limited features.' },
+              { q: 'Do you have any discount codes?', a: 'Yes! Try these codes: LAUNCH50 (50% off), WELCOME25 (25% off), SAVE100 (₹100 off), EARLYBIRD (30% off), or FIRSTYEAR (40% off). Enter the code during checkout!' },
               { q: 'Can I cancel anytime?', a: 'Yes! Cancel anytime. We also offer a 30-day money-back guarantee.' },
               { q: 'Is my data secure?', a: 'Absolutely. We use bank-grade encryption and never share your data.' },
             ].map((faq, i) => (

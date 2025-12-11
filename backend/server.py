@@ -412,7 +412,7 @@ class PaymentCreate(BaseModel):
 
 
 class SubscriptionPayment(BaseModel):
-    amount: float = 499.0  # ₹499/year
+    amount: float = 999.0  # ₹999/year
 
 
 class InventoryItem(BaseModel):
@@ -1536,10 +1536,19 @@ async def get_razorpay_settings(current_user: dict = Depends(get_current_user)):
     }
 
 
-# Subscription - ₹499/year with 7-day free trial
-SUBSCRIPTION_PRICE_PAISE = 49900  # ₹499 in paise
+# Subscription - ₹999/year with 7-day free trial
+SUBSCRIPTION_PRICE_PAISE = 99900  # ₹999 in paise
 TRIAL_DAYS = 7
 SUBSCRIPTION_DAYS = 365
+
+# Coupon codes for discounts
+COUPON_CODES = {
+    "LAUNCH50": {"discount_percent": 50, "description": "50% Launch Discount", "active": True},
+    "WELCOME25": {"discount_percent": 25, "description": "25% Welcome Discount", "active": True},
+    "SAVE100": {"discount_amount": 10000, "description": "₹100 Off", "active": True},  # 10000 paise = ₹100
+    "EARLYBIRD": {"discount_percent": 30, "description": "30% Early Bird Discount", "active": True},
+    "FIRSTYEAR": {"discount_percent": 40, "description": "40% First Year Discount", "active": True},
+}
 
 
 @api_router.get("/subscription/status")
@@ -1564,8 +1573,8 @@ async def get_subscription_status(current_user: dict = Depends(get_current_user)
         "is_trial": is_trial,
         "trial_days_left": trial_days_left,
         "trial_end": trial_end.isoformat() if trial_end else None,
-        "price": 499,
-        "price_display": "₹499/year"
+        "price": 999,
+        "price_display": "₹999/year"
     }
 
 
@@ -1586,13 +1595,84 @@ async def start_trial(current_user: dict = Depends(get_current_user)):
     }
 
 
+class CouponValidateRequest(BaseModel):
+    coupon_code: str
+
+
+@api_router.post("/subscription/validate-coupon")
+async def validate_coupon(data: CouponValidateRequest):
+    """Validate coupon code and return discount details"""
+    coupon_code = data.coupon_code.upper().strip()
+    
+    if coupon_code not in COUPON_CODES:
+        raise HTTPException(status_code=404, detail="Invalid coupon code")
+    
+    coupon = COUPON_CODES[coupon_code]
+    
+    if not coupon.get("active", True):
+        raise HTTPException(status_code=400, detail="This coupon code has expired")
+    
+    # Calculate discount
+    original_price = SUBSCRIPTION_PRICE_PAISE
+    discount_amount = 0
+    
+    if "discount_percent" in coupon:
+        discount_amount = int(original_price * coupon["discount_percent"] / 100)
+    elif "discount_amount" in coupon:
+        discount_amount = coupon["discount_amount"]
+    
+    final_price = max(0, original_price - discount_amount)
+    
+    return {
+        "valid": True,
+        "coupon_code": coupon_code,
+        "description": coupon["description"],
+        "original_price": original_price,
+        "discount_amount": discount_amount,
+        "final_price": final_price,
+        "original_price_display": f"₹{original_price / 100:.0f}",
+        "discount_display": f"₹{discount_amount / 100:.0f}",
+        "final_price_display": f"₹{final_price / 100:.0f}",
+        "discount_percent": coupon.get("discount_percent", 0)
+    }
+
+
+class CreateOrderRequest(BaseModel):
+    coupon_code: Optional[str] = None
+
+
 @api_router.post("/subscription/create-order")
-async def create_subscription_order(current_user: dict = Depends(get_current_user)):
+async def create_subscription_order(
+    data: CreateOrderRequest = None,
+    current_user: dict = Depends(get_current_user)
+):
     # IMPORTANT: These are YOUR (platform owner's) Razorpay keys for subscription payments
     # Money from subscriptions comes to YOU, not to individual restaurants
     DEFAULT_RAZORPAY_KEY_ID = "rzp_live_RmGqVf5JPGOT6G"
     DEFAULT_RAZORPAY_KEY_SECRET = "SKYS5tgjwU3H3Pf2ch3ZFtuH"
-    SUBSCRIPTION_PRICE_PAISE = 49900  # ₹499 in paise
+    
+    # Calculate price with coupon if provided
+    final_price = SUBSCRIPTION_PRICE_PAISE
+    coupon_applied = None
+    discount_amount = 0
+    
+    if data and data.coupon_code:
+        coupon_code = data.coupon_code.upper().strip()
+        if coupon_code in COUPON_CODES:
+            coupon = COUPON_CODES[coupon_code]
+            if coupon.get("active", True):
+                if "discount_percent" in coupon:
+                    discount_amount = int(SUBSCRIPTION_PRICE_PAISE * coupon["discount_percent"] / 100)
+                elif "discount_amount" in coupon:
+                    discount_amount = coupon["discount_amount"]
+                
+                final_price = max(0, SUBSCRIPTION_PRICE_PAISE - discount_amount)
+                coupon_applied = {
+                    "code": coupon_code,
+                    "description": coupon["description"],
+                    "discount_amount": discount_amount,
+                    "discount_display": f"₹{discount_amount / 100:.0f}"
+                }
     
     # Use platform owner's keys (YOUR account)
     razorpay_key_id = os.environ.get("RAZORPAY_KEY_ID") or DEFAULT_RAZORPAY_KEY_ID
@@ -1602,15 +1682,19 @@ async def create_subscription_order(current_user: dict = Depends(get_current_use
         razorpay_client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
 
         razor_order = razorpay_client.order.create(
-            {"amount": SUBSCRIPTION_PRICE_PAISE, "currency": "INR", "payment_capture": 1}
+            {"amount": final_price, "currency": "INR", "payment_capture": 1}
         )
 
         return {
             "razorpay_order_id": razor_order["id"],
-            "amount": SUBSCRIPTION_PRICE_PAISE,
+            "amount": final_price,
+            "original_amount": SUBSCRIPTION_PRICE_PAISE,
+            "discount_amount": discount_amount,
             "currency": "INR",
             "key_id": razorpay_key_id,
-            "price_display": "₹499"
+            "price_display": f"₹{final_price / 100:.0f}",
+            "original_price_display": f"₹{SUBSCRIPTION_PRICE_PAISE / 100:.0f}",
+            "coupon_applied": coupon_applied
         }
     except Exception as e:
         raise HTTPException(
@@ -1669,7 +1753,7 @@ async def verify_subscription_payment(
         
         # Accept payment if either signature is valid OR payment is captured OR amount matches
         if not signature_valid and not payment_captured:
-            if payment and payment.get('amount') == 49900:
+            if payment and payment.get('amount') == 99900:
                 print("Payment amount matches, accepting")
                 payment_captured = True
             else:
@@ -1992,7 +2076,7 @@ async def create_order(
                 if datetime.now(timezone.utc) > trial_end:
                     raise HTTPException(
                         status_code=402,
-                        detail="Your 7-day free trial has expired. Please subscribe to continue using BillByteKOT. Only ₹499/year for unlimited bills!",
+                        detail="Your 7-day free trial has expired. Please subscribe to continue using BillByteKOT. Only ₹999/year for unlimited bills!",
                     )
             except:
                 pass
@@ -3575,7 +3659,7 @@ async def ai_support_chat(chat_request: AIChatRequest):
     
     # Predefined responses for common questions
     common_responses = {
-        "pricing": "BillByteKOT offers a 7-day free trial with all features. After that, it's just ₹499/year (50% off from ₹999). You get unlimited bills, thermal printing, AI analytics, and priority support!",
+        "pricing": "BillByteKOT offers a 7-day free trial with all features. After that, it's just ₹999/year. You get unlimited bills, thermal printing, AI analytics, and priority support!",
         "thermal": "To setup thermal printer: 1) Connect your ESC/POS compatible printer (58mm or 80mm), 2) Go to Settings > Printer, 3) Select your printer and choose from 6 beautiful themes. Need help? Contact us!",
         "kot": "KOT (Kitchen Order Ticket) system sends orders directly to the kitchen. When you create an order, it automatically prints in the kitchen with item details, table number, and timing. This reduces errors and speeds up service!",
         "payment": "We support multiple payment methods: Cash, Card, UPI, and Razorpay integration. You can configure your own Razorpay account in Settings to receive payments directly.",
@@ -3583,7 +3667,7 @@ async def ai_support_chat(chat_request: AIChatRequest):
         "mobile": "Yes! BillByteKOT works on any device - desktop, tablet, or mobile. We also have a native Android app coming soon. Join our early access program to be notified!",
         "desktop": "Download our desktop app for Windows, Mac, or Linux from the Download page. It offers offline support, direct thermal printing, and faster performance!",
         "support": "We offer 24/7 support! Email us at support@billbytekot.in, call +91-98765-43210 (Mon-Sat, 9 AM-6 PM IST), or use this chat. Premium users get priority support with faster response times.",
-        "trial": "Start your 7-day free trial now! No credit card required. You get full access to all premium features including AI analytics, thermal printing, and unlimited bills. After trial, upgrade for just ₹499/year!",
+        "trial": "Start your 7-day free trial now! No credit card required. You get full access to all premium features including AI analytics, thermal printing, and unlimited bills. After trial, upgrade for just ₹999/year!",
         "features": "Key features: AI-powered billing, KOT system, thermal printing (6 themes), multi-currency support, inventory management, staff management, real-time analytics, WhatsApp integration, table management, and more!",
         "inventory": "Inventory management helps track stock levels, get low-stock alerts, manage suppliers, and auto-deduct items when sold. Go to Inventory page to add items and set minimum quantities.",
         "staff": "Add unlimited staff with roles: Admin (full access), Cashier (billing only), Waiter (orders & tables), Kitchen (KOT view). Each role has specific permissions. Go to Staff Management to add team members.",

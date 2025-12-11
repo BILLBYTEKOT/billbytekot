@@ -29,7 +29,7 @@ const TrialBanner = ({ user }) => {
             onClick={() => navigate('/subscription')} 
             className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
           >
-            Subscribe Now - ₹499/year
+            Subscribe Now - ₹999/year
           </Button>
         </CardContent>
       </Card>
@@ -57,7 +57,7 @@ const TrialBanner = ({ user }) => {
             variant="secondary" 
             className="bg-white text-orange-600 hover:bg-orange-50"
           >
-            Subscribe - ₹499/year
+            Subscribe - ₹999/year
           </Button>
         </CardContent>
       </Card>
