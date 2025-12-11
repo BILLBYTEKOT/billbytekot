@@ -148,23 +148,36 @@ frontend/billbytekot/build/
 frontend/billbytekot/app/build/
 frontend/billbytekot/.gradle/
 frontend/billbytekot/local.properties
+frontend/restobill-android/build/
+frontend/restobill-android/app/build/
+frontend/restobill-android/.gradle/
+frontend/restobill-android/local.properties
 
 # Android APK/AAB files
 *.apk
 *.aab
 *.ap_
 *.idsig
+*-unsigned-aligned.apk
+*-release-signed.apk
+*-release-bundle.aab
 
 # Android keystore (IMPORTANT: Keep secure!)
-# Uncomment if you want to exclude keystore
-# *.keystore
-# *.jks
+*.keystore
+*.jks
 
 # Android Studio
 frontend/billbytekot/.idea/
 frontend/billbytekot/*.iml
 frontend/billbytekot/.externalNativeBuild/
 frontend/billbytekot/.cxx/
+frontend/restobill-android/.idea/
+frontend/restobill-android/*.iml
+frontend/restobill-android/.externalNativeBuild/
+frontend/restobill-android/.cxx/
+
+# Android manifest checksum
+manifest-checksum.txt
 
 # ============ BACKEND (Python/Flask) ============
 # Backend build
@@ -196,6 +209,7 @@ backend/*.log
 *_SUMMARY.md
 *_INSTRUCTIONS.md
 *_STATUS.md
+*_FLOW.md
 BUILD_*.md
 DEPLOY_*.md
 AUTOMATION_*.md
@@ -204,31 +218,50 @@ ANDROID_*.md
 MAC_*.md
 DESKTOP_*.md
 UPLOAD_*.md
+CLEANUP_*.md
+PLAYSTORE_*.md
+WHATSAPP_*.md
+TWILIO_*.md
+PRIVACY_*.md
+SEO_*.md
+SESSION_*.md
+TABLE_*.md
+LEAD_*.md
+BACKLINK_*.md
+CORS_*.md
+RAZORPAY_*.md
+GITIGNORE_*.md
 
 # Keep important docs
 !README.md
 !CONTRIBUTING.md
 !LICENSE.md
 !CHANGELOG.md
+!DEPLOYMENT.md
 
 # ============ BUILD ARTIFACTS ============
 # Compiled files
 *.com
 *.class
 *.dll
-*.exe
 *.o
 *.so
 
+# Executables (keep in repo if needed for distribution)
+# *.exe
+
 # Archives
 *.7z
-*.dmg
 *.gz
 *.iso
 *.jar
 *.rar
 *.tar
 *.zip
+
+# Images (exclude large test images)
+54.jpg
+store_icon.png
 
 # ============ LOGS ============
 logs/
@@ -252,12 +285,30 @@ coverage/
 .nyc_output/
 test-results/
 playwright-report/
+tests/
+test_*.py
+*_test.py
+*_test.js
+test_*.md
+backend_test.py
+frontend/test-*.js
+frontend/test-*.html
 
 # ============ DEPLOYMENT ============
-# Deployment configs (if they contain secrets)
-# Uncomment if needed
-# deploy.sh
-# .deployment
+# Deployment scripts (old/unused)
+deploy*.sh
+deploy*.bat
+build-android.bat
+build-android.sh
+build.sh
+start-server.sh
+prepare-render.sh
+
+# Deployment configs
+render.yaml
+render-button.json
+vercel.json
+DEPLOYMENT_INSTRUCTIONS.txt
 
 # ============ MISC ============
 # Lock files (optional - uncomment if you want to exclude)
@@ -287,18 +338,15 @@ playwright-report/
 .vscode-test
 
 # ============ PROJECT SPECIFIC ============
-# Documentation that's too large or auto-generated
-# (Uncomment if needed)
-# WINDOWS_DESKTOP_BUILD_COMPLETE.md
-# BUILD_ANDROID_APK.md
-
-# Test files
-test_*.py
-*_test.py
+# Android build guides
+android-build-guide.md
 
 # Backup files
 *.backup
 *.old
+
+# Old/unused folders
+frontend/restobill-android/
 
 # ============ SECURITY ============
 # Never commit these!

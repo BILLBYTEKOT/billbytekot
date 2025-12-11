@@ -64,14 +64,12 @@ const LeadCapturePopup = () => {
     const isIOS = /iphone|ipad|ipod/.test(userAgent);
 
     if (isWindows) {
-      // Auto-download Windows app from Google Drive
-      const link = document.createElement('a');
-      link.href = "https://drive.google.com/uc?export=download&id=1k-3AhQlDhj3c4VtlUbGCAhDW0VY3wOES";
-      link.download = "RestoBill-Setup-1.3.0-win.exe";
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Auto-download Windows app from Google Drive (direct download link)
+      const fileId = "1k-3AhQlDhj3c4VtlUbGCAhDW0VY3wOES";
+      const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+      
+      // Open in new tab to trigger download
+      window.open(downloadUrl, '_blank');
       
       // Show subtle notification
       toast.success("BillByteKOT is downloading...", { duration: 3000 });

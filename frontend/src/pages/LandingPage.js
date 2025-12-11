@@ -58,8 +58,9 @@ const DesktopDownloadSection = () => {
   const os = getOS();
   const isMobile = os === "android" || os === "ios";
   
-  // Windows desktop app download URL (Google Drive)
-  const windowsAppUrl = "https://drive.google.com/uc?export=download&id=1k-3AhQlDhj3c4VtlUbGCAhDW0VY3wOES";
+  // Windows desktop app download URL (Google Drive with auto-download)
+  const fileId = "1k-3AhQlDhj3c4VtlUbGCAhDW0VY3wOES";
+  const windowsAppUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
   
   const handleGetStarted = () => {
     navigate("/login");
@@ -67,7 +68,7 @@ const DesktopDownloadSection = () => {
   };
   
   const handleDownloadWindows = () => {
-    // Download the Windows app
+    // Download the Windows app (direct download)
     window.open(windowsAppUrl, '_blank');
     toast.success("Downloading BillByteKOT for Windows...");
   };
