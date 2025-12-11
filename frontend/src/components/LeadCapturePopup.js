@@ -64,14 +64,22 @@ const LeadCapturePopup = () => {
     const isIOS = /iphone|ipad|ipod/.test(userAgent);
 
     if (isWindows) {
-      // Auto-download Windows app from Google Drive (direct download link)
+      // Auto-download Windows app from Google Drive
       const fileId = "1k-3AhQlDhj3c4VtlUbGCAhDW0VY3wOES";
-      const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
       
-      // Open in new tab to trigger download
-      window.open(downloadUrl, '_blank');
+      // Use direct download link that bypasses virus scan for large files
+      const downloadUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&authuser=0&confirm=t`;
       
-      // Show subtle notification
+      // Create hidden link and trigger download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = "BillByteKOT-Setup.exe";
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Show notification
       toast.success("BillByteKOT is downloading...", { duration: 3000 });
     } else if (isAndroid || isIOS) {
       // Try to trigger PWA install silently
