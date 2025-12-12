@@ -2721,17 +2721,21 @@ async def sales_forecast():
 
 # Reports
 @api_router.get("/reports/daily")
-async def daily_report():
+async def daily_report(current_user: dict = Depends(get_current_user)):
+    user_org_id = current_user.get("organization_id") or current_user["id"]
     today = datetime.now(timezone.utc).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
-    orders = await db.orders.find({"status": "completed"}, {"_id": 0}).to_list(1000)
+    orders = await db.orders.find({
+        "status": "completed",
+        "organization_id": user_org_id
+    }, {"_id": 0}).to_list(1000)
 
     today_orders = []
     for order in orders:
         order_date = order["created_at"]
         if isinstance(order_date, str):
-            order_date = datetime.fromisoformat(order_date)
+            order_date = datetime.fromisoformat(order_date.replace("Z", "+00:00"))
         if order_date >= today:
             today_orders.append(order)
 
@@ -2747,17 +2751,26 @@ async def daily_report():
 
 
 @api_router.get("/reports/export")
-async def export_report(start_date: str, end_date: str):
+async def export_report(
+    start_date: str, 
+    end_date: str,
+    current_user: dict = Depends(get_current_user)
+):
+    user_org_id = current_user.get("organization_id") or current_user["id"]
     start = datetime.fromisoformat(start_date)
-    end = datetime.fromisoformat(end_date)
+    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59)
 
-    orders = await db.orders.find({"status": "completed"}, {"_id": 0}).to_list(1000)
+    orders = await db.orders.find({
+        "status": "completed",
+        "organization_id": user_org_id
+    }, {"_id": 0}).to_list(1000)
+    
     filtered_orders = []
 
     for order in orders:
         order_date = order["created_at"]
         if isinstance(order_date, str):
-            order_date = datetime.fromisoformat(order_date)
+            order_date = datetime.fromisoformat(order_date.replace("Z", "+00:00"))
         if start <= order_date <= end:
             filtered_orders.append(order)
 
@@ -2781,7 +2794,7 @@ async def weekly_report(current_user: dict = Depends(get_current_user)):
     for order in orders:
         order_date = order["created_at"]
         if isinstance(order_date, str):
-            order_date = datetime.fromisoformat(order_date)
+            order_date = datetime.fromisoformat(order_date.replace("Z", "+00:00"))
         if order_date >= week_ago:
             weekly_orders.append(order)
     
@@ -2811,7 +2824,7 @@ async def monthly_report(current_user: dict = Depends(get_current_user)):
     for order in orders:
         order_date = order["created_at"]
         if isinstance(order_date, str):
-            order_date = datetime.fromisoformat(order_date)
+            order_date = datetime.fromisoformat(order_date.replace("Z", "+00:00"))
         if order_date >= month_ago:
             monthly_orders.append(order)
     

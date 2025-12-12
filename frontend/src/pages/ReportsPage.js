@@ -50,23 +50,32 @@ const ReportsPage = ({ user }) => {
       .split("T")[0],
     end_date: new Date().toISOString().split("T")[0],
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
     fetchAllReports();
   }, []);
 
   const fetchAllReports = async () => {
-    await Promise.all([
-      fetchDailyReport(),
-      fetchWeeklyReport(),
-      fetchMonthlyReport(),
-      fetchBestSelling(),
-      fetchStaffPerformance(),
-      fetchPeakHours(),
-      fetchCategoryAnalysis(),
-      fetchForecast(),
-    ]);
+    setInitialLoading(true);
+    try {
+      await Promise.all([
+        fetchDailyReport(),
+        fetchWeeklyReport(),
+        fetchMonthlyReport(),
+        fetchBestSelling(),
+        fetchStaffPerformance(),
+        fetchPeakHours(),
+        fetchCategoryAnalysis(),
+        fetchForecast(),
+      ]);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      toast.error("Failed to load some reports");
+    } finally {
+      setInitialLoading(false);
+    }
   };
 
   const fetchDailyReport = async () => {
@@ -75,6 +84,7 @@ const ReportsPage = ({ user }) => {
       setDailyReport(response.data);
     } catch (error) {
       console.error("Failed to fetch daily report", error);
+      setDailyReport({ total_orders: 0, total_sales: 0, orders: [] });
     }
   };
 
@@ -84,6 +94,7 @@ const ReportsPage = ({ user }) => {
       setWeeklyReport(response.data);
     } catch (error) {
       console.error("Failed to fetch weekly report", error);
+      setWeeklyReport({ total_orders: 0, total_sales: 0 });
     }
   };
 
@@ -93,31 +104,34 @@ const ReportsPage = ({ user }) => {
       setMonthlyReport(response.data);
     } catch (error) {
       console.error("Failed to fetch monthly report", error);
+      setMonthlyReport({ total_orders: 0, total_sales: 0 });
     }
   };
 
   const fetchBestSelling = async () => {
     try {
       const response = await axios.get(`${API}/reports/best-selling`);
-      setBestSelling(response.data);
+      setBestSelling(response.data || []);
     } catch (error) {
       console.error("Failed to fetch best selling items", error);
+      setBestSelling([]);
     }
   };
 
   const fetchStaffPerformance = async () => {
     try {
       const response = await axios.get(`${API}/reports/staff-performance`);
-      setStaffPerformance(response.data);
+      setStaffPerformance(response.data || []);
     } catch (error) {
       console.error("Failed to fetch staff performance", error);
+      setStaffPerformance([]);
     }
   };
 
   const fetchPeakHours = async () => {
     try {
       const response = await axios.get(`${API}/reports/peak-hours`);
-      setPeakHours(response.data);
+      setPeakHours(response.data || []);
     } catch (error) {
       console.error("Failed to fetch peak hours", error);
     }
@@ -126,9 +140,10 @@ const ReportsPage = ({ user }) => {
   const fetchCategoryAnalysis = async () => {
     try {
       const response = await axios.get(`${API}/reports/category-analysis`);
-      setCategoryAnalysis(response.data);
+      setCategoryAnalysis(response.data || []);
     } catch (error) {
       console.error("Failed to fetch category analysis", error);
+      setCategoryAnalysis([]);
     }
   };
 
@@ -138,6 +153,7 @@ const ReportsPage = ({ user }) => {
       setForecast(response.data);
     } catch (error) {
       console.error("Failed to fetch forecast", error);
+      setForecast(null);
     }
   };
 
@@ -397,6 +413,19 @@ const ReportsPage = ({ user }) => {
       setLoading(false);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <Layout user={user}>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 border-4 border-violet-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-gray-600 font-medium">Loading reports...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout user={user}>
