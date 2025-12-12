@@ -157,7 +157,7 @@ const ReportsPage = ({ user }) => {
     }
   };
 
-  const handleExport = async () => {
+  const handleExportCSV = async () => {
     setLoading(true);
     try {
       const response = await axios.get(`${API}/reports/export`, {
@@ -167,6 +167,7 @@ const ReportsPage = ({ user }) => {
       const orders = response.data.orders;
       if (!orders || orders.length === 0) {
         toast.error("No data found for selected date range");
+        setLoading(false);
         return;
       }
 
@@ -207,10 +208,309 @@ const ReportsPage = ({ user }) => {
       a.click();
       window.URL.revokeObjectURL(url);
 
-      toast.success("Report exported successfully!");
+      toast.success("CSV exported successfully!");
     } catch (error) {
       console.error(error);
-      toast.error("Failed to export report");
+      toast.error("Failed to export CSV");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/reports/export`, {
+        params: dateRange,
+      });
+
+      const orders = response.data.orders;
+      if (!orders || orders.length === 0) {
+        toast.error("No data found for selected date range");
+        setLoading(false);
+        return;
+      }
+
+      // Create Excel-compatible HTML table
+      const totalSales = orders.reduce((sum, order) => sum + order.total, 0);
+      const totalTax = orders.reduce((sum, order) => sum + order.tax, 0);
+      const totalSubtotal = orders.reduce((sum, order) => sum + order.subtotal, 0);
+
+      const excelContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #7c3aed; color: white; font-weight: bold; }
+            .total-row { background-color: #f3f4f6; font-weight: bold; }
+            .header { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">Sales Report: ${dateRange.start_date} to ${dateRange.end_date}</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Table</th>
+                <th>Waiter</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Subtotal</th>
+                <th>Tax</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${orders.map(order => `
+                <tr>
+                  <td>${order.id.slice(0, 8)}</td>
+                  <td>${order.table_number}</td>
+                  <td>${order.waiter_name}</td>
+                  <td>${order.customer_name || 'N/A'}</td>
+                  <td>${order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}</td>
+                  <td>₹${order.subtotal.toFixed(2)}</td>
+                  <td>₹${order.tax.toFixed(2)}</td>
+                  <td>₹${order.total.toFixed(2)}</td>
+                  <td>${order.status}</td>
+                  <td>${new Date(order.created_at).toLocaleString()}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="5">TOTALS</td>
+                <td>₹${totalSubtotal.toFixed(2)}</td>
+                <td>₹${totalTax.toFixed(2)}</td>
+                <td>₹${totalSales.toFixed(2)}</td>
+                <td colspan="2"></td>
+              </tr>
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob([excelContent], { type: "application/vnd.ms-excel" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `restaurant-report-${dateRange.start_date}-to-${dateRange.end_date}.xls`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Excel file exported successfully!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to export Excel");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/reports/export`, {
+        params: dateRange,
+      });
+
+      const orders = response.data.orders;
+      if (!orders || orders.length === 0) {
+        toast.error("No data found for selected date range");
+        setLoading(false);
+        return;
+      }
+
+      // Calculate totals
+      const totalOrders = orders.length;
+      const totalSales = orders.reduce((sum, order) => sum + order.total, 0);
+      const totalTax = orders.reduce((sum, order) => sum + order.tax, 0);
+      const totalSubtotal = orders.reduce((sum, order) => sum + order.subtotal, 0);
+
+      // Create PDF-friendly print window
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Sales Report PDF</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body {
+              font-family: Arial, sans-serif;
+              font-size: 10px;
+              line-height: 1.4;
+              color: #000;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+              border-bottom: 2px solid #7c3aed;
+              padding-bottom: 10px;
+            }
+            .header h1 {
+              margin: 0;
+              color: #7c3aed;
+              font-size: 20px;
+            }
+            .header p {
+              margin: 5px 0;
+              color: #666;
+            }
+            .summary {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 10px;
+              margin-bottom: 20px;
+              background: #f3f4f6;
+              padding: 15px;
+              border-radius: 8px;
+            }
+            .summary-item {
+              text-align: center;
+            }
+            .summary-item h3 {
+              margin: 0;
+              font-size: 9px;
+              color: #666;
+            }
+            .summary-item p {
+              margin: 5px 0 0 0;
+              font-size: 16px;
+              font-weight: bold;
+              color: #7c3aed;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 6px;
+              text-align: left;
+              font-size: 9px;
+            }
+            th {
+              background-color: #7c3aed;
+              color: white;
+              font-weight: bold;
+            }
+            tr:nth-child(even) {
+              background-color: #f9fafb;
+            }
+            .total-row {
+              background-color: #e5e7eb;
+              font-weight: bold;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 20px;
+              padding-top: 10px;
+              border-top: 1px solid #ddd;
+              font-size: 8px;
+              color: #666;
+            }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${user?.business_settings?.restaurant_name || 'Restaurant'}</h1>
+            <p>Sales Report</p>
+            <p>${new Date(dateRange.start_date).toLocaleDateString()} - ${new Date(dateRange.end_date).toLocaleDateString()}</p>
+            <p>Generated on: ${new Date().toLocaleString()}</p>
+          </div>
+
+          <div class="summary">
+            <div class="summary-item">
+              <h3>Total Orders</h3>
+              <p>${totalOrders}</p>
+            </div>
+            <div class="summary-item">
+              <h3>Total Sales</h3>
+              <p>₹${totalSales.toFixed(2)}</p>
+            </div>
+            <div class="summary-item">
+              <h3>Total Tax</h3>
+              <p>₹${totalTax.toFixed(2)}</p>
+            </div>
+            <div class="summary-item">
+              <h3>Avg Order</h3>
+              <p>₹${(totalSales / totalOrders).toFixed(2)}</p>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Date</th>
+                <th>Table</th>
+                <th>Waiter</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Subtotal</th>
+                <th>Tax</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${orders.map(order => `
+                <tr>
+                  <td>${order.id.slice(0, 8)}</td>
+                  <td>${new Date(order.created_at).toLocaleDateString()}</td>
+                  <td>${order.table_number}</td>
+                  <td>${order.waiter_name}</td>
+                  <td>${order.customer_name || 'N/A'}</td>
+                  <td>${order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}</td>
+                  <td>₹${order.subtotal.toFixed(2)}</td>
+                  <td>₹${order.tax.toFixed(2)}</td>
+                  <td>₹${order.total.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="6">TOTALS</td>
+                <td>₹${totalSubtotal.toFixed(2)}</td>
+                <td>₹${totalTax.toFixed(2)}</td>
+                <td>₹${totalSales.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <p>Generated by BillByteKOT AI - Restaurant Management System</p>
+            <p>${user?.business_settings?.address || ''} | ${user?.business_settings?.phone || ''}</p>
+          </div>
+
+          <div class="no-print" style="text-align: center; margin-top: 20px;">
+            <button onclick="window.print(); setTimeout(() => window.close(), 100);" 
+              style="padding: 12px 24px; background: #7c3aed; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">
+              Download as PDF
+            </button>
+            <button onclick="window.close()" 
+              style="padding: 12px 24px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; margin-left: 10px;">
+              Close
+            </button>
+            <p style="margin-top: 10px; font-size: 12px; color: #666;">
+              Click "Download as PDF" and choose "Save as PDF" in the print dialog
+            </p>
+          </div>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      
+      toast.success("PDF preview opened! Use Print dialog to save as PDF");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate PDF");
     } finally {
       setLoading(false);
     }
@@ -997,15 +1297,35 @@ const ReportsPage = ({ user }) => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Button
-                      onClick={handleExport}
+                      onClick={handleExportCSV}
                       disabled={loading}
-                      className="h-12 bg-gradient-to-r from-violet-600 to-purple-600"
+                      className="h-12 bg-gradient-to-r from-green-600 to-emerald-600"
                       data-testid="export-csv-button"
                     >
                       <FileSpreadsheet className="w-4 h-4 mr-2" />
-                      {loading ? "Exporting..." : "Export to CSV"}
+                      {loading ? "Exporting..." : "CSV"}
+                    </Button>
+                    
+                    <Button
+                      onClick={handleExportExcel}
+                      disabled={loading}
+                      className="h-12 bg-gradient-to-r from-blue-600 to-cyan-600"
+                      data-testid="export-excel-button"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      {loading ? "Exporting..." : "Excel"}
+                    </Button>
+                    
+                    <Button
+                      onClick={handleExportPDF}
+                      disabled={loading}
+                      className="h-12 bg-gradient-to-r from-red-600 to-pink-600"
+                      data-testid="export-pdf-button"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      {loading ? "Exporting..." : "PDF"}
                     </Button>
                     
                     <Button
@@ -1016,18 +1336,33 @@ const ReportsPage = ({ user }) => {
                       data-testid="print-report-button"
                     >
                       <Printer className="w-4 h-4 mr-2" />
-                      Print Report
+                      Print
                     </Button>
                   </div>
 
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="font-semibold text-blue-900 mb-2">Export Includes:</h4>
-                    <ul className="text-sm text-blue-700 space-y-1">
-                      <li>• Order details (ID, table, waiter, customer)</li>
-                      <li>• Item breakdown with quantities</li>
-                      <li>• Subtotal, tax, and total amounts</li>
-                      <li>• Order status and timestamps</li>
-                      <li>• Payment information</li>
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-gray-900 mb-3">📊 Export Formats Available:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                      <div className="p-2 bg-white rounded border border-green-200">
+                        <p className="font-semibold text-green-700 text-sm">CSV</p>
+                        <p className="text-xs text-gray-600">Excel, Google Sheets</p>
+                      </div>
+                      <div className="p-2 bg-white rounded border border-blue-200">
+                        <p className="font-semibold text-blue-700 text-sm">Excel</p>
+                        <p className="text-xs text-gray-600">Microsoft Excel (.xls)</p>
+                      </div>
+                      <div className="p-2 bg-white rounded border border-red-200">
+                        <p className="font-semibold text-red-700 text-sm">PDF</p>
+                        <p className="text-xs text-gray-600">Print & Save as PDF</p>
+                      </div>
+                    </div>
+                    <h4 className="font-semibold text-gray-900 mb-2 text-sm">Includes:</h4>
+                    <ul className="text-xs text-gray-700 space-y-1">
+                      <li>✓ Order details (ID, table, waiter, customer)</li>
+                      <li>✓ Item breakdown with quantities</li>
+                      <li>✓ Subtotal, tax, and total amounts</li>
+                      <li>✓ Order status and timestamps</li>
+                      <li>✓ Summary statistics</li>
                     </ul>
                   </div>
                 </div>
