@@ -24,8 +24,8 @@ import BlogPostPage from './pages/BlogPostPage';
 import ContactPage from './pages/ContactPage';
 import OrderDisplayPage from './pages/OrderDisplayPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import HelpPage from './pages/HelpPage';
 import DesktopInfo from './components/DesktopInfo';
-import ContactWidget from './components/ContactWidget';
 import { Toaster } from './components/ui/sonner';
 
 // Electron navigation handler component
@@ -249,10 +249,9 @@ function App() {
           <Route path="/blog/:slug" element={<BlogPostPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/help" element={<ProtectedRoute user={user}><HelpPage user={user} /></ProtectedRoute>} />
         </Routes>
         <DesktopInfo />
-        {/* Contact Widget - Always visible */}
-        <ContactWidget />
       </BrowserRouter>
       <Toaster position="top-center" richColors />
     </div>
