@@ -249,7 +249,7 @@ function App() {
           <Route path="/blog/:slug" element={<BlogPostPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
-          <Route path="/help" element={<ProtectedRoute user={user}><HelpPage user={user} /></ProtectedRoute>} />
+          <Route path="/help" element={<PrivateRoute><HelpPage user={user} /></PrivateRoute>} />
         </Routes>
         <DesktopInfo />
       </BrowserRouter>
