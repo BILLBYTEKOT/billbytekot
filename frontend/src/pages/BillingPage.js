@@ -242,29 +242,31 @@ const BillingPage = ({ user }) => {
                 box-sizing: border-box;
               }
               html, body {
-                height: 100%;
+                min-height: 100vh;
                 width: 100%;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                overflow: hidden;
+                overflow-y: auto;
+                overflow-x: hidden;
               }
               body {
                 display: flex;
+                flex-direction: column;
                 align-items: center;
-                justify-content: center;
-                padding: 20px;
+                padding: 40px 20px;
               }
               .preview-wrapper {
                 width: 100%;
-                max-width: 420px;
+                max-width: 500px;
                 display: flex;
                 flex-direction: column;
                 gap: 0;
+                margin: auto;
               }
               .preview-container {
                 background: #ffffff;
                 border-radius: 20px;
-                overflow: hidden;
+                overflow: visible;
                 box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
                 animation: slideUp 0.4s ease-out;
               }
@@ -332,43 +334,31 @@ const BillingPage = ({ user }) => {
                 letter-spacing: 0.5px;
               }
               .receipt-content {
-                padding: 24px;
+                padding: 32px;
                 background: #f9fafb;
-                max-height: 60vh;
-                overflow-y: auto;
-              }
-              .receipt-content::-webkit-scrollbar {
-                width: 8px;
-              }
-              .receipt-content::-webkit-scrollbar-track {
-                background: #e5e7eb;
-                border-radius: 10px;
-              }
-              .receipt-content::-webkit-scrollbar-thumb {
-                background: #9ca3af;
-                border-radius: 10px;
-              }
-              .receipt-content::-webkit-scrollbar-thumb:hover {
-                background: #6b7280;
+                overflow: visible;
               }
               .receipt-paper {
                 background: #ffffff;
-                padding: 28px 24px;
+                padding: 32px 28px;
                 border-radius: 12px;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
                 border: 2px solid #e5e7eb;
+                min-height: auto;
               }
               .receipt-paper pre {
                 background: #fafafa;
-                padding: 20px;
+                padding: 24px;
                 border-radius: 8px;
                 border: 2px dashed #d1d5db;
                 font-family: 'Courier New', 'Courier', 'Consolas', 'Monaco', monospace;
                 font-size: ${fontSize};
-                line-height: 1.6;
+                line-height: 1.7;
                 letter-spacing: 0.3px;
-                white-space: pre;
-                overflow-x: auto;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                overflow: visible;
+                max-width: 100%;
               }
               .action-buttons {
                 padding: 24px;
