@@ -304,11 +304,21 @@ const BillingPage = ({ user }) => {
               }
               .preview-container {
                 max-width: 400px;
-                margin: 0 auto;
+                margin: 20px auto;
                 background: #ffffff;
                 border-radius: 16px;
                 overflow: hidden;
                 box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+              }
+              html, body {
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
               }
               .preview-header {
                 text-align: center;

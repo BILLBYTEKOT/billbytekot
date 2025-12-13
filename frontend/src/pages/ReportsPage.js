@@ -892,7 +892,7 @@ const ReportsPage = ({ user }) => {
                     </div>
                   </div>
                   <Button
-                    onClick={handleExport}
+                    onClick={handleExportCSV}
                     disabled={loading}
                     className="bg-gradient-to-r from-violet-600 to-purple-600"
                     data-testid="export-button"

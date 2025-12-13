@@ -239,6 +239,18 @@ html {
     display: block !important;
   }
   
+  /* Hide sidebar and navigation during print */
+  nav, aside, header, .sidebar, .desktop-sidebar, .mobile-nav {
+    display: none !important;
+  }
+  
+  /* Make main content full width during print */
+  main, .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  
   /* Thermal receipt specific */
   .thermal-receipt {
     width: 80mm;
