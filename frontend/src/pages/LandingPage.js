@@ -586,14 +586,10 @@ const LandingPage = () => {
             </div>
 
             <h1
-              className="text-5xl md:text-7xl font-bold mb-6 leading-tight"
+              className="text-4xl md:text-6xl font-bold mb-6 leading-tight"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
-              Smart Billing,
-              <br />
-              <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Smarter Business
-              </span>
+              BillByteKOT – Restaurant Billing & KOT Software in India
             </h1>
 
             <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
@@ -645,6 +641,83 @@ const LandingPage = () => {
                   <div className="text-sm text-gray-600">{stat.label}</div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SEO Content Section - Main Homepage Content */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto prose prose-lg">
+            <p className="text-lg text-gray-700 leading-relaxed mb-6">
+              BillByteKOT is India's most trusted <strong>restaurant billing software</strong> designed specifically for Indian restaurants, cafes, and food businesses. Our comprehensive <strong>KOT (Kitchen Order Ticket) system</strong> streamlines your entire restaurant operations from order taking to billing, making it the perfect solution for restaurants of all sizes across India.
+            </p>
+
+            <h2 className="text-3xl font-bold text-gray-900 mb-4 mt-8">Complete Restaurant Management Solution</h2>
+            <p className="text-lg text-gray-700 leading-relaxed mb-6">
+              Whether you run a small cafe, quick service restaurant, or fine dining establishment, BillByteKOT provides everything you need in one powerful platform. Our <strong>restaurant billing software</strong> includes advanced features like <strong>GST billing</strong>, inventory management, thermal printing, table management, and real-time analytics. With support for multiple payment methods including cash, card, UPI, and online payments through Razorpay integration, you can accept payments seamlessly from your customers.
+            </p>
+
+            <h2 className="text-3xl font-bold text-gray-900 mb-4 mt-8">Why Choose BillByteKOT for Your Restaurant?</h2>
+            <p className="text-lg text-gray-700 leading-relaxed mb-4">
+              Our <strong>KOT system</strong> is specifically designed for Indian restaurants with features that matter most to your business. Generate professional bills with <strong>GST compliance</strong>, manage your inventory with low-stock alerts, track sales with detailed reports, and print receipts on thermal printers with 6 beautiful themes. BillByteKOT supports multi-currency operations, making it perfect for restaurants serving international customers or operating in tourist areas.
+            </p>
+
+            <ul className="list-disc pl-6 mb-6 text-lg text-gray-700 space-y-2">
+              <li><strong>Easy to Use:</strong> Intuitive interface designed for restaurant staff with minimal training required</li>
+              <li><strong>GST Billing:</strong> Fully compliant with Indian GST regulations, automatic tax calculations</li>
+              <li><strong>Inventory Management:</strong> Track stock levels, get alerts, manage suppliers efficiently</li>
+              <li><strong>Thermal Printing:</strong> Support for all ESC/POS thermal printers with professional receipt themes</li>
+              <li><strong>Multi-Currency Support:</strong> Accept payments in INR, USD, EUR, GBP, AED, and 10+ currencies</li>
+              <li><strong>WhatsApp Integration:</strong> Send bills and order updates directly to customers via WhatsApp</li>
+              <li><strong>Real-Time Reports:</strong> Track sales, revenue, popular items, and business performance instantly</li>
+              <li><strong>Staff Management:</strong> Role-based access for admin, cashiers, waiters, and kitchen staff</li>
+            </ul>
+
+            <h2 className="text-3xl font-bold text-gray-900 mb-4 mt-8">Free Trial – Try Before You Buy</h2>
+            <p className="text-lg text-gray-700 leading-relaxed mb-6">
+              Start with our <strong>7-day free trial</strong> and experience all premium features without any credit card requirement. Process unlimited bills during your trial period and see how BillByteKOT can transform your restaurant operations. After the trial, continue with our affordable pricing at just <strong>₹499 per year</strong> with unlimited bills and all features included. No hidden fees, no per-transaction charges – just straightforward pricing that works for your business.
+            </p>
+
+            <h2 className="text-3xl font-bold text-gray-900 mb-4 mt-8">Trusted Across India – Mumbai to Bangalore</h2>
+            <p className="text-lg text-gray-700 leading-relaxed mb-6">
+              BillByteKOT is the preferred <strong>restaurant billing software</strong> for businesses across major Indian cities including Mumbai, Delhi, Bangalore, Hyderabad, Chennai, Kolkata, Pune, Ahmedabad, Jaipur, and Surat. Whether you operate a small cafe in Bangalore, a fine dining restaurant in Mumbai, or a quick service restaurant in Delhi, our software adapts to your specific needs. With cloud-based access, manage your restaurant from anywhere in India with just an internet connection.
+            </p>
+
+            <div className="bg-violet-50 border-l-4 border-violet-600 p-6 my-8 rounded-r-lg">
+              <p className="text-lg text-gray-800 font-semibold mb-2">
+                Join 500+ Successful Restaurants Using BillByteKOT
+              </p>
+              <p className="text-gray-700">
+                Trusted by restaurants across India for reliable billing, efficient KOT management, and comprehensive business insights. Get started today and take your restaurant to the next level!
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-4 mt-8 justify-center">
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-violet-600 to-purple-600 h-12 px-6"
+                onClick={handleGetStarted}
+              >
+                Start Free Trial Now
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-12 px-6"
+                onClick={() => navigate("/pricing")}
+              >
+                View Pricing
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-12 px-6"
+                onClick={() => navigate("/contact")}
+              >
+                Contact Sales
+              </Button>
             </div>
           </div>
         </div>
@@ -792,6 +865,100 @@ const LandingPage = () => {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison Section - Target Comparison Keywords */}
+      <section className="py-20 bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="container mx-auto px-4">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+                BillByteKOT vs Traditional POS Systems
+              </h2>
+              <p className="text-xl text-gray-600">
+                See why restaurants are switching to BillByteKOT
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* BillByteKOT Column */}
+              <Card className="border-2 border-violet-600 shadow-2xl">
+                <CardHeader className="bg-gradient-to-r from-violet-600 to-purple-600 text-white">
+                  <CardTitle className="text-2xl text-center">BillByteKOT</CardTitle>
+                  <p className="text-center text-violet-100">Modern Cloud-Based Solution</p>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <ul className="space-y-4">
+                    {[
+                      "₹499/year - Affordable pricing",
+                      "7-day free trial, no credit card",
+                      "Cloud-based - Access anywhere",
+                      "Automatic updates included",
+                      "WhatsApp integration built-in",
+                      "Multi-currency support",
+                      "6 thermal printer themes",
+                      "AI-powered analytics",
+                      "24/7 online support",
+                      "No hardware lock-in",
+                      "Works on any device",
+                      "GST compliant billing"
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-gray-700">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Traditional POS Column */}
+              <Card className="border-2 border-gray-300 shadow-xl opacity-90">
+                <CardHeader className="bg-gray-600 text-white">
+                  <CardTitle className="text-2xl text-center">Traditional POS</CardTitle>
+                  <p className="text-center text-gray-200">Legacy Systems</p>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <ul className="space-y-4">
+                    {[
+                      "₹50,000+ upfront cost",
+                      "No trial period available",
+                      "Hardware-dependent system",
+                      "Paid updates & maintenance",
+                      "Limited integrations",
+                      "Single currency only",
+                      "Basic receipt printing",
+                      "Manual reporting only",
+                      "Limited support hours",
+                      "Locked to specific hardware",
+                      "Desktop-only access",
+                      "Complex GST setup"
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-gray-600">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="text-center mt-12">
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-violet-600 to-purple-600 h-14 px-8 text-lg"
+                onClick={handleGetStarted}
+              >
+                Switch to BillByteKOT Today
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+              <p className="text-sm text-gray-600 mt-4">
+                Join 500+ restaurants who made the smart switch
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -1480,6 +1647,16 @@ const LandingPage = () => {
                 <li>
                   <a href="#faq" className="hover:text-white">
                     FAQ
+                  </a>
+                </li>
+                <li>
+                  <a href="/login" className="hover:text-white">
+                    Login / Sign Up
+                  </a>
+                </li>
+                <li>
+                  <a href="/download" className="hover:text-white">
+                    Download
                   </a>
                 </li>
               </ul>

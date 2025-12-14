@@ -3,38 +3,20 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#000000" />
-        <meta
-            name="description"
-            content="BillByteKOT - Smart Restaurant Billing & KOT Management System"
-        />
-        <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-        <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
-
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-        <title>BillByteKOT - #1 Restaurant Billing & KOT System India | Free Trial</title>
-
+        <meta name="theme-color" content="#7c3aed" />
+        
         <!-- Primary SEO Meta Tags -->
+        <title>BillByteKOT – Restaurant Billing & KOT Software India | Free Trial</title>
         <meta
             name="description"
-            content="BillByteKOT - India's leading restaurant billing software with KOT system, thermal printing, WhatsApp integration & inventory management. Trusted by 500+ restaurants. Free trial for 50 bills. ₹499/year only!"
+            content="India's #1 restaurant billing software with KOT system, GST billing, inventory & thermal printing. Trusted by 500+ restaurants. Free trial. ₹499/year."
         />
         <meta
             name="keywords"
-            content="restaurant billing software, KOT system, kitchen order ticket, restaurant POS India, thermal printer billing, restaurant management software, billing software India, POS system India, restaurant inventory management, WhatsApp billing, GST billing software, cloud POS, restaurant software, billing app, KOT app, thermal printing software, restaurant automation, food billing software, cafe billing system, QSR POS, best restaurant billing software India, free restaurant POS, restaurant billing app, online restaurant management, restaurant software free trial, restaurant billing system with GST, thermal receipt printer software, restaurant order management, table management system, restaurant analytics software, multi-currency POS, restaurant staff management, cloud based restaurant software, restaurant reporting software, food delivery management, quick service restaurant POS, fine dining POS system, cafe management software, bakery billing software, bar POS system, hotel restaurant software"
+            content="restaurant billing software, KOT system, kitchen order ticket, restaurant POS India, thermal printer billing, restaurant management software, billing software India, POS system India, restaurant inventory management, WhatsApp billing, GST billing software, cloud POS, restaurant software, billing app, KOT app, thermal printing software, restaurant automation, food billing software, cafe billing system, QSR POS, best restaurant billing software India, free restaurant POS, restaurant billing app, online restaurant management, restaurant software free trial, restaurant billing system with GST, thermal receipt printer software, restaurant order management, table management system, restaurant analytics software, multi-currency POS, restaurant staff management, cloud based restaurant software, restaurant reporting software, food delivery management, quick service restaurant POS, fine dining POS system, cafe management software, bakery billing software, bar POS system, hotel restaurant software, restaurant billing software Mumbai, restaurant POS Delhi, billing software Bangalore, KOT system Hyderabad, restaurant software Chennai, POS system Kolkata, billing app Pune, restaurant management Ahmedabad, affordable restaurant billing software, cheap POS system India, restaurant billing software with inventory, KOT system with thermal printing, restaurant software for small business, Indian restaurant billing solution, desi restaurant POS, bhojanalaya billing software, dhaba billing system, cloud restaurant software India, online restaurant POS, web based restaurant billing, mobile restaurant billing app, Android restaurant POS, Windows restaurant software, restaurant billing software 2024, best KOT system 2024, top restaurant POS India 2024"
         />
         <meta name="author" content="BillByteKOT - FinVerge Technologies" />
         <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-        <meta name="language" content="English, Hindi" />
         <meta name="revisit-after" content="3 days" />
         <meta name="rating" content="General" />
         <meta name="distribution" content="Global" />
@@ -225,14 +207,28 @@
                 "telephone": "+91-XXXXXXXXXX",
                 "contactType": "Customer Service",
                 "email": "support@billbytekot.in",
-                "availableLanguage": ["English", "Hindi"]
+                "availableLanguage": ["English", "Hindi"],
+                "areaServed": ["IN", "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata", "Pune", "Ahmedabad", "Jaipur"]
             }],
             "sameAs": [
                 "https://www.instagram.com/billbytekot",
                 "https://www.linkedin.com/company/billbytekot",
                 "https://www.youtube.com/@billbytekot",
                 "https://twitter.com/billbytekot"
-            ]
+            ],
+            "areaServed": {
+                "@type": "Country",
+                "name": "India"
+            },
+            "serviceArea": {
+                "@type": "GeoCircle",
+                "geoMidpoint": {
+                    "@type": "GeoCoordinates",
+                    "latitude": "20.5937",
+                    "longitude": "78.9629"
+                },
+                "geoRadius": "3000000"
+            }
         }
         </script>
 
@@ -376,7 +372,52 @@
                 "@type": "AggregateRating",
                 "ratingValue": "4.9",
                 "reviewCount": "500"
-            }
+            },
+            "category": "Restaurant Management Software"
+        }
+        </script>
+
+        <!-- Local Business Schema for Better Local SEO -->
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "LocalBusiness",
+            "name": "BillByteKOT",
+            "image": "https://billbytekot.in/logo.png",
+            "@id": "https://billbytekot.in",
+            "url": "https://billbytekot.in",
+            "telephone": "+91-XXXXXXXXXX",
+            "email": "support@billbytekot.in",
+            "priceRange": "₹499",
+            "address": {
+                "@type": "PostalAddress",
+                "addressCountry": "IN"
+            },
+            "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 20.5937,
+                "longitude": 78.9629
+            },
+            "openingHoursSpecification": {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": [
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday"
+                ],
+                "opens": "00:00",
+                "closes": "23:59"
+            },
+            "sameAs": [
+                "https://www.instagram.com/billbytekot",
+                "https://www.linkedin.com/company/billbytekot",
+                "https://www.youtube.com/@billbytekot",
+                "https://twitter.com/billbytekot"
+            ]
         }
         </script>
         <!--

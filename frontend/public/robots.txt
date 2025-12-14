@@ -3,64 +3,60 @@
 
 User-agent: *
 Allow: /
-Allow: /blog
-Allow: /blog/*
-Allow: /contact
+Allow: /blog/
 Allow: /download
-Allow: /pricing
-Allow: /*.css
-Allow: /*.js
-Allow: /*.jpg
-Allow: /*.jpeg
-Allow: /*.png
-Allow: /*.gif
-Allow: /*.svg
-Allow: /*.webp
+Allow: /contact
+Allow: /login
+Allow: /privacy
 
-# Disallow admin and private pages
-Disallow: /login
+# Disallow private/authenticated pages
 Disallow: /dashboard
-Disallow: /admin
-Disallow: /api/
-Disallow: /setup
-Disallow: /settings
-Disallow: /staff
-Disallow: /subscription
-Disallow: /billing/
-Disallow: /orders
 Disallow: /menu
+Disallow: /orders
+Disallow: /billing
+Disallow: /tables
+Disallow: /kitchen
 Disallow: /inventory
 Disallow: /reports
-Disallow: /kitchen
-Disallow: /tables
-
-# Disallow tracking and order pages
+Disallow: /settings
+Disallow: /subscription
+Disallow: /staff
+Disallow: /setup
 Disallow: /track/
 Disallow: /order/
 
-# Allow specific bots
+# Disallow API endpoints
+Disallow: /api/
+
+# Allow CSS and JS for proper rendering
+Allow: /*.css$
+Allow: /*.js$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.png$
+Allow: /*.gif$
+Allow: /*.svg$
+Allow: /*.webp$
+
+# Sitemaps
+Sitemap: https://billbytekot.in/sitemap.xml
+Sitemap: https://billbytekot.in/sitemap-blog.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Special rules for specific bots
 User-agent: Googlebot
 Allow: /
+Crawl-delay: 0
 
 User-agent: Googlebot-Image
 Allow: /
 
 User-agent: Bingbot
 Allow: /
+Crawl-delay: 1
 
 User-agent: Slurp
 Allow: /
-
-User-agent: DuckDuckBot
-Allow: /
-
-User-agent: Baiduspider
-Allow: /
-
-# Crawl delay for polite bots
 Crawl-delay: 1
-
-# Sitemap location
-Sitemap: https://billbytekot.in/sitemap.xml
-Sitemap: https://billbytekot.in/sitemap-blog.xml
-Sitemap: https://billbytekot.in/sitemap-images.xml
