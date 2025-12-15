@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { API, setAuthToken } from '../App';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -194,7 +194,17 @@ const LoginPage = ({ setUser }) => {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  {isLogin && (
+                    <Link 
+                      to="/forgot-password" 
+                      className="text-xs text-violet-600 hover:underline"
+                    >
+                      Forgot Password?
+                    </Link>
+                  )}
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input

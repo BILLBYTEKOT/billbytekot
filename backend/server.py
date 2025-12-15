@@ -977,6 +977,213 @@ async def complete_onboarding(
     return {"message": "Onboarding status updated"}
 
 
+# ============ PASSWORD RESET ============
+# In-memory reset token storage (use Redis in production)
+reset_tokens = {}  # {token: {"email": "user@example.com", "expires": timestamp}}
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    """Send password reset link to user's email"""
+    # Find user by email
+    user = await db.users.find_one({"email": request.email}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="No account found with this email address")
+    
+    # Generate reset token
+    reset_token = str(uuid.uuid4())
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)  # Token valid for 1 hour
+    
+    # Store token
+    reset_tokens[reset_token] = {
+        "email": request.email,
+        "expires": expires_at
+    }
+    
+    # Send email with reset link
+    try:
+        from email_service import send_otp_email
+        
+        # Create reset link (frontend will handle this)
+        reset_link = f"https://billbytekot.in/reset-password?token={reset_token}"
+        
+        # For now, we'll use the OTP email function but customize the message
+        # In production, create a dedicated password reset email template
+        subject = "Reset Your BillByteKOT Password"
+        
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background-color: #f5f5f5;
+                    margin: 0;
+                    padding: 0;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 40px auto;
+                    background-color: #ffffff;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                }}
+                .header {{
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 40px 20px;
+                    text-align: center;
+                }}
+                .header h1 {{
+                    color: #ffffff;
+                    margin: 0;
+                    font-size: 28px;
+                }}
+                .content {{
+                    padding: 40px 30px;
+                }}
+                .button {{
+                    display: inline-block;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: #ffffff;
+                    padding: 15px 40px;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                    font-weight: bold;
+                }}
+                .info {{
+                    background-color: #f8f9fa;
+                    border-left: 4px solid #667eea;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 4px;
+                }}
+                .footer {{
+                    background-color: #f8f9fa;
+                    padding: 20px;
+                    text-align: center;
+                    color: #6c757d;
+                    font-size: 14px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🍽️ BillByteKOT</h1>
+                    <p style="color: #ffffff; margin: 10px 0 0 0;">Restaurant Management System</p>
+                </div>
+                
+                <div class="content">
+                    <h2 style="color: #333;">Password Reset Request</h2>
+                    <p style="color: #666; font-size: 16px; line-height: 1.6;">
+                        We received a request to reset your password for your BillByteKOT account.
+                    </p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{reset_link}" class="button">Reset Password</a>
+                    </div>
+                    
+                    <div class="info">
+                        <p style="margin: 0; color: #666;">
+                            <strong>⏰ Valid for 1 hour</strong><br>
+                            This reset link will expire in 1 hour for security reasons.
+                        </p>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                        If you didn't request a password reset, please ignore this email or contact support if you have concerns.
+                    </p>
+                    
+                    <p style="color: #999; font-size: 12px; margin-top: 20px;">
+                        If the button doesn't work, copy and paste this link into your browser:<br>
+                        <a href="{reset_link}" style="color: #667eea;">{reset_link}</a>
+                    </p>
+                </div>
+                
+                <div class="footer">
+                    <p style="margin: 0;">
+                        <strong>BillByteKOT</strong> - Smart Restaurant Management<br>
+                        © 2025 FinVerge Technologies. All rights reserved.
+                    </p>
+                    <p style="margin: 10px 0 0 0; font-size: 12px;">
+                        This is an automated email. Please do not reply.
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Send email (simplified version - in production use proper email service)
+        print(f"\n{'='*60}")
+        print(f"📧 PASSWORD RESET EMAIL")
+        print(f"{'='*60}")
+        print(f"To: {request.email}")
+        print(f"Reset Link: {reset_link}")
+        print(f"Token: {reset_token}")
+        print(f"Expires: {expires_at}")
+        print(f"{'='*60}\n")
+        
+        # TODO: Integrate with email_service.py for production
+        # For now, just log to console
+        
+    except Exception as e:
+        print(f"Failed to send reset email: {e}")
+        # Don't fail the request if email fails
+    
+    return {
+        "message": "If an account exists with this email, you will receive password reset instructions.",
+        "success": True
+    }
+
+
+@api_router.post("/auth/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """Reset user password using reset token"""
+    # Validate token
+    token_data = reset_tokens.get(request.token)
+    if not token_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    
+    # Check if token expired
+    if datetime.now(timezone.utc) > token_data["expires"]:
+        # Remove expired token
+        del reset_tokens[request.token]
+        raise HTTPException(status_code=400, detail="Reset token has expired. Please request a new one.")
+    
+    # Find user
+    user = await db.users.find_one({"email": token_data["email"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update password
+    hashed_password = hash_password(request.new_password)
+    await db.users.update_one(
+        {"email": token_data["email"]},
+        {"$set": {"password": hashed_password}}
+    )
+    
+    # Remove used token
+    del reset_tokens[request.token]
+    
+    return {
+        "message": "Password reset successful. You can now login with your new password.",
+        "success": True
+    }
+
+
 # ============ OTP-BASED LOGIN ============
 import random
 import string
