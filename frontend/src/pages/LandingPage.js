@@ -688,51 +688,7 @@ const LandingPage = () => {
       {/* SEO Content Section - Main Homepage Content */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto prose prose-lg">
-            <p className="text-lg text-gray-700 leading-relaxed mb-6">
-              BillByteKOT is India's most trusted <strong>restaurant billing software</strong> designed specifically for Indian restaurants, cafes, and food businesses. Our comprehensive <strong>KOT (Kitchen Order Ticket) system</strong> streamlines your entire restaurant operations from order taking to billing, making it the perfect solution for restaurants of all sizes across India.
-            </p>
-
-            <h2 className="text-3xl font-bold text-gray-900 mb-4 mt-8">Complete Restaurant Billing Software with KOT System</h2>
-            <p className="text-lg text-gray-700 leading-relaxed mb-6">
-              Whether you run a small cafe, quick service restaurant, or fine dining establishment, BillByteKOT provides everything you need in one powerful platform. Our <strong>restaurant billing software</strong> includes advanced features like <strong>GST billing</strong>, inventory management, thermal printing, table management, and real-time analytics. With support for multiple payment methods including cash, card, UPI, and online payments through Razorpay integration, you can accept payments seamlessly from your customers.
-            </p>
-
-            <h2 className="text-3xl font-bold text-gray-900 mb-4 mt-8">Best Restaurant Billing Software Features in India</h2>
-            <p className="text-lg text-gray-700 leading-relaxed mb-4">
-              Our <strong>KOT system</strong> is specifically designed for Indian restaurants with features that matter most to your business. Generate professional bills with <strong>GST compliance</strong>, manage your inventory with low-stock alerts, track sales with detailed reports, and print receipts on thermal printers with 6 beautiful themes. BillByteKOT supports multi-currency operations, making it perfect for restaurants serving international customers or operating in tourist areas.
-            </p>
-
-            <ul className="list-disc pl-6 mb-6 text-lg text-gray-700 space-y-2">
-              <li><strong>Easy to Use:</strong> Intuitive interface designed for restaurant staff with minimal training required</li>
-              <li><strong>GST Billing:</strong> Fully compliant with Indian GST regulations, automatic tax calculations</li>
-              <li><strong>Inventory Management:</strong> Track stock levels, get alerts, manage suppliers efficiently</li>
-              <li><strong>Thermal Printing:</strong> Support for all ESC/POS thermal printers with professional receipt themes</li>
-              <li><strong>Multi-Currency Support:</strong> Accept payments in INR, USD, EUR, GBP, AED, and 10+ currencies</li>
-              <li><strong>WhatsApp Integration:</strong> Send bills and order updates directly to customers via WhatsApp</li>
-              <li><strong>Real-Time Reports:</strong> Track sales, revenue, popular items, and business performance instantly</li>
-              <li><strong>Staff Management:</strong> Role-based access for admin, cashiers, waiters, and kitchen staff</li>
-            </ul>
-
-            <h2 className="text-3xl font-bold text-gray-900 mb-4 mt-8">Free Restaurant Billing Software Trial – No Credit Card</h2>
-            <p className="text-lg text-gray-700 leading-relaxed mb-6">
-              Start with our <strong>7-day free trial</strong> and experience all premium features without any credit card requirement. Process unlimited bills during your trial period and see how BillByteKOT can transform your restaurant operations. After the trial, continue with our affordable pricing at just <strong>₹499 per year</strong> with unlimited bills and all features included. No hidden fees, no per-transaction charges – just straightforward pricing that works for your business.
-            </p>
-
-            <h2 className="text-3xl font-bold text-gray-900 mb-4 mt-8">Trusted Restaurant POS Software Across India</h2>
-            <p className="text-lg text-gray-700 leading-relaxed mb-6">
-              BillByteKOT is the preferred <strong>restaurant billing software</strong> for businesses across major Indian cities including Mumbai, Delhi, Bangalore, Hyderabad, Chennai, Kolkata, Pune, Ahmedabad, Jaipur, and Surat. Whether you operate a small cafe in Bangalore, a fine dining restaurant in Mumbai, or a quick service restaurant in Delhi, our software adapts to your specific needs. With cloud-based access, manage your restaurant from anywhere in India with just an internet connection.
-            </p>
-
-            <div className="bg-violet-50 border-l-4 border-violet-600 p-6 my-8 rounded-r-lg">
-              <p className="text-lg text-gray-800 font-semibold mb-2">
-                Join 500+ Successful Restaurants Using BillByteKOT
-              </p>
-              <p className="text-gray-700">
-                Trusted by restaurants across India for reliable billing, efficient KOT management, and comprehensive business insights. Get started today and take your restaurant to the next level!
-              </p>
-            </div>
-
+          <div className="max-w-4xl mx-auto">
             <div className="my-8 p-6 bg-gray-50 rounded-lg">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Related Resources</h3>
               <div className="grid md:grid-cols-2 gap-4">
