@@ -28,9 +28,11 @@ const CustomerOrderPage = () => {
     name: '',
     phone: '',
     selectedTable: tableNumber || '',
-    specialInstructions: ''
+    specialInstructions: '',
+    orderType: 'dine-in' // 'dine-in' or 'takeaway'
   });
   const [showCart, setShowCart] = useState(false);
+  const [showCustomerInfoPopup, setShowCustomerInfoPopup] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [step, setStep] = useState(1); // 1: Menu, 2: Cart, 3: Payment
 
@@ -104,27 +106,56 @@ const CustomerOrderPage = () => {
     return { subtotal, tax, total: subtotal + tax };
   };
 
-  const handleSubmitOrder = async () => {
-    if (!customerInfo.name || !customerInfo.phone) {
-      toast.error('Please enter your name and phone number');
+  const validateAndShowPopup = () => {
+    if (cart.length === 0) {
+      toast.error('Your cart is empty');
       return;
     }
-    if (!customerInfo.selectedTable) {
-      toast.error('Please select a table');
+    
+    // Check if customer info is missing
+    if (!customerInfo.name || !customerInfo.phone) {
+      setShowCustomerInfoPopup(true);
+      return;
+    }
+    
+    // For dine-in, table is required
+    if (customerInfo.orderType === 'dine-in' && !customerInfo.selectedTable) {
+      setShowCustomerInfoPopup(true);
+      return;
+    }
+    
+    // If all info is present, proceed to place order
+    handleSubmitOrder();
+  };
+
+  const handleSubmitOrder = async () => {
+    // Final validation
+    if (!customerInfo.name || !customerInfo.phone) {
+      toast.error('Please enter your name and phone number');
+      setShowCustomerInfoPopup(true);
       return;
     }
 
-    const selectedTable = tables.find(t => t.table_number === parseInt(customerInfo.selectedTable));
-    if (!selectedTable) {
-      toast.error('Invalid table selected');
+    if (customerInfo.orderType === 'dine-in' && !customerInfo.selectedTable) {
+      toast.error('Please select a table for dine-in');
+      setShowCustomerInfoPopup(true);
       return;
+    }
+
+    let selectedTable = null;
+    if (customerInfo.orderType === 'dine-in') {
+      selectedTable = tables.find(t => t.table_number === parseInt(customerInfo.selectedTable));
+      if (!selectedTable) {
+        toast.error('Invalid table selected');
+        return;
+      }
     }
 
     setSubmitting(true);
+    setShowCustomerInfoPopup(false);
+    
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/public/order`, {
-        table_id: selectedTable.id,
-        table_number: parseInt(customerInfo.selectedTable),
+      const orderData = {
         items: cart.map(item => ({
           ...item,
           notes: item.notes || undefined
@@ -134,10 +165,19 @@ const CustomerOrderPage = () => {
         special_instructions: customerInfo.specialInstructions,
         payment_method: paymentMethod,
         org_id: orgId,
+        order_type: customerInfo.orderType,
         frontend_origin: window.location.origin
-      });
+      };
 
-      toast.success('Order placed successfully!');
+      // Add table info only for dine-in
+      if (customerInfo.orderType === 'dine-in' && selectedTable) {
+        orderData.table_id = selectedTable.id;
+        orderData.table_number = parseInt(customerInfo.selectedTable);
+      }
+
+      const response = await axios.post(`${BACKEND_URL}/api/public/order`, orderData);
+
+      toast.success(`${customerInfo.orderType === 'takeaway' ? 'Takeaway' : 'Dine-in'} order placed successfully!`);
       
       if (response.data.tracking_token) {
         setTimeout(() => {

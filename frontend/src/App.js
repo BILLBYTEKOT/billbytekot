@@ -16,6 +16,7 @@ import SubscriptionPage from './pages/SubscriptionPage';
 import BusinessSetupPage from './pages/BusinessSetupPage';
 import StaffManagementPage from './pages/StaffManagementPage';
 import LandingPage from './pages/LandingPage';
+import SEOPage from './pages/SEOPage';
 import TrackOrderPage from './pages/TrackOrderPage';
 import CustomerOrderPage from './pages/CustomerOrderPage';
 import DownloadPage from './pages/DownloadPage';
@@ -242,6 +243,8 @@ function App() {
             }
           />
           {/* Public Routes - No Auth Required */}
+          <Route path="/seo" element={<SEOPage />} />
+          <Route path="/restaurant-billing-software-india" element={<SEOPage />} />
           <Route path="/track/:trackingToken" element={<TrackOrderPage />} />
           <Route path="/order/:orgId" element={<CustomerOrderPage />} />
           <Route path="/download" element={<DownloadPage />} />
