@@ -1392,17 +1392,14 @@ async def register_request(user_data: RegisterOTPRequest):
         }
     }
     
-    # Send OTP email
-    try:
-        await send_registration_otp_email(user_data.email, otp, user_data.username)
-    except Exception as e:
-        print(f"Failed to send OTP email: {e}")
-        # Don't fail if email fails in dev mode
+    # Send OTP email asynchronously (non-blocking)
+    asyncio.create_task(send_registration_otp_email(user_data.email, otp, user_data.username))
     
     return {
         "message": "OTP sent to your email. Please verify to complete registration.",
         "email": user_data.email,
-        "success": True
+        "success": True,
+        "otp": otp if os.getenv("DEBUG_MODE", "false").lower() == "true" else None  # Only in debug mode
     }
 
 
@@ -1584,18 +1581,13 @@ async def forgot_password(request: ForgotPasswordRequest):
         "verified": False
     }
     
-    # Send OTP email
-    try:
-        # Send password reset OTP email
-        await send_password_reset_otp_email(request.email, otp, user.get("username", "User"))
-        
-    except Exception as e:
-        print(f"Failed to send OTP email: {e}")
-        # Don't fail the request if email fails
+    # Send OTP email asynchronously (non-blocking)
+    asyncio.create_task(send_password_reset_otp_email(request.email, otp, user.get("username", "User")))
     
     return {
-        "message": "If an account exists with this email, you will receive password reset instructions.",
-        "success": True
+        "message": "OTP sent to your email. Please check your inbox.",
+        "success": True,
+        "otp": otp if os.getenv("DEBUG_MODE", "false").lower() == "true" else None  # Only in debug mode
     }
 
 

@@ -35,8 +35,15 @@ const ForgotPasswordPage = () => {
 
     setLoading(true);
     try {
-      await axios.post(`${API}/auth/forgot-password`, { email });
-      toast.success('OTP sent to your email!');
+      const response = await axios.post(`${API}/auth/forgot-password`, { email });
+      
+      // Show OTP in console for development
+      if (response.data.otp) {
+        console.log('🔐 Development OTP:', response.data.otp);
+        toast.info(`Dev Mode: OTP is ${response.data.otp}`);
+      }
+      
+      toast.success('OTP sent to your email! Check your inbox.');
       // Navigate to reset password page with email
       navigate('/reset-password', { state: { email } });
     } catch (error) {
