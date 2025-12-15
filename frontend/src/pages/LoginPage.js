@@ -48,21 +48,22 @@ const LoginPage = ({ setUser }) => {
           completeLogin(user);
         }
       } else {
-        // Register
-        const response = await axios.post(`${API}/auth/register`, {
+        // Register - Send OTP
+        await axios.post(`${API}/auth/register-request`, {
           username: formData.username,
           email: formData.email,
-          password: formData.password
+          password: formData.password,
+          role: 'admin'
         });
         
-        const { token, access_token, user } = response.data;
-        const authToken = token || access_token;
-        setAuthToken(authToken);
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        setTempUser(user);
-        // Show onboarding for new registrations (first time only)
-        setShowOnboarding(true);
+        toast.success('OTP sent to your email!');
+        // Navigate to verify email page
+        navigate('/verify-email', {
+          state: {
+            email: formData.email,
+            username: formData.username
+          }
+        });
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'An error occurred');

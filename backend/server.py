@@ -277,6 +277,18 @@ class UserCreate(BaseModel):
     role: str = "admin"
 
 
+class RegisterOTPRequest(BaseModel):
+    email: str
+    username: str
+    password: str
+    role: str = "admin"
+
+
+class VerifyRegistrationOTP(BaseModel):
+    email: str
+    otp: str
+
+
 class UserLogin(BaseModel):
     username: str
     password: str
@@ -467,6 +479,161 @@ def create_access_token(data: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=7)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+async def send_registration_otp_email(email: str, otp: str, username: str = "User"):
+    """Send OTP email for registration verification"""
+    import os
+    
+    # Get email configuration
+    EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "console")
+    
+    subject = "Verify Your Email - BillByteKOT Registration"
+    
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f5f5f5;
+                margin: 0;
+                padding: 0;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 40px auto;
+                background-color: #ffffff;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }}
+            .header {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 40px 20px;
+                text-align: center;
+            }}
+            .header h1 {{
+                color: #ffffff;
+                margin: 0;
+                font-size: 28px;
+            }}
+            .content {{
+                padding: 40px 30px;
+            }}
+            .otp-box {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: #ffffff;
+                font-size: 36px;
+                font-weight: bold;
+                letter-spacing: 8px;
+                text-align: center;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 30px 0;
+            }}
+            .info {{
+                background-color: #f8f9fa;
+                border-left: 4px solid #667eea;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }}
+            .footer {{
+                background-color: #f8f9fa;
+                padding: 20px;
+                text-align: center;
+                color: #6c757d;
+                font-size: 14px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🍽️ BillByteKOT</h1>
+                <p style="color: #ffffff; margin: 10px 0 0 0;">Restaurant Management System</p>
+            </div>
+            
+            <div class="content">
+                <h2 style="color: #333;">Welcome, {username}! 👋</h2>
+                <p style="color: #666; font-size: 16px; line-height: 1.6;">
+                    Thank you for registering with BillByteKOT! Please verify your email address to complete your registration.
+                </p>
+                
+                <div class="otp-box">
+                    {otp}
+                </div>
+                
+                <div class="info">
+                    <p style="margin: 0; color: #666;">
+                        <strong>⏰ Valid for 10 minutes</strong><br>
+                        This OTP will expire in 10 minutes for security reasons.
+                    </p>
+                </div>
+                
+                <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                    If you didn't request this registration, please ignore this email.
+                </p>
+            </div>
+            
+            <div class="footer">
+                <p style="margin: 0;">
+                    <strong>BillByteKOT</strong> - Smart Restaurant Management<br>
+                    © 2025 FinVerge Technologies. All rights reserved.
+                </p>
+                <p style="margin: 10px 0 0 0; font-size: 12px;">
+                    This is an automated email. Please do not reply.
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_body = f"""
+    Welcome {username}!
+    
+    Your BillByteKOT Registration OTP is: {otp}
+    
+    This OTP is valid for 10 minutes.
+    
+    If you didn't request this registration, please ignore this email.
+    
+    ---
+    BillByteKOT - Smart Restaurant Management
+    © 2025 FinVerge Technologies
+    """
+    
+    # Console mode for development
+    if EMAIL_PROVIDER == "console" or EMAIL_PROVIDER == "":
+        print(f"\n{'='*60}")
+        print(f"📧 REGISTRATION OTP EMAIL (Console Mode)")
+        print(f"{'='*60}")
+        print(f"To: {email}")
+        print(f"Subject: {subject}")
+        print(f"OTP: {otp}")
+        print(f"{'='*60}\n")
+        return {"success": True, "message": "OTP logged to console (dev mode)"}
+    
+    # Try to use email_service if configured
+    try:
+        from email_service import send_via_smtp, send_via_sendgrid, send_via_mailgun, send_via_ses
+        
+        if EMAIL_PROVIDER == "smtp":
+            return await send_via_smtp(email, subject, html_body, text_body)
+        elif EMAIL_PROVIDER == "sendgrid":
+            return await send_via_sendgrid(email, subject, html_body, text_body)
+        elif EMAIL_PROVIDER == "mailgun":
+            return await send_via_mailgun(email, subject, html_body, text_body)
+        elif EMAIL_PROVIDER == "ses":
+            return await send_via_ses(email, subject, html_body, text_body)
+    except Exception as e:
+        print(f"Email service error: {e}")
+        # Fallback to console
+        print(f"\n[EMAIL FALLBACK] To: {email}, OTP: {otp}")
+        return {"success": False, "message": str(e)}
 
 
 async def send_password_reset_otp_email(email: str, otp: str, username: str = "User"):
@@ -1196,36 +1363,111 @@ This is a computer generated receipt
 
 
 # Auth routes
-@api_router.post("/auth/register", response_model=User)
-async def register(user_data: UserCreate):
-    existing = await db.users.find_one({"username": user_data.username}, {"_id": 0})
-    if existing:
+@api_router.post("/auth/register-request")
+async def register_request(user_data: RegisterOTPRequest):
+    """Step 1: Request registration - Send OTP to email"""
+    # Check if username already exists
+    existing_username = await db.users.find_one({"username": user_data.username}, {"_id": 0})
+    if existing_username:
         raise HTTPException(status_code=400, detail="Username already exists")
+    
+    # Check if email already exists
+    existing_email = await db.users.find_one({"email": user_data.email}, {"_id": 0})
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Generate 6-digit OTP
+    otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    
+    # Store OTP and user data temporarily
+    registration_otp_storage[user_data.email] = {
+        "otp": otp,
+        "expires": expires_at,
+        "user_data": {
+            "username": user_data.username,
+            "email": user_data.email,
+            "password": user_data.password,
+            "role": user_data.role
+        }
+    }
+    
+    # Send OTP email
+    try:
+        await send_registration_otp_email(user_data.email, otp, user_data.username)
+    except Exception as e:
+        print(f"Failed to send OTP email: {e}")
+        # Don't fail if email fails in dev mode
+    
+    return {
+        "message": "OTP sent to your email. Please verify to complete registration.",
+        "email": user_data.email,
+        "success": True
+    }
 
+
+@api_router.post("/auth/verify-registration", response_model=User)
+async def verify_registration(verify_data: VerifyRegistrationOTP):
+    """Step 2: Verify OTP and complete registration"""
+    # Get OTP data
+    otp_data = registration_otp_storage.get(verify_data.email)
+    if not otp_data:
+        raise HTTPException(status_code=400, detail="No registration request found. Please request OTP again.")
+    
+    # Check if OTP expired
+    if datetime.now(timezone.utc) > otp_data["expires"]:
+        del registration_otp_storage[verify_data.email]
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+    
+    # Verify OTP
+    if otp_data["otp"] != verify_data.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP. Please check and try again.")
+    
+    # Get user data from storage
+    user_data = otp_data["user_data"]
+    
     # Create user object
     user_obj = User(
-        username=user_data.username, email=user_data.email, role=user_data.role
+        username=user_data["username"],
+        email=user_data["email"],
+        role=user_data["role"]
     )
-
+    
     # If admin, they are their own organization
-    if user_data.role == "admin":
+    if user_data["role"] == "admin":
         user_obj.organization_id = user_obj.id
-
+    
+    # Add email_verified flag
     doc = user_obj.model_dump()
-    doc["password"] = hash_password(user_data.password)
+    doc["password"] = hash_password(user_data["password"])
     doc["created_at"] = doc["created_at"].isoformat()
-
+    doc["email_verified"] = True
+    doc["email_verified_at"] = datetime.now(timezone.utc).isoformat()
+    
+    # Insert user into database
     await db.users.insert_one(doc)
+    
+    # Remove used OTP
+    del registration_otp_storage[verify_data.email]
     
     # Send welcome email asynchronously
     try:
         from email_automation import send_welcome_email
-        asyncio.create_task(send_welcome_email(user_data.email, user_data.username))
+        asyncio.create_task(send_welcome_email(user_data["email"], user_data["username"]))
     except Exception as e:
         print(f"Failed to send welcome email: {e}")
-        # Don't fail registration if email fails
     
     return user_obj
+
+
+@api_router.post("/auth/register", response_model=User)
+async def register_legacy(user_data: UserCreate):
+    """Legacy registration endpoint (deprecated - use register-request + verify-registration)"""
+    # Redirect to new OTP-based flow
+    raise HTTPException(
+        status_code=400,
+        detail="Please use the new registration flow: /auth/register-request followed by /auth/verify-registration"
+    )
 
 
 @api_router.post("/auth/login")
@@ -1433,6 +1675,7 @@ import string
 
 # In-memory OTP storage (use Redis in production)
 otp_storage = {}  # {phone: {"otp": "123456", "expires": timestamp}}
+registration_otp_storage = {}  # {email: {"otp": "123456", "expires": timestamp, "user_data": {...}}}
 
 
 class OTPRequest(BaseModel):
