@@ -1,33 +1,72 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { ChefHat, Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { ChefHat, Lock, Eye, EyeOff, CheckCircle, KeyRound } from 'lucide-react';
 import axios from 'axios';
 import { API } from '../App';
 import ValidationAlert from '../components/ValidationAlert';
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const location = useLocation();
+  const email = location.state?.email || '';
   
+  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
+
+  const handleVerifyOTP = async () => {
+    // Validation
+    const errors = [];
+    
+    if (!otp || otp.trim() === '') {
+      errors.push('OTP is required');
+    } else if (otp.length !== 6) {
+      errors.push('OTP must be 6 digits');
+    }
+    
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setTimeout(() => setValidationErrors([]), 5000);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await axios.post(`${API}/auth/verify-reset-otp`, {
+        email,
+        otp
+      });
+      setOtpVerified(true);
+      toast.success('OTP verified! Now set your new password.');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Invalid OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validation
     const errors = [];
+    
+    if (!otp || otp.trim() === '') {
+      errors.push('OTP is required');
+    } else if (otp.length !== 6) {
+      errors.push('OTP must be 6 digits');
+    }
     
     if (!password || password.trim() === '') {
       errors.push('New password is required');
@@ -43,8 +82,8 @@ const ResetPasswordPage = () => {
       errors.push('Passwords do not match');
     }
     
-    if (!token) {
-      errors.push('Invalid or missing reset token');
+    if (!email) {
+      errors.push('Email is missing');
     }
     
     if (errors.length > 0) {
@@ -56,14 +95,15 @@ const ResetPasswordPage = () => {
     setLoading(true);
     try {
       await axios.post(`${API}/auth/reset-password`, {
-        token,
+        email,
+        otp,
         new_password: password
       });
       setResetSuccess(true);
       toast.success('Password reset successful!');
     } catch (error) {
       if (error.response?.status === 400) {
-        toast.error('Invalid or expired reset link');
+        toast.error('Invalid or expired OTP');
       } else {
         toast.error(error.response?.data?.detail || 'Failed to reset password');
       }
@@ -72,25 +112,25 @@ const ResetPasswordPage = () => {
     }
   };
 
-  if (!token) {
+  if (!email) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-red-600">Invalid Reset Link</CardTitle>
+            <CardTitle className="text-2xl text-red-600">Email Required</CardTitle>
             <CardDescription>
-              This password reset link is invalid or has expired.
+              Please start from the forgot password page.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-gray-600 text-center">
-              Please request a new password reset link.
+              You need to request a password reset first.
             </p>
             <Button
               onClick={() => navigate('/forgot-password')}
               className="w-full bg-gradient-to-r from-violet-600 to-purple-600"
             >
-              Request New Link
+              Go to Forgot Password
             </Button>
           </CardContent>
         </Card>
@@ -151,6 +191,34 @@ const ResetPasswordPage = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email Display */}
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                Resetting password for: <strong>{email}</strong>
+              </p>
+            </div>
+
+            {/* OTP Input */}
+            <div>
+              <Label htmlFor="otp">Enter OTP *</Label>
+              <div className="relative mt-1">
+                <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Input
+                  id="otp"
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Enter 6-digit OTP"
+                  className="pl-10"
+                  maxLength={6}
+                  disabled={loading}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Check your email for the 6-digit OTP code
+              </p>
+            </div>
+
             {/* New Password */}
             <div>
               <Label htmlFor="password">New Password *</Label>

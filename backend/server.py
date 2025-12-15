@@ -469,6 +469,161 @@ def create_access_token(data: dict) -> str:
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
+async def send_password_reset_otp_email(email: str, otp: str, username: str = "User"):
+    """Send password reset OTP email"""
+    import os
+    
+    # Get email configuration
+    EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "console")
+    
+    subject = "Your BillByteKOT Password Reset OTP"
+    
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f5f5f5;
+                margin: 0;
+                padding: 0;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 40px auto;
+                background-color: #ffffff;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }}
+            .header {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 40px 20px;
+                text-align: center;
+            }}
+            .header h1 {{
+                color: #ffffff;
+                margin: 0;
+                font-size: 28px;
+            }}
+            .content {{
+                padding: 40px 30px;
+            }}
+            .otp-box {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: #ffffff;
+                font-size: 36px;
+                font-weight: bold;
+                letter-spacing: 8px;
+                text-align: center;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 30px 0;
+            }}
+            .info {{
+                background-color: #f8f9fa;
+                border-left: 4px solid #667eea;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }}
+            .footer {{
+                background-color: #f8f9fa;
+                padding: 20px;
+                text-align: center;
+                color: #6c757d;
+                font-size: 14px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🍽️ BillByteKOT</h1>
+                <p style="color: #ffffff; margin: 10px 0 0 0;">Restaurant Management System</p>
+            </div>
+            
+            <div class="content">
+                <h2 style="color: #333;">Hello {username}! 👋</h2>
+                <p style="color: #666; font-size: 16px; line-height: 1.6;">
+                    We received a request to reset your password. Use the OTP below to continue:
+                </p>
+                
+                <div class="otp-box">
+                    {otp}
+                </div>
+                
+                <div class="info">
+                    <p style="margin: 0; color: #666;">
+                        <strong>⏰ Valid for 10 minutes</strong><br>
+                        This OTP will expire in 10 minutes for security reasons.
+                    </p>
+                </div>
+                
+                <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                    If you didn't request a password reset, please ignore this email or contact support if you have concerns.
+                </p>
+            </div>
+            
+            <div class="footer">
+                <p style="margin: 0;">
+                    <strong>BillByteKOT</strong> - Smart Restaurant Management<br>
+                    © 2025 FinVerge Technologies. All rights reserved.
+                </p>
+                <p style="margin: 10px 0 0 0; font-size: 12px;">
+                    This is an automated email. Please do not reply.
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_body = f"""
+    Hello {username}!
+    
+    Your BillByteKOT Password Reset OTP is: {otp}
+    
+    This OTP is valid for 10 minutes.
+    
+    If you didn't request a password reset, please ignore this email.
+    
+    ---
+    BillByteKOT - Smart Restaurant Management
+    © 2025 FinVerge Technologies
+    """
+    
+    # Console mode for development
+    if EMAIL_PROVIDER == "console" or EMAIL_PROVIDER == "":
+        print(f"\n{'='*60}")
+        print(f"📧 PASSWORD RESET OTP EMAIL (Console Mode)")
+        print(f"{'='*60}")
+        print(f"To: {email}")
+        print(f"Subject: {subject}")
+        print(f"OTP: {otp}")
+        print(f"{'='*60}\n")
+        return {"success": True, "message": "OTP logged to console (dev mode)"}
+    
+    # Try to use email_service if configured
+    try:
+        from email_service import send_via_smtp, send_via_sendgrid, send_via_mailgun, send_via_ses
+        
+        if EMAIL_PROVIDER == "smtp":
+            return await send_via_smtp(email, subject, html_body, text_body)
+        elif EMAIL_PROVIDER == "sendgrid":
+            return await send_via_sendgrid(email, subject, html_body, text_body)
+        elif EMAIL_PROVIDER == "mailgun":
+            return await send_via_mailgun(email, subject, html_body, text_body)
+        elif EMAIL_PROVIDER == "ses":
+            return await send_via_ses(email, subject, html_body, text_body)
+    except Exception as e:
+        print(f"Email service error: {e}")
+        # Fallback to console
+        print(f"\n[EMAIL FALLBACK] To: {email}, OTP: {otp}")
+        return {"success": False, "message": str(e)}
+
+
 async def send_password_reset_email(email: str, reset_link: str, username: str = "User"):
     """Send password reset email with reset link"""
     import os
@@ -1148,39 +1303,43 @@ class ForgotPasswordRequest(BaseModel):
     email: str
 
 
+class VerifyOTPRequest(BaseModel):
+    email: str
+    otp: str
+
+
 class ResetPasswordRequest(BaseModel):
-    token: str
+    email: str
+    otp: str
     new_password: str
 
 
 @api_router.post("/auth/forgot-password")
 async def forgot_password(request: ForgotPasswordRequest):
-    """Send password reset link to user's email"""
+    """Verify account exists and send OTP for password reset"""
     # Find user by email
     user = await db.users.find_one({"email": request.email}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="No account found with this email address")
     
-    # Generate reset token
-    reset_token = str(uuid.uuid4())
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)  # Token valid for 1 hour
+    # Generate 6-digit OTP
+    otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)  # OTP valid for 10 minutes
     
-    # Store token
-    reset_tokens[reset_token] = {
-        "email": request.email,
-        "expires": expires_at
+    # Store OTP
+    reset_tokens[request.email] = {
+        "otp": otp,
+        "expires": expires_at,
+        "verified": False
     }
     
-    # Send email with reset link
+    # Send OTP email
     try:
-        # Create reset link
-        reset_link = f"https://billbytekot.in/reset-password?token={reset_token}"
-        
-        # Send password reset email
-        await send_password_reset_email(request.email, reset_link, user.get("username", "User"))
+        # Send password reset OTP email
+        await send_password_reset_otp_email(request.email, otp, user.get("username", "User"))
         
     except Exception as e:
-        print(f"Failed to send reset email: {e}")
+        print(f"Failed to send OTP email: {e}")
         # Don't fail the request if email fails
     
     return {
@@ -1189,34 +1348,69 @@ async def forgot_password(request: ForgotPasswordRequest):
     }
 
 
+@api_router.post("/auth/verify-reset-otp")
+async def verify_reset_otp(request: VerifyOTPRequest):
+    """Verify OTP for password reset"""
+    # Get OTP data
+    otp_data = reset_tokens.get(request.email)
+    if not otp_data:
+        raise HTTPException(status_code=400, detail="No OTP found. Please request a new one.")
+    
+    # Check if OTP expired
+    if datetime.now(timezone.utc) > otp_data["expires"]:
+        # Remove expired OTP
+        del reset_tokens[request.email]
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+    
+    # Verify OTP
+    if otp_data["otp"] != request.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP. Please check and try again.")
+    
+    # Mark OTP as verified
+    reset_tokens[request.email]["verified"] = True
+    
+    return {
+        "message": "OTP verified successfully. You can now reset your password.",
+        "success": True
+    }
+
+
 @api_router.post("/auth/reset-password")
 async def reset_password(request: ResetPasswordRequest):
-    """Reset user password using reset token"""
-    # Validate token
-    token_data = reset_tokens.get(request.token)
-    if not token_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    """Reset user password using verified OTP"""
+    # Get OTP data
+    otp_data = reset_tokens.get(request.email)
+    if not otp_data:
+        raise HTTPException(status_code=400, detail="No OTP found. Please request a new one.")
     
-    # Check if token expired
-    if datetime.now(timezone.utc) > token_data["expires"]:
-        # Remove expired token
-        del reset_tokens[request.token]
-        raise HTTPException(status_code=400, detail="Reset token has expired. Please request a new one.")
+    # Check if OTP expired
+    if datetime.now(timezone.utc) > otp_data["expires"]:
+        # Remove expired OTP
+        del reset_tokens[request.email]
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+    
+    # Verify OTP again
+    if otp_data["otp"] != request.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP. Please check and try again.")
+    
+    # Check if OTP was verified
+    if not otp_data.get("verified", False):
+        raise HTTPException(status_code=400, detail="Please verify OTP first.")
     
     # Find user
-    user = await db.users.find_one({"email": token_data["email"]}, {"_id": 0})
+    user = await db.users.find_one({"email": request.email}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     # Update password
     hashed_password = hash_password(request.new_password)
     await db.users.update_one(
-        {"email": token_data["email"]},
+        {"email": request.email},
         {"$set": {"password": hashed_password}}
     )
     
-    # Remove used token
-    del reset_tokens[request.token]
+    # Remove used OTP
+    del reset_tokens[request.email]
     
     return {
         "message": "Password reset successful. You can now login with your new password.",

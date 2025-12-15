@@ -14,7 +14,6 @@ const ForgotPasswordPage = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
 
   const handleSubmit = async (e) => {
@@ -37,8 +36,9 @@ const ForgotPasswordPage = () => {
     setLoading(true);
     try {
       await axios.post(`${API}/auth/forgot-password`, { email });
-      setEmailSent(true);
-      toast.success('Password reset instructions sent to your email!');
+      toast.success('OTP sent to your email!');
+      // Navigate to reset password page with email
+      navigate('/reset-password', { state: { email } });
     } catch (error) {
       if (error.response?.status === 404) {
         toast.error('No account found with this email address');
@@ -49,54 +49,6 @@ const ForgotPasswordPage = () => {
       setLoading(false);
     }
   };
-
-  if (emailSent) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl">Check Your Email</CardTitle>
-            <CardDescription>
-              We've sent password reset instructions to <strong>{email}</strong>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h3 className="font-semibold text-blue-900 mb-2">Next Steps:</h3>
-              <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
-                <li>Check your email inbox</li>
-                <li>Click the reset link in the email</li>
-                <li>Create a new password</li>
-                <li>Login with your new password</li>
-              </ol>
-            </div>
-
-            <div className="text-sm text-gray-600 text-center">
-              <p>Didn't receive the email?</p>
-              <button
-                onClick={() => setEmailSent(false)}
-                className="text-violet-600 hover:text-violet-700 font-medium"
-              >
-                Try again
-              </button>
-            </div>
-
-            <Button
-              onClick={() => navigate('/login')}
-              variant="outline"
-              className="w-full"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
@@ -114,7 +66,7 @@ const ForgotPasswordPage = () => {
           </Link>
           <CardTitle className="text-2xl">Forgot Password?</CardTitle>
           <CardDescription>
-            No worries! Enter your email and we'll send you reset instructions.
+            Enter your email and we'll send you an OTP to reset your password.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -140,7 +92,7 @@ const ForgotPasswordPage = () => {
               className="w-full bg-gradient-to-r from-violet-600 to-purple-600 h-11"
               disabled={loading}
             >
-              {loading ? 'Sending...' : 'Send Reset Instructions'}
+              {loading ? 'Sending OTP...' : 'Send OTP'}
             </Button>
 
             <div className="text-center">
