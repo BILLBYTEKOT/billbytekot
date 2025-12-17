@@ -5244,8 +5244,8 @@ async def get_business_whatsapp_link(user: dict = Depends(get_current_user)):
 app.include_router(api_router)
 
 # ============ SUPER ADMIN PANEL (Site Owner Only) ============
-SUPER_ADMIN_USERNAME = os.getenv("SUPER_ADMIN_USERNAME", "superadmin")
-SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "change-this-password-123")
+SUPER_ADMIN_USERNAME = os.getenv("SUPER_ADMIN_USERNAME", "shiv")
+SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "shiv@123")
 
 def verify_super_admin(username: str, password: str) -> bool:
     """Verify super admin credentials"""
