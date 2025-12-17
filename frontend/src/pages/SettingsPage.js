@@ -173,8 +173,12 @@ const SettingsPage = ({ user }) => {
     try {
       await axios.put(`${API}/business/settings`, businessSettings);
       toast.success('Business settings updated successfully!');
-      // Refresh user data
-      window.location.reload();
+      // Update local storage user data
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      user.business_settings = businessSettings;
+      localStorage.setItem('user', JSON.stringify(user));
+      // Refresh settings from server to confirm
+      await fetchBusinessSettings();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to update settings');
     } finally {

@@ -52,7 +52,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://restro-ai.onre
 export const API = `${BACKEND_URL}/api`;
 
 // Configure axios with performance optimizations
-axios.defaults.timeout = 30000; // 30 second timeout
+axios.defaults.timeout = 60000; // 60 second timeout (increased for Render free tier)
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // Add request interceptor for retry logic and auth
