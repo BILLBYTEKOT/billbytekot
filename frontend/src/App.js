@@ -29,6 +29,7 @@ import ContactPage from './pages/ContactPage';
 import OrderDisplayPage from './pages/OrderDisplayPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import HelpPage from './pages/HelpPage';
+import SuperAdminPage from './pages/SuperAdminPage';
 import DesktopInfo from './components/DesktopInfo';
 import { Toaster } from './components/ui/sonner';
 
@@ -327,6 +328,7 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/help" element={<PrivateRoute><HelpPage user={user} /></PrivateRoute>} />
+          <Route path="/super-admin-panel-secret" element={<SuperAdminPage />} />
         </Routes>
         <DesktopInfo />
       </BrowserRouter>

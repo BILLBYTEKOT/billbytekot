@@ -5245,6 +5245,13 @@ async def get_business_whatsapp_link(user: dict = Depends(get_current_user)):
 
 app.include_router(api_router)
 
+# Super Admin Router (Site Owner Only)
+from super_admin import super_admin_router
+# Inject database dependency
+for route in super_admin_router.routes:
+    route.endpoint.__globals__['db'] = db
+app.include_router(super_admin_router)
+
 
 # Serve Windows app download
 from fastapi.responses import FileResponse, JSONResponse
