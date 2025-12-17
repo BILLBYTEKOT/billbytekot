@@ -1010,9 +1010,11 @@ async def get_current_user(
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("user_id")
         if user_id is None:
+            print(f"❌ Invalid token: no user_id in payload")
             raise HTTPException(status_code=401, detail="Invalid token")
         user = await db.users.find_one({"id": user_id}, {"_id": 0})
         if user is None:
+            print(f"❌ User not found: {user_id}")
             raise HTTPException(status_code=401, detail="User not found")
 
         # Ensure all required fields exist with defaults
@@ -1029,9 +1031,14 @@ async def get_current_user(
 
         return user
     except jwt.ExpiredSignatureError:
+        print(f"❌ Token expired")
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.JWTError:
+    except jwt.JWTError as e:
+        print(f"❌ JWT Error: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"❌ Auth error: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
 
 
 async def check_subscription(user: dict):
