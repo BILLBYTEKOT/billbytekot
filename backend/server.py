@@ -5247,11 +5247,6 @@ SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "shiv@123")
 
 def verify_super_admin(username: str, password: str) -> bool:
     """Verify super admin credentials"""
-    print(f"🔐 Super Admin Login Attempt:")
-    print(f"   Received username: '{username}' (expected: '{SUPER_ADMIN_USERNAME}')")
-    print(f"   Received password: '{password}' (expected: '{SUPER_ADMIN_PASSWORD}')")
-    print(f"   Username match: {username == SUPER_ADMIN_USERNAME}")
-    print(f"   Password match: {password == SUPER_ADMIN_PASSWORD}")
     return username == SUPER_ADMIN_USERNAME and password == SUPER_ADMIN_PASSWORD
 
 @api_router.get("/super-admin/dashboard")
@@ -5309,21 +5304,24 @@ async def get_all_users_admin(username: str, password: str, skip: int = 0, limit
     
     return {"users": users, "total": total, "skip": skip, "limit": limit}
 
+class SubscriptionUpdate(BaseModel):
+    subscription_active: bool
+    subscription_expires_at: Optional[str] = None
+
 @api_router.put("/super-admin/users/{user_id}/subscription")
 async def update_user_subscription_admin(
     user_id: str,
+    subscription_update: SubscriptionUpdate,
     username: str,
-    password: str,
-    subscription_active: bool,
-    subscription_expires_at: Optional[str] = None
+    password: str
 ):
     """Manually update user subscription - Site Owner Only"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
-    update_data = {"subscription_active": subscription_active}
-    if subscription_expires_at:
-        update_data["subscription_expires_at"] = subscription_expires_at
+    update_data = {"subscription_active": subscription_update.subscription_active}
+    if subscription_update.subscription_expires_at:
+        update_data["subscription_expires_at"] = subscription_update.subscription_expires_at
     
     result = await db.users.update_one({"id": user_id}, {"$set": update_data})
     
@@ -5333,7 +5331,7 @@ async def update_user_subscription_admin(
     return {
         "message": "Subscription updated successfully",
         "user_id": user_id,
-        "subscription_active": subscription_active
+        "subscription_active": subscription_update.subscription_active
     }
 
 @api_router.delete("/super-admin/users/{user_id}")
@@ -5373,31 +5371,34 @@ async def get_all_tickets_admin(
     
     return {"tickets": tickets, "total": total, "skip": skip, "limit": limit}
 
+class TicketUpdate(BaseModel):
+    status: str
+    admin_notes: Optional[str] = None
+
 @api_router.put("/super-admin/tickets/{ticket_id}")
 async def update_ticket_admin(
     ticket_id: str,
+    ticket_update: TicketUpdate,
     username: str,
-    password: str,
-    status: str,
-    admin_notes: Optional[str] = None
+    password: str
 ):
     """Update ticket status - Site Owner Only"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
     update_data = {
-        "status": status,
+        "status": ticket_update.status,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
-    if admin_notes:
-        update_data["admin_notes"] = admin_notes
+    if ticket_update.admin_notes:
+        update_data["admin_notes"] = ticket_update.admin_notes
     
     result = await db.support_tickets.update_one({"id": ticket_id}, {"$set": update_data})
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    return {"message": "Ticket updated successfully", "ticket_id": ticket_id, "status": status}
+    return {"message": "Ticket updated successfully", "ticket_id": ticket_id, "status": ticket_update.status}
 
 @api_router.get("/super-admin/analytics")
 async def get_analytics_admin(username: str, password: str, days: int = 30):
