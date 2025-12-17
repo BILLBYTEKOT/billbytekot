@@ -5243,12 +5243,178 @@ async def get_business_whatsapp_link(user: dict = Depends(get_current_user)):
 
 app.include_router(api_router)
 
-# Super Admin Router (Site Owner Only) - Commented out temporarily
-# TODO: Uncomment after fixing import
-# from super_admin import super_admin_router
-# for route in super_admin_router.routes:
-#     route.endpoint.__globals__['db'] = db
-# app.include_router(super_admin_router)
+# ============ SUPER ADMIN PANEL (Site Owner Only) ============
+SUPER_ADMIN_USERNAME = os.getenv("SUPER_ADMIN_USERNAME", "superadmin")
+SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "change-this-password-123")
+
+def verify_super_admin(username: str, password: str) -> bool:
+    """Verify super admin credentials"""
+    return username == SUPER_ADMIN_USERNAME and password == SUPER_ADMIN_PASSWORD
+
+@api_router.get("/super-admin/dashboard")
+async def get_super_admin_dashboard(username: str, password: str):
+    """Get complete system overview - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Get all users
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
+    
+    # Get all tickets
+    tickets = await db.support_tickets.find({}, {"_id": 0}).to_list(1000)
+    
+    # Get recent orders (last 30 days)
+    thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    recent_orders = await db.orders.find(
+        {"created_at": {"$gte": thirty_days_ago}},
+        {"_id": 0}
+    ).to_list(10000)
+    
+    # Calculate statistics
+    total_users = len(users)
+    active_subscriptions = sum(1 for u in users if u.get("subscription_active"))
+    trial_users = sum(1 for u in users if not u.get("subscription_active"))
+    
+    # Ticket statistics
+    open_tickets = sum(1 for t in tickets if t.get("status") == "open")
+    pending_tickets = sum(1 for t in tickets if t.get("status") == "pending")
+    resolved_tickets = sum(1 for t in tickets if t.get("status") == "resolved")
+    
+    return {
+        "overview": {
+            "total_users": total_users,
+            "active_subscriptions": active_subscriptions,
+            "trial_users": trial_users,
+            "total_orders_30d": len(recent_orders),
+            "open_tickets": open_tickets,
+            "pending_tickets": pending_tickets,
+            "resolved_tickets": resolved_tickets
+        },
+        "users": users,
+        "tickets": tickets,
+        "recent_orders": recent_orders[:100]
+    }
+
+@api_router.get("/super-admin/users")
+async def get_all_users_admin(username: str, password: str, skip: int = 0, limit: int = 100):
+    """Get all users - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    users = await db.users.find({}, {"_id": 0, "password": 0}).skip(skip).limit(limit).to_list(limit)
+    total = await db.users.count_documents({})
+    
+    return {"users": users, "total": total, "skip": skip, "limit": limit}
+
+@api_router.put("/super-admin/users/{user_id}/subscription")
+async def update_user_subscription_admin(
+    user_id: str,
+    username: str,
+    password: str,
+    subscription_active: bool,
+    subscription_expires_at: Optional[str] = None
+):
+    """Manually update user subscription - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    update_data = {"subscription_active": subscription_active}
+    if subscription_expires_at:
+        update_data["subscription_expires_at"] = subscription_expires_at
+    
+    result = await db.users.update_one({"id": user_id}, {"$set": update_data})
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "message": "Subscription updated successfully",
+        "user_id": user_id,
+        "subscription_active": subscription_active
+    }
+
+@api_router.delete("/super-admin/users/{user_id}")
+async def delete_user_admin(user_id: str, username: str, password: str):
+    """Delete user and all their data - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Delete user and all data
+    await db.users.delete_one({"id": user_id})
+    await db.orders.delete_many({"organization_id": user_id})
+    await db.menu_items.delete_many({"organization_id": user_id})
+    await db.tables.delete_many({"organization_id": user_id})
+    await db.payments.delete_many({"organization_id": user_id})
+    await db.inventory.delete_many({"organization_id": user_id})
+    
+    return {"message": "User and all data deleted successfully", "user_id": user_id}
+
+@api_router.get("/super-admin/tickets")
+async def get_all_tickets_admin(
+    username: str,
+    password: str,
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100
+):
+    """Get all support tickets - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    tickets = await db.support_tickets.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.support_tickets.count_documents(query)
+    
+    return {"tickets": tickets, "total": total, "skip": skip, "limit": limit}
+
+@api_router.put("/super-admin/tickets/{ticket_id}")
+async def update_ticket_admin(
+    ticket_id: str,
+    username: str,
+    password: str,
+    status: str,
+    admin_notes: Optional[str] = None
+):
+    """Update ticket status - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    update_data = {
+        "status": status,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    if admin_notes:
+        update_data["admin_notes"] = admin_notes
+    
+    result = await db.support_tickets.update_one({"id": ticket_id}, {"$set": update_data})
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    return {"message": "Ticket updated successfully", "ticket_id": ticket_id, "status": status}
+
+@api_router.get("/super-admin/analytics")
+async def get_analytics_admin(username: str, password: str, days: int = 30):
+    """Get system analytics - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    start_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    
+    new_users = await db.users.count_documents({"created_at": {"$gte": start_date}})
+    new_orders = await db.orders.count_documents({"created_at": {"$gte": start_date}})
+    new_tickets = await db.support_tickets.count_documents({"created_at": {"$gte": start_date}})
+    
+    return {
+        "period_days": days,
+        "new_users": new_users,
+        "new_orders": new_orders,
+        "new_tickets": new_tickets,
+        "start_date": start_date
+    }
 
 
 # Serve Windows app download
