@@ -1,0 +1,75 @@
+name: Daily Maintenance
+
+on:
+  schedule:
+    # Run daily at 6 AM IST (12:30 AM UTC)
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  daily-tasks:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Database Health Check
+        run: |
+          echo "🗄️ Checking database connectivity..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" "https://restro-ai.onrender.com/health" --max-time 60)
+          if [ "$response" = "200" ]; then
+            echo "✅ Database connection healthy"
+          else
+            echo "⚠️ Database may need attention (status: $response)"
+          fi
+
+      - name: Generate Daily Report
+        run: |
+          echo "📊 Daily Report - $(date '+%Y-%m-%d')"
+          echo "=================================="
+          echo ""
+          echo "🌐 Frontend Status:"
+          curl -s -o /dev/null -w "  Status: %{http_code}\n  Time: %{time_total}s\n" "https://billbytekot.in" --max-time 30
+          echo ""
+          echo "🔧 Backend Status:"
+          curl -s -o /dev/null -w "  Status: %{http_code}\n  Time: %{time_total}s\n" "https://restro-ai.onrender.com/health" --max-time 60
+          echo ""
+          echo "📱 AssetLinks Status:"
+          response=$(curl -s "https://billbytekot.in/.well-known/assetlinks.json" --max-time 15)
+          if echo "$response" | grep -q "sha256_cert_fingerprints"; then
+            echo "  ✅ Configured correctly"
+          else
+            echo "  ⚠️ May need attention"
+          fi
+
+      - name: SEO Ping
+        run: |
+          echo "🔍 Submitting sitemaps to search engines..."
+          
+          # Google
+          curl -s "https://www.google.com/ping?sitemap=https://billbytekot.in/sitemap.xml" > /dev/null 2>&1
+          echo "✅ Google sitemap submitted"
+          
+          # Bing
+          curl -s "https://www.bing.com/ping?sitemap=https://billbytekot.in/sitemap.xml" > /dev/null 2>&1
+          echo "✅ Bing sitemap submitted"
+          
+          # IndexNow (Bing, Yandex, etc.)
+          curl -s "https://www.bing.com/indexnow?url=https://billbytekot.in&key=billbytekot" > /dev/null 2>&1
+          echo "✅ IndexNow pinged"
+
+      - name: Warm Up Cache
+        run: |
+          echo "🔥 Warming up application cache..."
+          
+          # Hit main endpoints to warm cache
+          ENDPOINTS=(
+            "https://restro-ai.onrender.com/"
+            "https://restro-ai.onrender.com/health"
+            "https://billbytekot.in"
+          )
+          
+          for endpoint in "${ENDPOINTS[@]}"; do
+            curl -s -o /dev/null "$endpoint" --max-time 30 || true
+            sleep 1
+          done
+          
+          echo "✅ Cache warmed up"

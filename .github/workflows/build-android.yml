@@ -1,0 +1,94 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 13)'
+        required: true
+        default: '13'
+      release_notes:
+        description: 'Release notes'
+        required: false
+        default: 'Bug fixes and improvements'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/billbytekot
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Update version
+        run: |
+          # Update version in build.gradle
+          sed -i "s/versionCode [0-9]*/versionCode ${{ github.event.inputs.version }}/" app/build.gradle
+          sed -i "s/versionName \"[0-9]*\"/versionName \"${{ github.event.inputs.version }}\"/" app/build.gradle
+          
+          # Update twa-manifest.json
+          sed -i "s/\"appVersionCode\": [0-9]*/\"appVersionCode\": ${{ github.event.inputs.version }}/" twa-manifest.json
+          sed -i "s/\"appVersionName\": \"[0-9]*\"/\"appVersionName\": \"${{ github.event.inputs.version }}\"/" twa-manifest.json
+          sed -i "s/\"appVersion\": \"[0-9]*\"/\"appVersion\": \"${{ github.event.inputs.version }}\"/" twa-manifest.json
+      
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+      
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+      
+      - name: Sign APK
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android.keystore
+          
+          # Align APK
+          zipalign -v -p 4 app/build/outputs/apk/release/app-release-unsigned.apk app-release-aligned.apk
+          
+          # Sign APK
+          apksigner sign --ks android.keystore --ks-pass pass:$KEYSTORE_PASSWORD --key-pass pass:$KEY_PASSWORD --ks-key-alias $KEY_ALIAS --out BillByteKOT-v${{ github.event.inputs.version }}.apk app-release-aligned.apk
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BillByteKOT-v${{ github.event.inputs.version }}
+          path: |
+            frontend/billbytekot/app/build/outputs/apk/release/*.apk
+            frontend/billbytekot/*.apk
+          retention-days: 30
+      
+      - name: Create Release
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: BillByteKOT v${{ github.event.inputs.version }}
+          body: |
+            ## BillByteKOT v${{ github.event.inputs.version }}
+            
+            ${{ github.event.inputs.release_notes }}
+            
+            ### Download
+            - Download the APK from the assets below
+            - Or install from Google Play Store
+          files: |
+            frontend/billbytekot/app/build/outputs/apk/release/*.apk
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

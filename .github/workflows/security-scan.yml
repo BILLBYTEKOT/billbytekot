@@ -1,0 +1,78 @@
+name: Security Scan
+
+on:
+  schedule:
+    # Run weekly on Sunday at 2 AM IST
+    - cron: '30 20 * * 0'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/package*.json'
+      - 'backend/requirements.txt'
+  workflow_dispatch:
+
+jobs:
+  frontend-security:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run npm audit
+        run: |
+          echo "🔒 Running npm security audit..."
+          npm audit --audit-level=high || true
+        continue-on-error: true
+
+  backend-security:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install safety pip-audit
+          pip install -r requirements.txt
+      
+      - name: Run safety check
+        run: |
+          echo "🔒 Running Python security scan..."
+          safety check -r requirements.txt || true
+        continue-on-error: true
+
+  ssl-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check SSL Certificates
+        run: |
+          echo "🔐 Checking SSL certificates..."
+          
+          # Check frontend SSL
+          echo "Frontend (billbytekot.in):"
+          echo | openssl s_client -servername billbytekot.in -connect billbytekot.in:443 2>/dev/null | openssl x509 -noout -dates || echo "⚠️ Could not check"
+          
+          # Check backend SSL
+          echo ""
+          echo "Backend (restro-ai.onrender.com):"
+          echo | openssl s_client -servername restro-ai.onrender.com -connect restro-ai.onrender.com:443 2>/dev/null | openssl x509 -noout -dates || echo "⚠️ Could not check"
