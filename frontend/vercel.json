@@ -1,4 +1,5 @@
 {
+  "trailingSlash": false,
   "rewrites": [
     {
       "source": "/.well-known/assetlinks.json",
@@ -7,7 +8,7 @@
   ],
   "headers": [
     {
-      "source": "/.well-known/assetlinks.json",
+      "source": "/.well-known/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
