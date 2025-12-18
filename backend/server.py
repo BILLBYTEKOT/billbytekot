@@ -5757,11 +5757,14 @@ async def get_assetlinks():
         }
     }]
     
+    # Add cache-control headers to prevent caching issues
     return JSONResponse(
         content=assetlinks,
         media_type="application/json",
         headers={
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
             "Access-Control-Allow-Origin": "*"
         }
     )
