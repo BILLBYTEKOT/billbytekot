@@ -24,8 +24,8 @@ def twaManifest = [
     applicationId: 'in.billbytekot.twa',
     hostName: 'billbytekot.in', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
-    name: 'RestoBill AI - Restaurant Billing System', // The application name.
-    launcherName: 'RestoBill', // The name shown on the Android Launcher.
+    name: 'BillByteKOT - Restaurant Billing & KOT System', // The application name.
+    launcherName: 'BillByteKOT', // The name shown on the Android Launcher.
     themeColor: '#7C3AED', // The color used for the status bar.
     themeColorDark: '#000000', // The color used for the dark status bar.
     navigationColor: '#000000', // The color used for the navigation bar.

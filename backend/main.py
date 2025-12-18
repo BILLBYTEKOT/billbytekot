@@ -108,7 +108,7 @@ def create_directories():
 def print_startup_info():
     """Print startup information"""
     print("=" * 60)
-    print("🍽️  RestoBill AI Server Starting...")
+    print("🍽️  BillByteKOT Server Starting...")
     print("=" * 60)
     print(f"Environment: {ENVIRONMENT}")
     print(f"Host: {HOST}")

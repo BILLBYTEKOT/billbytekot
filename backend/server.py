@@ -4341,7 +4341,7 @@ async def health_check():
         await db.users.find_one({}, {"_id": 1})
         return {
             "status": "healthy",
-            "message": "RestoBill AI Server is running",
+            "message": "BillByteKOT Server is running",
             "version": "1.0.0",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "services": {"database": "connected", "api": "operational"},
@@ -4381,10 +4381,10 @@ async def api_health_check():
 async def root():
     """Root endpoint - basic server info"""
     return {
-        "service": "RestoBill AI Server",
+        "service": "BillByteKOT Server",
         "version": "1.0.0",
         "status": "running",
-        "message": "Welcome to RestoBill AI - Restaurant Management System",
+        "message": "Welcome to BillByteKOT - Restaurant Billing & KOT System",
         "endpoints": {
             "health": "/health",
             "api_health": "/api/health",
@@ -4401,7 +4401,7 @@ async def startup_validation():
     """Validate configuration and database connection on startup"""
     global client, db
 
-    print("🍽️  Starting RestoBill AI Server...")
+    print("🍽️  Starting BillByteKOT Server...")
 
     # Check required environment variables
     required_vars = {
