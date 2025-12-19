@@ -28,24 +28,50 @@ const LoginPage = ({ setUser }) => {
 
     try {
       if (isLogin) {
-        // Login
-        const response = await axios.post(`${API}/auth/login`, {
-          username: formData.username,
-          password: formData.password
-        });
+        // Try regular user login first
+        let response;
+        let isTeamMember = false;
+        
+        try {
+          response = await axios.post(`${API}/auth/login`, {
+            username: formData.username,
+            password: formData.password
+          });
+        } catch (userLoginError) {
+          // If regular login fails, try team member login
+          if (userLoginError.response?.status === 401) {
+            try {
+              response = await axios.post(`${API}/team/login`, {
+                username: formData.username,
+                password: formData.password
+              });
+              isTeamMember = true;
+            } catch (teamLoginError) {
+              // Both logins failed
+              throw userLoginError;
+            }
+          } else {
+            throw userLoginError;
+          }
+        }
         
         const { token, access_token, user } = response.data;
         const authToken = token || access_token;
         setAuthToken(authToken);
-        localStorage.setItem('user', JSON.stringify(user));
         
-        setTempUser(user);
+        // Add team member flag to user data
+        const userData = { ...user, isTeamMember };
+        localStorage.setItem('user', JSON.stringify(userData));
         
-        // Show onboarding ONLY for first-time users
-        if (user.onboarding_completed === false) {
+        setTempUser(userData);
+        
+        // Team members skip onboarding
+        if (isTeamMember) {
+          completeLogin(userData);
+        } else if (user.onboarding_completed === false) {
           setShowOnboarding(true);
         } else {
-          completeLogin(user);
+          completeLogin(userData);
         }
       } else {
         // Register - Send OTP
@@ -72,7 +98,7 @@ const LoginPage = ({ setUser }) => {
         });
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'An error occurred');
+      toast.error(error.response?.data?.detail || 'Invalid username or password');
     } finally {
       setLoading(false);
     }

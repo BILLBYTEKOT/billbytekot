@@ -5684,20 +5684,26 @@ async def create_team_member(
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
-    # Check if username already exists
-    existing = await db.team_members.find_one({"username": member.username})
+    # Check if username already exists (case-insensitive)
+    existing = await db.team_members.find_one({
+        "username": {"$regex": f"^{member.username}$", "$options": "i"}
+    })
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
     
-    # Check if email already exists
-    existing_email = await db.team_members.find_one({"email": member.email})
+    # Check if email already exists (case-insensitive)
+    existing_email = await db.team_members.find_one({
+        "email": {"$regex": f"^{member.email}$", "$options": "i"}
+    })
     if existing_email:
         raise HTTPException(status_code=400, detail="Email already exists")
     
     team_data = {
         "id": str(uuid.uuid4()),
         "username": member.username,
+        "username_lower": member.username.lower(),
         "email": member.email,
+        "email_lower": member.email.lower(),
         "password": hash_password(member.password),
         "role": member.role,
         "permissions": member.permissions,
@@ -5787,7 +5793,15 @@ class TeamLogin(BaseModel):
 @api_router.post("/team/login")
 async def team_login(credentials: TeamLogin):
     """Team member login"""
-    member = await db.team_members.find_one({"username": credentials.username})
+    # Case-insensitive username lookup
+    username_lower = credentials.username.lower()
+    member = await db.team_members.find_one({"username_lower": username_lower})
+    
+    # Fallback to case-insensitive regex if username_lower field doesn't exist
+    if not member:
+        member = await db.team_members.find_one({
+            "username": {"$regex": f"^{credentials.username}$", "$options": "i"}
+        })
     
     if not member or not verify_password(credentials.password, member["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
