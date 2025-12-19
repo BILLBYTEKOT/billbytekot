@@ -1,5 +1,5 @@
 /**
- * RestoBill Desktop App Configuration
+ * BillByteKOT Desktop App Configuration
  * 
  * This file contains configuration for the Electron desktop app.
  * Update these values for your deployment.

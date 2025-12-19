@@ -117,9 +117,9 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "tech.finverge.restobill",
-    "productName": "RestoBill",
-    "copyright": "Copyright © 2024 FinVerge Tech",
+    "appId": "in.billbytekot.desktop",
+    "productName": "BillByteKOT",
+    "copyright": "Copyright © 2024 BillByteKOT",
     "directories": {
       "output": "dist-electron"
     },
@@ -131,6 +131,7 @@
     "extraMetadata": {
       "main": "electron/main.js"
     },
+    "icon": "electron/icons/icon",
     "win": {
       "target": [
         {
@@ -138,6 +139,7 @@
           "arch": ["x64"]
         }
       ],
+      "icon": "electron/icons/icon.ico",
       "artifactName": "${productName}-Setup-${version}-win.${ext}"
     },
     "nsis": {
@@ -145,19 +147,22 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "RestoBill"
+      "shortcutName": "BillByteKOT"
     },
     "mac": {
       "target": ["dmg"],
       "category": "public.app-category.business",
+      "icon": "electron/icons/icon.icns",
       "artifactName": "${productName}-${version}-mac.${ext}"
     },
     "dmg": {
-      "title": "RestoBill Installer"
+      "title": "BillByteKOT Installer",
+      "icon": "electron/icons/icon.icns"
     },
     "linux": {
       "target": ["AppImage"],
       "category": "Office",
+      "icon": "electron/icons",
       "artifactName": "${productName}-${version}-linux.${ext}"
     }
   }
