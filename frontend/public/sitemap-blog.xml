@@ -2,37 +2,150 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
   
-  <!-- Blog Posts with News Schema -->
+  <!-- High-Volume Keyword Targeted Blog Posts -->
+  
   <url>
-    <loc>https://billbytekot.in/blog/complete-guide-restaurant-billing-kot-system</loc>
+    <loc>https://billbytekot.in/blog/restaurant-billing-software-india</loc>
     <news:news>
       <news:publication>
         <news:name>BillByteKOT Blog</news:name>
         <news:language>en</news:language>
       </news:publication>
-      <news:publication_date>2024-12-09</news:publication_date>
-      <news:title>Complete Guide to Restaurant Billing and KOT System in India 2024</news:title>
-      <news:keywords>restaurant billing, KOT system, kitchen order ticket, restaurant POS, billing software India</news:keywords>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>Best Restaurant Billing Software India 2025 - Complete Guide</news:title>
+      <news:keywords>restaurant billing software, restaurant billing software India, best billing software for restaurant, restaurant POS India</news:keywords>
     </news:news>
-    <lastmod>2024-12-09</lastmod>
-    <changefreq>monthly</changefreq>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/best-restaurant-pos-software-2025</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>10 Best Restaurant POS Software in India 2025 - Comparison & Reviews</news:title>
+      <news:keywords>restaurant POS software, best POS for restaurant, restaurant POS system India, POS software comparison</news:keywords>
+    </news:news>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/free-restaurant-billing-software-download</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>Free Restaurant Billing Software Download 2025 - Top 5 Options</news:title>
+      <news:keywords>free restaurant billing software, restaurant billing software free download, free POS software, free billing app</news:keywords>
+    </news:news>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/kot-system-kitchen-order-ticket-guide</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>KOT System for Restaurant - Complete Kitchen Order Ticket Guide 2025</news:title>
+      <news:keywords>KOT system, kitchen order ticket, KOT software, restaurant KOT, KOT management</news:keywords>
+    </news:news>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/gst-billing-software-restaurant</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>GST Billing Software for Restaurant India - Complete Guide 2025</news:title>
+      <news:keywords>GST billing software, restaurant GST billing, GST invoice software, GST compliant POS</news:keywords>
+    </news:news>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://billbytekot.in/blog/free-vs-paid-restaurant-billing-software</loc>
+    <loc>https://billbytekot.in/blog/thermal-printer-setup-restaurant</loc>
     <news:news>
       <news:publication>
         <news:name>BillByteKOT Blog</news:name>
         <news:language>en</news:language>
       </news:publication>
-      <news:publication_date>2024-12-09</news:publication_date>
-      <news:title>Free vs Paid Restaurant Billing Software: Complete Comparison 2024</news:title>
-      <news:keywords>free billing software, paid POS system, restaurant software comparison, billing software pricing</news:keywords>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>Thermal Printer Setup for Restaurant Billing - Step by Step Guide</news:title>
+      <news:keywords>thermal printer, restaurant printer, receipt printer, ESC/POS printer, billing printer setup</news:keywords>
     </news:news>
-    <lastmod>2024-12-09</lastmod>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.85</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/cafe-billing-software-india</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>Best Cafe Billing Software India 2025 - Top 5 POS Systems</news:title>
+      <news:keywords>cafe billing software, cafe POS, coffee shop billing, cafe management software India</news:keywords>
+    </news:news>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/hotel-restaurant-billing-software</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>Hotel Restaurant Billing Software India - Complete Solution 2025</news:title>
+      <news:keywords>hotel billing software, hotel restaurant POS, hotel management software, hotel billing system</news:keywords>
+    </news:news>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/restaurant-inventory-management-software</loc>
+    <news:news>
+      <news:publication>
+        <news:name>BillByteKOT Blog</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>Restaurant Inventory Management Software - Complete Guide 2025</news:title>
+      <news:keywords>restaurant inventory software, inventory management, stock management, restaurant stock control</news:keywords>
+    </news:news>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
   </url>
 
   <url>
@@ -42,43 +155,11 @@
         <news:name>BillByteKOT Blog</news:name>
         <news:language>en</news:language>
       </news:publication>
-      <news:publication_date>2024-12-09</news:publication_date>
-      <news:title>WhatsApp Integration for Restaurant Billing: Complete Guide 2024</news:title>
-      <news:keywords>WhatsApp billing, restaurant WhatsApp integration, automated receipts, customer notifications</news:keywords>
+      <news:publication_date>2025-12-20</news:publication_date>
+      <news:title>WhatsApp Integration for Restaurant Billing - Send Bills via WhatsApp</news:title>
+      <news:keywords>WhatsApp billing, WhatsApp restaurant, send bill WhatsApp, WhatsApp POS integration</news:keywords>
     </news:news>
-    <lastmod>2024-12-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <url>
-    <loc>https://billbytekot.in/blog/thermal-printing-guide-restaurants</loc>
-    <news:news>
-      <news:publication>
-        <news:name>BillByteKOT Blog</news:name>
-        <news:language>en</news:language>
-      </news:publication>
-      <news:publication_date>2024-12-09</news:publication_date>
-      <news:title>Thermal Printing for Restaurants: Complete Setup Guide 2024</news:title>
-      <news:keywords>thermal printer, ESC/POS, receipt printing, KOT printing, restaurant printer setup</news:keywords>
-    </news:news>
-    <lastmod>2024-12-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <url>
-    <loc>https://billbytekot.in/blog/bulk-upload-menu-inventory-management</loc>
-    <news:news>
-      <news:publication>
-        <news:name>BillByteKOT Blog</news:name>
-        <news:language>en</news:language>
-      </news:publication>
-      <news:publication_date>2024-12-09</news:publication_date>
-      <news:title>Bulk Upload Menu & Inventory: Complete Guide for Restaurants 2024</news:title>
-      <news:keywords>bulk upload, CSV import, menu management, inventory management, restaurant automation</news:keywords>
-    </news:news>
-    <lastmod>2024-12-09</lastmod>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>

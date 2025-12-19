@@ -6,82 +6,130 @@
   <!-- Homepage - Highest Priority -->
   <url>
     <loc>https://billbytekot.in/</loc>
-    <lastmod>2024-12-14</lastmod>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en-in" href="https://billbytekot.in/" />
-    <xhtml:link rel="alternate" hreflang="hi-in" href="https://billbytekot.in/hi/" />
   </url>
 
   <!-- Key Product Pages -->
   <url>
     <loc>https://billbytekot.in/login</loc>
-    <lastmod>2024-12-14</lastmod>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/register</loc>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
   <url>
     <loc>https://billbytekot.in/download</loc>
-    <lastmod>2024-12-14</lastmod>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
   <url>
     <loc>https://billbytekot.in/contact</loc>
-    <lastmod>2024-12-14</lastmod>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
     <loc>https://billbytekot.in/privacy</loc>
-    <lastmod>2024-12-14</lastmod>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
 
-  <!-- Blog Section -->
+  <url>
+    <loc>https://billbytekot.in/help</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Blog Section - High Priority for SEO -->
   <url>
     <loc>https://billbytekot.in/blog</loc>
-    <lastmod>2024-12-14</lastmod>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Blog Posts - Targeting High-Volume Keywords -->
+  <url>
+    <loc>https://billbytekot.in/blog/restaurant-billing-software-india</loc>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/best-restaurant-pos-software-2025</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/free-restaurant-billing-software-download</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/kot-system-kitchen-order-ticket-guide</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/gst-billing-software-restaurant</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/thermal-printer-setup-restaurant</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-  </url>
-
-  <!-- Blog Posts -->
-  <url>
-    <loc>https://billbytekot.in/blog/complete-guide-restaurant-billing-kot-system</loc>
-    <lastmod>2024-12-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <url>
-    <loc>https://billbytekot.in/blog/free-vs-paid-restaurant-billing-software</loc>
-    <lastmod>2024-12-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
 
   <url>
     <loc>https://billbytekot.in/blog/whatsapp-integration-restaurant-billing</loc>
-    <lastmod>2024-12-09</lastmod>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://billbytekot.in/blog/thermal-printing-guide-restaurants</loc>
-    <lastmod>2024-12-09</lastmod>
+    <loc>https://billbytekot.in/blog/cafe-billing-software-india</loc>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://billbytekot.in/blog/bulk-upload-menu-inventory-management</loc>
-    <lastmod>2024-12-09</lastmod>
+    <loc>https://billbytekot.in/blog/hotel-restaurant-billing-software</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://billbytekot.in/blog/restaurant-inventory-management-software</loc>
+    <lastmod>2025-12-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>

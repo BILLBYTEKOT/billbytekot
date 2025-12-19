@@ -1,13 +1,17 @@
-# BillByteKOT - Restaurant Billing Software
+# BillByteKOT - Best Restaurant Billing Software India
 # https://billbytekot.in
 
 User-agent: *
 Allow: /
+Allow: /blog
 Allow: /blog/
 Allow: /download
 Allow: /contact
 Allow: /login
+Allow: /register
 Allow: /privacy
+Allow: /help
+Allow: /terms
 
 # Disallow private/authenticated pages
 Disallow: /dashboard
@@ -24,11 +28,15 @@ Disallow: /staff
 Disallow: /setup
 Disallow: /track/
 Disallow: /order/
+Disallow: /super-admin*
+Disallow: /verify-email
+Disallow: /reset-password
 
 # Disallow API endpoints
 Disallow: /api/
 
-# Allow CSS and JS for proper rendering
+# Allow CSS, JS, and images for proper rendering
+Allow: /static/
 Allow: /*.css$
 Allow: /*.js$
 Allow: /*.jpg$
@@ -37,15 +45,13 @@ Allow: /*.png$
 Allow: /*.gif$
 Allow: /*.svg$
 Allow: /*.webp$
+Allow: /*.ico$
 
 # Sitemaps
 Sitemap: https://billbytekot.in/sitemap.xml
 Sitemap: https://billbytekot.in/sitemap-blog.xml
 
-# Crawl-delay for respectful crawling
-Crawl-delay: 1
-
-# Special rules for specific bots
+# Google Bot - Priority crawler
 User-agent: Googlebot
 Allow: /
 Crawl-delay: 0
@@ -53,10 +59,43 @@ Crawl-delay: 0
 User-agent: Googlebot-Image
 Allow: /
 
+# Bing Bot
 User-agent: Bingbot
 Allow: /
 Crawl-delay: 1
 
+# Yahoo Bot
 User-agent: Slurp
 Allow: /
 Crawl-delay: 1
+
+# Yandex Bot
+User-agent: Yandex
+Allow: /
+Crawl-delay: 1
+
+# Baidu Bot
+User-agent: Baiduspider
+Allow: /
+Crawl-delay: 2
+
+# DuckDuckGo Bot
+User-agent: DuckDuckBot
+Allow: /
+Crawl-delay: 1
+
+# Facebook Bot
+User-agent: facebookexternalhit
+Allow: /
+
+# Twitter Bot
+User-agent: Twitterbot
+Allow: /
+
+# LinkedIn Bot
+User-agent: LinkedInBot
+Allow: /
+
+# WhatsApp Bot
+User-agent: WhatsApp
+Allow: /
