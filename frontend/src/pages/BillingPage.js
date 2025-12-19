@@ -124,75 +124,25 @@ const BillingPage = ({ user }) => {
     if (!order) return;
     setLoading(true);
     try {
-      if (paymentMethod === 'razorpay') {
-        const response = await axios.post(`${API}/payments/create-order`, {
-          order_id: orderId,
-          amount: order.total,
-          payment_method: 'razorpay'
-        });
-
-        const options = {
-          key: response.data.key_id,
-          amount: response.data.amount,
-          currency: response.data.currency,
-          order_id: response.data.razorpay_order_id,
-          name: businessSettings?.restaurant_name || 'BillByteKOT AI',
-          description: `Payment for Order #${orderId.slice(0, 8)}`,
-          handler: async (razorpayResponse) => {
-            try {
-              await axios.post(`${API}/payments/verify`, {
-                razorpay_payment_id: razorpayResponse.razorpay_payment_id,
-                razorpay_order_id: razorpayResponse.razorpay_order_id,
-                order_id: orderId
-              });
-              toast.success('Payment successful!');
-              setPaymentCompleted(true);
-              
-              // Update order status to completed
-              await axios.put(`${API}/orders/${orderId}`, { status: 'completed' });
-              
-              // Release table automatically
-              await releaseTable();
-              
-              // Deduct inventory if enabled
-              await deductInventory();
-              
-              await printThermalBill();
-            } catch (error) {
-              toast.error('Payment verification failed');
-            }
-          },
-          prefill: {
-            name: order.customer_name || 'Customer',
-            contact: '9999999999'
-          },
-          theme: {
-            color: '#7c3aed'
-          }
-        };
-
-        const razorpay = new window.Razorpay(options);
-        razorpay.open();
-      } else {
-        await axios.post(`${API}/payments/create-order`, {
-          order_id: orderId,
-          amount: order.total,
-          payment_method: paymentMethod
-        });
-        toast.success('Payment completed!');
-        setPaymentCompleted(true);
-        
-        // Update order status to completed
-        await axios.put(`${API}/orders/${orderId}`, { status: 'completed' });
-        
-        // Release table automatically
-        await releaseTable();
-        
-        // Deduct inventory if enabled
-        await deductInventory();
-        
-        await printThermalBill();
-      }
+      // Process payment (Cash, Card, or UPI)
+      await axios.post(`${API}/payments/create-order`, {
+        order_id: orderId,
+        amount: order.total,
+        payment_method: paymentMethod
+      });
+      toast.success('Payment completed!');
+      setPaymentCompleted(true);
+      
+      // Update order status to completed
+      await axios.put(`${API}/orders/${orderId}`, { status: 'completed' });
+      
+      // Release table automatically
+      await releaseTable();
+      
+      // Deduct inventory if enabled
+      await deductInventory();
+      
+      await printThermalBill();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Payment failed');
     } finally {
@@ -759,16 +709,6 @@ const BillingPage = ({ user }) => {
                 <span className="font-medium">UPI</span>
               </button>
 
-              <button
-                onClick={() => setPaymentMethod('razorpay')}
-                className={`p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-all ${
-                  paymentMethod === 'razorpay' ? 'border-violet-600 bg-violet-50' : 'border-gray-200 hover:border-gray-300'
-                }`}
-                data-testid="payment-razorpay"
-              >
-                <CreditCard className="w-8 h-8 text-violet-600" />
-                <span className="font-medium">Razorpay</span>
-              </button>
             </div>
 
             <div className="flex gap-3 pt-4">

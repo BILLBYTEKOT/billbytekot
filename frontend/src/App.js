@@ -152,6 +152,18 @@ function App() {
     const token = localStorage.getItem('token');
     if (token) {
       setAuthToken(token);
+      
+      // Immediately load cached user to prevent logout on refresh
+      const cachedUser = localStorage.getItem('user');
+      if (cachedUser) {
+        try {
+          setUser(JSON.parse(cachedUser));
+        } catch {
+          // Invalid cached data
+        }
+      }
+      
+      // Then fetch fresh user data in background
       fetchUser();
     }
 
@@ -198,8 +210,23 @@ function App() {
       localStorage.setItem('user', JSON.stringify(response.data));
     } catch (e) {
       console.error('Failed to fetch user', e);
-      setAuthToken(null);
-      localStorage.removeItem('user');
+      // Only clear token on 401 (unauthorized) - not on network errors
+      if (e.response?.status === 401) {
+        setAuthToken(null);
+        localStorage.removeItem('user');
+      } else {
+        // On network error, use cached user data if available
+        const cachedUser = localStorage.getItem('user');
+        if (cachedUser) {
+          try {
+            setUser(JSON.parse(cachedUser));
+            console.log('Using cached user data');
+          } catch {
+            // Invalid cached data, clear it
+            localStorage.removeItem('user');
+          }
+        }
+      }
     }
   };
 
