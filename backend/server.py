@@ -1545,13 +1545,64 @@ async def verify_registration(verify_data: VerifyRegistrationOTP):
 
 
 @api_router.post("/auth/register", response_model=User)
-async def register_legacy(user_data: UserCreate):
-    """Legacy registration endpoint (deprecated - use register-request + verify-registration)"""
-    # Redirect to new OTP-based flow
-    raise HTTPException(
-        status_code=400,
-        detail="Please use the new registration flow: /auth/register-request followed by /auth/verify-registration"
+async def register_direct(user_data: UserCreate):
+    """Direct registration without OTP verification"""
+    # Normalize username and email to lowercase for case-insensitive matching
+    username_lower = user_data.username.lower().strip()
+    email_lower = user_data.email.lower().strip()
+    
+    # Check if username already exists (case-insensitive)
+    existing_username = await db.users.find_one(
+        {"username_lower": username_lower}, {"_id": 0}
     )
+    if not existing_username:
+        existing_username = await db.users.find_one(
+            {"username": {"$regex": f"^{user_data.username}$", "$options": "i"}}, {"_id": 0}
+        )
+    if existing_username:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    # Check if email already exists (case-insensitive)
+    existing_email = await db.users.find_one(
+        {"email_lower": email_lower}, {"_id": 0}
+    )
+    if not existing_email:
+        existing_email = await db.users.find_one(
+            {"email": {"$regex": f"^{user_data.email}$", "$options": "i"}}, {"_id": 0}
+        )
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create user object
+    user_obj = User(
+        username=user_data.username.strip(),
+        email=user_data.email.strip(),
+        role=user_data.role
+    )
+    
+    # If admin, they are their own organization
+    if user_data.role == "admin":
+        user_obj.organization_id = user_obj.id
+    
+    # Prepare document for database
+    doc = user_obj.model_dump()
+    doc["password"] = hash_password(user_data.password)
+    doc["created_at"] = doc["created_at"].isoformat()
+    doc["email_verified"] = False  # Not verified since no OTP
+    doc["username_lower"] = username_lower
+    doc["email_lower"] = email_lower
+    
+    # Insert user into database
+    await db.users.insert_one(doc)
+    
+    # Send welcome email asynchronously (non-blocking)
+    try:
+        from email_automation import send_welcome_email
+        asyncio.create_task(send_welcome_email(user_data.email.strip(), user_data.username.strip()))
+    except Exception as e:
+        print(f"Failed to send welcome email: {e}")
+    
+    return user_obj
 
 
 @api_router.post("/auth/login")

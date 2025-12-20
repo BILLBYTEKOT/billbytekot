@@ -74,28 +74,17 @@ const LoginPage = ({ setUser }) => {
           completeLogin(userData);
         }
       } else {
-        // Register - Send OTP
-        const response = await axios.post(`${API}/auth/register-request`, {
+        // Register - Direct registration without OTP
+        const response = await axios.post(`${API}/auth/register`, {
           username: formData.username,
           email: formData.email,
           password: formData.password,
           role: 'admin'
         });
         
-        // Show OTP in console for development
-        if (response.data.otp) {
-          console.log('🔐 Development OTP:', response.data.otp);
-          toast.info(`Dev Mode: OTP is ${response.data.otp}`);
-        }
-        
-        toast.success('OTP sent to your email! Check your inbox.');
-        // Navigate to verify email page
-        navigate('/verify-email', {
-          state: {
-            email: formData.email,
-            username: formData.username
-          }
-        });
+        toast.success('Account created successfully! Please login.');
+        setIsLogin(true);
+        setFormData({ ...formData, password: '' });
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Invalid username or password');
