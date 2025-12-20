@@ -3416,26 +3416,34 @@ async def export_report(
     current_user: dict = Depends(get_current_user)
 ):
     user_org_id = current_user.get("organization_id") or current_user["id"]
-    start = datetime.fromisoformat(start_date)
-    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59)
+    # Parse dates and make them timezone-aware (UTC)
+    start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+    end = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
 
     orders = await db.orders.find({
-        "status": "completed",
         "organization_id": user_org_id
     }, {"_id": 0}).to_list(1000)
     
     filtered_orders = []
 
     for order in orders:
-        order_date = order["created_at"]
+        order_date = order.get("created_at")
+        if not order_date:
+            continue
         if isinstance(order_date, str):
-            order_date = datetime.fromisoformat(order_date.replace("Z", "+00:00"))
+            try:
+                order_date = datetime.fromisoformat(order_date.replace("Z", "+00:00"))
+            except:
+                continue
+        # Make sure order_date is timezone-aware
+        if order_date.tzinfo is None:
+            order_date = order_date.replace(tzinfo=timezone.utc)
         if start <= order_date <= end:
             filtered_orders.append(order)
 
     return {
         "orders": filtered_orders,
-        "total_sales": sum(o["total"] for o in filtered_orders),
+        "total_sales": sum(o.get("total", 0) for o in filtered_orders),
     }
 
 
