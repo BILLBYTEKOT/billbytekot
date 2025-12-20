@@ -1039,6 +1039,242 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Invoice/Receipt Showcase Section */}
+      <section className="py-20 bg-white overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 rounded-full mb-4">
+              <Printer className="w-4 h-4 text-green-600" />
+              <span className="text-sm font-medium text-green-600">Professional Invoices</span>
+            </div>
+            <h2
+              className="text-4xl md:text-5xl font-bold mb-4"
+              style={{ fontFamily: "Space Grotesk, sans-serif" }}
+            >
+              Beautiful Invoice & Receipt
+              <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"> Templates</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Choose from multiple professional receipt themes. Print on thermal printers or send digitally via WhatsApp.
+            </p>
+          </div>
+
+          {/* Invoice Cards Showcase */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {/* Classic Invoice */}
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transform hover:scale-105 transition-transform">
+              <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white text-center py-2 text-sm font-medium">
+                Classic Theme
+              </div>
+              <div className="p-4 font-mono text-xs bg-gray-50">
+                <div className="text-center border-b border-dashed border-gray-300 pb-3 mb-3">
+                  <div className="font-bold text-sm">🍽️ SPICE GARDEN</div>
+                  <div className="text-gray-600">123 Food Street, Mumbai</div>
+                  <div className="text-gray-600">Tel: +91 98765 43210</div>
+                  <div className="text-gray-500 mt-1">GSTIN: 27XXXXX1234X1Z5</div>
+                </div>
+                <div className="text-center text-gray-500 mb-2">
+                  <div>Bill No: #1234</div>
+                  <div>20/12/2025 14:30</div>
+                </div>
+                <div className="border-t border-b border-dashed border-gray-300 py-2 my-2">
+                  <div className="flex justify-between"><span>Butter Chicken x2</span><span>₹560</span></div>
+                  <div className="flex justify-between"><span>Naan x4</span><span>₹120</span></div>
+                  <div className="flex justify-between"><span>Dal Makhani x1</span><span>₹220</span></div>
+                  <div className="flex justify-between"><span>Lassi x2</span><span>₹100</span></div>
+                </div>
+                <div className="border-b border-dashed border-gray-300 pb-2 mb-2">
+                  <div className="flex justify-between"><span>Subtotal</span><span>₹1,000</span></div>
+                  <div className="flex justify-between text-gray-500"><span>GST (5%)</span><span>₹50</span></div>
+                </div>
+                <div className="flex justify-between font-bold text-sm">
+                  <span>TOTAL</span><span>₹1,050</span>
+                </div>
+                <div className="text-center text-gray-500 mt-3 text-xs">
+                  Thank you for dining with us! 🙏
+                </div>
+              </div>
+            </div>
+
+            {/* Modern Invoice */}
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transform hover:scale-105 transition-transform">
+              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-center py-2 text-sm font-medium">
+                Modern Theme
+              </div>
+              <div className="p-4 text-xs">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">UC</div>
+                  <div>
+                    <div className="font-bold text-sm">Urban Cafe</div>
+                    <div className="text-gray-500 text-xs">Premium Dining</div>
+                  </div>
+                </div>
+                <div className="bg-gray-100 rounded-lg p-3 mb-3">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Invoice #2456</span>
+                    <span>Table 5</span>
+                  </div>
+                </div>
+                <div className="space-y-2 mb-3">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">Margherita Pizza</div>
+                      <div className="text-gray-500">x1</div>
+                    </div>
+                    <span className="font-medium">₹450</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">Pasta Alfredo</div>
+                      <div className="text-gray-500">x1</div>
+                    </div>
+                    <span className="font-medium">₹380</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">Cold Coffee</div>
+                      <div className="text-gray-500">x2</div>
+                    </div>
+                    <span className="font-medium">₹240</span>
+                  </div>
+                </div>
+                <div className="border-t pt-2 space-y-1">
+                  <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>₹1,070</span></div>
+                  <div className="flex justify-between text-gray-500"><span>GST 5%</span><span>₹53.50</span></div>
+                  <div className="flex justify-between font-bold text-blue-600 text-sm pt-1">
+                    <span>Total</span><span>₹1,123.50</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Minimal Invoice */}
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transform hover:scale-105 transition-transform">
+              <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white text-center py-2 text-sm font-medium">
+                Minimal Theme
+              </div>
+              <div className="p-4 text-xs">
+                <div className="text-center mb-4">
+                  <div className="text-lg font-light tracking-widest">BREW & BITE</div>
+                  <div className="text-gray-400 text-xs">Coffee • Food • Vibes</div>
+                </div>
+                <div className="h-px bg-gray-200 my-3"></div>
+                <div className="space-y-2 text-gray-700">
+                  <div className="flex justify-between">
+                    <span>Cappuccino</span>
+                    <span>₹180</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Croissant</span>
+                    <span>₹120</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Avocado Toast</span>
+                    <span>₹280</span>
+                  </div>
+                </div>
+                <div className="h-px bg-gray-200 my-3"></div>
+                <div className="flex justify-between text-gray-500">
+                  <span>Tax</span>
+                  <span>₹29</span>
+                </div>
+                <div className="h-px bg-gray-900 my-2"></div>
+                <div className="flex justify-between font-medium text-sm">
+                  <span>Total</span>
+                  <span>₹609</span>
+                </div>
+                <div className="text-center text-gray-400 mt-4 text-xs">
+                  #3789 • 20 Dec 2025
+                </div>
+              </div>
+            </div>
+
+            {/* Elegant Invoice */}
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden transform hover:scale-105 transition-transform">
+              <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white text-center py-2 text-sm font-medium">
+                Elegant Theme
+              </div>
+              <div className="p-4 text-xs">
+                <div className="text-center mb-3">
+                  <div className="text-sm font-serif font-bold text-amber-800">✦ THE ROYAL KITCHEN ✦</div>
+                  <div className="text-gray-500 text-xs">Fine Dining Experience</div>
+                </div>
+                <div className="border border-amber-200 rounded-lg p-2 mb-3 bg-amber-50">
+                  <div className="text-center text-amber-800">
+                    <div className="font-medium">Invoice #5678</div>
+                    <div className="text-xs">December 20, 2025</div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between border-b border-dotted border-gray-300 pb-1">
+                    <span>Paneer Tikka</span>
+                    <span>₹320</span>
+                  </div>
+                  <div className="flex justify-between border-b border-dotted border-gray-300 pb-1">
+                    <span>Biryani Special</span>
+                    <span>₹450</span>
+                  </div>
+                  <div className="flex justify-between border-b border-dotted border-gray-300 pb-1">
+                    <span>Gulab Jamun</span>
+                    <span>₹150</span>
+                  </div>
+                </div>
+                <div className="mt-3 pt-2 border-t-2 border-amber-300">
+                  <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>₹920</span></div>
+                  <div className="flex justify-between text-gray-500"><span>Service (10%)</span><span>₹92</span></div>
+                  <div className="flex justify-between font-bold text-amber-800 text-sm mt-1">
+                    <span>Grand Total</span><span>₹1,012</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Features List */}
+          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-4">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <Printer className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <div className="font-semibold">Thermal Printing</div>
+                <div className="text-sm text-gray-600">58mm & 80mm support</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-4">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="font-semibold">WhatsApp Bills</div>
+                <div className="text-sm text-gray-600">Send digital receipts</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-4">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Shield className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <div className="font-semibold">GST Compliant</div>
+                <div className="text-sm text-gray-600">Auto tax calculation</div>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="text-center mt-12">
+            <Button
+              size="lg"
+              className="bg-gradient-to-r from-green-600 to-emerald-600 h-14 px-8 text-lg"
+              onClick={() => navigate("/login")}
+            >
+              <Printer className="w-5 h-5 mr-2" />
+              Try Invoice Templates Free
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials Section */}
       <section id="testimonials" className="py-20 bg-white">
         <div className="container mx-auto px-4">
