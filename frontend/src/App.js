@@ -30,6 +30,9 @@ import OrderDisplayPage from './pages/OrderDisplayPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import HelpPage from './pages/HelpPage';
 import SuperAdminPage from './pages/SuperAdminPage';
+import RestaurantBillingSoftwarePage from './pages/RestaurantBillingSoftwarePage';
+import KOTSoftwarePage from './pages/KOTSoftwarePage';
+import POSSoftwarePage from './pages/POSSoftwarePage';
 import DesktopInfo from './components/DesktopInfo';
 import { Toaster } from './components/ui/sonner';
 
@@ -347,6 +350,9 @@ function App() {
           {/* Public Routes - No Auth Required */}
           <Route path="/seo" element={<SEOPage />} />
           <Route path="/restaurant-billing-software-india" element={<SEOPage />} />
+          <Route path="/restaurant-billing-software" element={<RestaurantBillingSoftwarePage />} />
+          <Route path="/kot-software" element={<KOTSoftwarePage />} />
+          <Route path="/pos-software-for-restaurants" element={<POSSoftwarePage />} />
           <Route path="/track/:trackingToken" element={<TrackOrderPage />} />
           <Route path="/order/:orgId" element={<CustomerOrderPage />} />
           <Route path="/download" element={<DownloadPage />} />
