@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Eye, Printer, CreditCard, MessageCircle, X } from 'lucide-react';
+import { Plus, Eye, Printer, CreditCard, MessageCircle, X, Receipt, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TrialBanner from '../components/TrialBanner';
 
@@ -26,6 +26,9 @@ const OrdersPage = ({ user }) => {
   });
   const [whatsappModal, setWhatsappModal] = useState({ open: false, orderId: null, customerName: '' });
   const [whatsappPhone, setWhatsappPhone] = useState('');
+  const [viewOrderModal, setViewOrderModal] = useState({ open: false, order: null });
+  const [receiptContent, setReceiptContent] = useState('');
+  const [printLoading, setPrintLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -296,6 +299,94 @@ Status: ${order.status.toUpperCase()}
     }
   };
 
+  // View order details
+  const handleViewOrder = (order) => {
+    setViewOrderModal({ open: true, order });
+  };
+
+  // Print receipt for completed order
+  const handlePrintReceipt = async (order) => {
+    setPrintLoading(true);
+    try {
+      const response = await axios.post(`${API}/print/bill/${order.id}`, null, {
+        params: { theme: businessSettings?.receipt_theme || 'classic' }
+      });
+      
+      const content = response.data.content;
+      setReceiptContent(content);
+      
+      // Open print window
+      const printWindow = window.open('', '_blank', 'width=400,height=600,scrollbars=yes');
+      if (!printWindow) {
+        toast.error('Please allow popups for printing');
+        return;
+      }
+      
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Receipt - ${order.id.slice(0, 8)}</title>
+            <style>
+              @page { size: 80mm auto; margin: 0; }
+              @media print { .no-print { display: none !important; } }
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { 
+                font-family: 'Courier New', Courier, monospace; 
+                padding: 10px;
+                max-width: 400px;
+                margin: 0 auto;
+              }
+              pre { 
+                white-space: pre-wrap; 
+                font-size: 12px; 
+                line-height: 1.4;
+                background: #fff;
+                padding: 15px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+              }
+              .no-print { 
+                text-align: center; 
+                margin: 20px 0; 
+                padding: 15px;
+                background: #f5f5f5;
+                border-radius: 8px;
+              }
+              .btn { 
+                padding: 12px 24px; 
+                border: none; 
+                border-radius: 8px; 
+                cursor: pointer; 
+                font-weight: 600; 
+                margin: 5px;
+                font-size: 14px;
+              }
+              .btn-print { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+              .btn-close { background: #6b7280; color: white; }
+              h3 { text-align: center; margin-bottom: 15px; color: #374151; }
+            </style>
+          </head>
+          <body>
+            <h3>🧾 Receipt - Order #${order.id.slice(0, 8)}</h3>
+            <pre>${content}</pre>
+            <div class="no-print">
+              <button class="btn btn-print" onclick="window.print()">🖨️ Print Receipt</button>
+              <button class="btn btn-close" onclick="window.close()">✕ Close</button>
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      toast.success('Receipt opened for printing');
+    } catch (error) {
+      console.error('Failed to print receipt', error);
+      toast.error('Failed to generate receipt');
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
   return (
     <Layout user={user}>
       <div className="space-y-6" data-testid="orders-page">
@@ -476,16 +567,37 @@ Status: ${order.status.toUpperCase()}
                       </Button>
                     )}
                     {order.status === 'completed' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-green-500 text-green-600 hover:bg-green-50"
-                        onClick={() => setWhatsappModal({ open: true, orderId: order.id, customerName: order.customer_name || 'Guest' })}
-                        data-testid={`whatsapp-${order.id}`}
-                      >
-                        <MessageCircle className="w-4 h-4 mr-2" />
-                        WhatsApp
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewOrder(order)}
+                          data-testid={`view-${order.id}`}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handlePrintReceipt(order)}
+                          disabled={printLoading}
+                          data-testid={`print-receipt-${order.id}`}
+                        >
+                          <Receipt className="w-4 h-4 mr-2" />
+                          Print
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-green-500 text-green-600 hover:bg-green-50"
+                          onClick={() => setWhatsappModal({ open: true, orderId: order.id, customerName: order.customer_name || 'Guest' })}
+                          data-testid={`whatsapp-${order.id}`}
+                        >
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          WhatsApp
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -545,6 +657,121 @@ Status: ${order.status.toUpperCase()}
                     onClick={() => { setWhatsappModal({ open: false, orderId: null, customerName: '' }); setWhatsappPhone(''); }}
                   >
                     Cancel
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* View Order Modal */}
+        {viewOrderModal.open && viewOrderModal.order && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-lg border-0 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader className="relative bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-t-lg">
+                <button
+                  onClick={() => setViewOrderModal({ open: false, order: null })}
+                  className="absolute right-4 top-4 text-white/80 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="w-5 h-5" />
+                  Order #{viewOrderModal.order.id.slice(0, 8)}
+                </CardTitle>
+                <p className="text-violet-100 text-sm mt-1">
+                  {new Date(viewOrderModal.order.created_at).toLocaleString()}
+                </p>
+              </CardHeader>
+              <div className="p-6 space-y-4">
+                {/* Order Info */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">Table</p>
+                    <p className="font-bold text-lg">{viewOrderModal.order.table_number || 'Counter'}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">Status</p>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(viewOrderModal.order.status)}`}>
+                      {viewOrderModal.order.status}
+                    </span>
+                  </div>
+                  {viewOrderModal.order.customer_name && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-gray-500">Customer</p>
+                      <p className="font-bold">{viewOrderModal.order.customer_name}</p>
+                    </div>
+                  )}
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">Server</p>
+                    <p className="font-bold">{viewOrderModal.order.waiter_name}</p>
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div className="border-t pt-4">
+                  <h4 className="font-bold mb-3">Order Items</h4>
+                  <div className="space-y-2">
+                    {viewOrderModal.order.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium">{item.quantity}× {item.name}</p>
+                          {item.notes && <p className="text-sm text-orange-600">Note: {item.notes}</p>}
+                        </div>
+                        <p className="font-bold">₹{(item.price * item.quantity).toFixed(2)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Totals */}
+                <div className="border-t pt-4 space-y-2">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span className="font-medium">₹{viewOrderModal.order.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Tax:</span>
+                    <span>₹{viewOrderModal.order.tax.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-xl font-bold text-violet-600 pt-2 border-t">
+                    <span>Total:</span>
+                    <span>₹{viewOrderModal.order.total.toFixed(2)}</span>
+                  </div>
+                  {viewOrderModal.order.payment_method && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Payment Method:</span>
+                      <span className="font-medium capitalize">{viewOrderModal.order.payment_method}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    onClick={() => handlePrintReceipt(viewOrderModal.order)}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600"
+                    disabled={printLoading}
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print Receipt
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-green-500 text-green-600 hover:bg-green-50"
+                    onClick={() => {
+                      setViewOrderModal({ open: false, order: null });
+                      setWhatsappModal({ open: true, orderId: viewOrderModal.order.id, customerName: viewOrderModal.order.customer_name || 'Guest' });
+                    }}
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    WhatsApp
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setViewOrderModal({ open: false, order: null })}
+                  >
+                    Close
                   </Button>
                 </div>
               </div>

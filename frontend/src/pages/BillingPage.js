@@ -195,7 +195,137 @@ const BillingPage = ({ user }) => {
   };
 
   const handleActualPrint = () => {
-    window.print();
+    // Create a hidden iframe for reliable printing
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.top = '-10000px';
+    printFrame.style.left = '-10000px';
+    printFrame.style.width = thermalPaperSize;
+    printFrame.style.height = '0';
+    document.body.appendChild(printFrame);
+
+    const printDocument = printFrame.contentWindow.document;
+    printDocument.open();
+    printDocument.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Receipt - ${order?.id?.slice(0, 8)}</title>
+          <style>
+            @page {
+              size: ${thermalPaperSize} auto;
+              margin: 0;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              width: ${thermalPaperSize};
+              font-family: 'Courier New', Courier, monospace;
+              font-size: ${thermalPaperSize === '58mm' ? '9px' : '11px'};
+              line-height: 1.3;
+              color: #000;
+              background: #fff;
+              padding: 2mm;
+            }
+            pre {
+              white-space: pre-wrap;
+              word-wrap: break-word;
+              font-family: inherit;
+              font-size: inherit;
+              margin: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <pre>${receiptContent}</pre>
+        </body>
+      </html>
+    `);
+    printDocument.close();
+
+    // Wait for content to load then print
+    printFrame.onload = () => {
+      setTimeout(() => {
+        printFrame.contentWindow.focus();
+        printFrame.contentWindow.print();
+        // Remove iframe after printing
+        setTimeout(() => {
+          document.body.removeChild(printFrame);
+        }, 1000);
+      }, 250);
+    };
+  };
+
+  const handlePopupPrint = () => {
+    // Fallback: Open in new window for manual printing
+    const printWindow = window.open('', '_blank', `width=400,height=600,scrollbars=yes`);
+    if (!printWindow) {
+      toast.error('Please allow popups for printing');
+      return;
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Receipt - ${order?.id?.slice(0, 8)}</title>
+          <style>
+            @page { size: ${thermalPaperSize} auto; margin: 0; }
+            @media print { .no-print { display: none !important; } }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Courier New', Courier, monospace; 
+              padding: 10px;
+              max-width: 400px;
+              margin: 0 auto;
+            }
+            pre { 
+              white-space: pre-wrap; 
+              font-size: ${thermalPaperSize === '58mm' ? '11px' : '13px'}; 
+              line-height: 1.4;
+              background: #fff;
+              padding: 15px;
+              border: 1px solid #ddd;
+              border-radius: 8px;
+            }
+            .no-print { 
+              text-align: center; 
+              margin: 20px 0; 
+              padding: 15px;
+              background: #f5f5f5;
+              border-radius: 8px;
+            }
+            .btn { 
+              padding: 12px 24px; 
+              border: none; 
+              border-radius: 8px; 
+              cursor: pointer; 
+              font-weight: 600; 
+              margin: 5px;
+              font-size: 14px;
+            }
+            .btn-print { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+            .btn-print:hover { background: linear-gradient(135deg, #059669, #047857); }
+            .btn-close { background: #6b7280; color: white; }
+            .btn-close:hover { background: #4b5563; }
+            h3 { text-align: center; margin-bottom: 15px; color: #374151; }
+          </style>
+        </head>
+        <body>
+          <h3>🧾 Receipt Preview</h3>
+          <pre>${receiptContent}</pre>
+          <div class="no-print">
+            <button class="btn btn-print" onclick="window.print()">🖨️ Print Receipt</button>
+            <button class="btn btn-close" onclick="window.close()">✕ Close</button>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    toast.success('Receipt opened in new window');
   };
 
   const closePrintPreview = () => {
@@ -919,70 +1049,18 @@ const BillingPage = ({ user }) => {
                 Print Receipt
               </button>
               <button
+                onClick={handlePopupPrint}
+                className="flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all"
+                title="Open in new window"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+              <button
                 onClick={closePrintPreview}
                 className="px-6 py-3 text-slate-300 font-semibold bg-slate-700 rounded-xl hover:bg-slate-600 transition-all"
               >
                 Close
               </button>
-            </div>
-          </div>
-
-          {/* Print-only content with thermal printer styles */}
-          <div className="hidden print:block print:fixed print:inset-0 print:bg-white print:z-[9999]">
-            <style>{`
-              @page {
-                size: ${thermalPaperSize} auto;
-                margin: 0;
-              }
-              
-              @media print {
-                * {
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                  color-adjust: exact !important;
-                }
-                
-                html, body {
-                  width: ${thermalPaperSize} !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background: white !important;
-                  overflow: visible !important;
-                }
-                
-                .thermal-receipt-container {
-                  width: ${thermalPaperSize} !important;
-                  max-width: ${thermalPaperSize} !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background: white !important;
-                  box-sizing: border-box !important;
-                }
-                
-                .thermal-receipt-content {
-                  font-family: 'Courier New', 'Courier', 'Consolas', monospace !important;
-                  font-size: ${thermalPaperSize === '58mm' ? '9px' : '11px'} !important;
-                  line-height: 1.2 !important;
-                  color: #000 !important;
-                  white-space: pre !important;
-                  word-wrap: normal !important;
-                  margin: 0 !important;
-                  padding: 2mm !important;
-                  background: white !important;
-                  width: 100% !important;
-                  box-sizing: border-box !important;
-                }
-                
-                /* Hide everything except thermal receipt */
-                body > *:not(.thermal-receipt-container) {
-                  display: none !important;
-                }
-              }
-            `}</style>
-            <div className="thermal-receipt-container">
-              <pre className="thermal-receipt-content">
-                {receiptContent}
-              </pre>
             </div>
           </div>
         </div>

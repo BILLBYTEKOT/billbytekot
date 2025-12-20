@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import { API } from "../App";
 import Layout from "../components/Layout";
@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import {
   Tabs,
@@ -23,16 +22,16 @@ import {
   FileText, 
   Download, 
   Sparkles, 
-  TrendingUp, 
-  TrendingDown,
+  TrendingUp,
   Users,
   Clock,
   Package,
-  DollarSign,
   ShoppingCart,
   Calendar,
   FileSpreadsheet,
-  Printer
+  Printer,
+  RefreshCw,
+  CalendarDays
 } from "lucide-react";
 
 const ReportsPage = ({ user }) => {
@@ -50,8 +49,64 @@ const ReportsPage = ({ user }) => {
       .split("T")[0],
     end_date: new Date().toISOString().split("T")[0],
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [activePreset, setActivePreset] = useState('week');
+
+  // Quick date presets
+  const datePresets = useMemo(() => ({
+    today: () => {
+      const today = new Date().toISOString().split("T")[0];
+      return { start_date: today, end_date: today };
+    },
+    yesterday: () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const date = yesterday.toISOString().split("T")[0];
+      return { start_date: date, end_date: date };
+    },
+    week: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 7);
+      return { 
+        start_date: start.toISOString().split("T")[0], 
+        end_date: end.toISOString().split("T")[0] 
+      };
+    },
+    month: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 30);
+      return { 
+        start_date: start.toISOString().split("T")[0], 
+        end_date: end.toISOString().split("T")[0] 
+      };
+    },
+    thisMonth: () => {
+      const end = new Date();
+      const start = new Date(end.getFullYear(), end.getMonth(), 1);
+      return { 
+        start_date: start.toISOString().split("T")[0], 
+        end_date: end.toISOString().split("T")[0] 
+      };
+    },
+    lastMonth: () => {
+      const end = new Date();
+      end.setDate(0); // Last day of previous month
+      const start = new Date(end.getFullYear(), end.getMonth(), 1);
+      return { 
+        start_date: start.toISOString().split("T")[0], 
+        end_date: end.toISOString().split("T")[0] 
+      };
+    }
+  }), []);
+
+  const applyPreset = useCallback((preset) => {
+    setActivePreset(preset);
+    setDateRange(datePresets[preset]());
+  }, [datePresets]);
 
   useEffect(() => {
     fetchAllReports();
@@ -159,7 +214,7 @@ const ReportsPage = ({ user }) => {
   };
 
   const handleExportCSV = async () => {
-    setLoading(true);
+    setExportLoading(true);
     try {
       const response = await axios.get(`${API}/reports/export`, {
         params: dateRange,
@@ -168,7 +223,7 @@ const ReportsPage = ({ user }) => {
       const orders = response.data.orders;
       if (!orders || orders.length === 0) {
         toast.error("No data found for selected date range");
-        setLoading(false);
+        setExportLoading(false);
         return;
       }
 
@@ -214,12 +269,12 @@ const ReportsPage = ({ user }) => {
       console.error(error);
       toast.error("Failed to export CSV");
     } finally {
-      setLoading(false);
+      setExportLoading(false);
     }
   };
 
   const handleExportExcel = async () => {
-    setLoading(true);
+    setExportLoading(true);
     try {
       const response = await axios.get(`${API}/reports/export`, {
         params: dateRange,
@@ -228,7 +283,7 @@ const ReportsPage = ({ user }) => {
       const orders = response.data.orders;
       if (!orders || orders.length === 0) {
         toast.error("No data found for selected date range");
-        setLoading(false);
+        setExportLoading(false);
         return;
       }
 
@@ -307,12 +362,12 @@ const ReportsPage = ({ user }) => {
       console.error(error);
       toast.error("Failed to export Excel");
     } finally {
-      setLoading(false);
+      setExportLoading(false);
     }
   };
 
   const handleExportPDF = async () => {
-    setLoading(true);
+    setExportLoading(true);
     try {
       const response = await axios.get(`${API}/reports/export`, {
         params: dateRange,
@@ -321,7 +376,7 @@ const ReportsPage = ({ user }) => {
       const orders = response.data.orders;
       if (!orders || orders.length === 0) {
         toast.error("No data found for selected date range");
-        setLoading(false);
+        setExportLoading(false);
         return;
       }
 
@@ -513,12 +568,12 @@ const ReportsPage = ({ user }) => {
       console.error(error);
       toast.error("Failed to generate PDF");
     } finally {
-      setLoading(false);
+      setExportLoading(false);
     }
   };
 
   const handlePrintReport = async () => {
-    setLoading(true);
+    setExportLoading(true);
     try {
       const response = await axios.get(`${API}/reports/export`, {
         params: dateRange,
@@ -711,7 +766,345 @@ const ReportsPage = ({ user }) => {
       console.error(error);
       toast.error("Failed to generate print report");
     } finally {
-      setLoading(false);
+      setExportLoading(false);
+    }
+  };
+
+  // Comprehensive Detailed Report with all analytics
+  const handleDetailedReport = async () => {
+    setExportLoading(true);
+    try {
+      const response = await axios.get(`${API}/reports/export`, {
+        params: dateRange,
+      });
+
+      const orders = response.data.orders || [];
+      
+      // Calculate totals
+      const totalOrders = orders.length;
+      const totalSales = orders.reduce((sum, order) => sum + order.total, 0);
+      const totalTax = orders.reduce((sum, order) => sum + order.tax, 0);
+      const completedOrders = orders.filter(o => o.status === 'completed').length;
+      const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
+
+      // Create comprehensive PDF report
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Detailed Business Report - ${dateRange.start_date} to ${dateRange.end_date}</title>
+          <style>
+            @page { size: A4; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body {
+              font-family: 'Segoe UI', Arial, sans-serif;
+              font-size: 11px;
+              line-height: 1.4;
+              color: #1f2937;
+              margin: 0;
+              padding: 15px;
+            }
+            .header {
+              text-align: center;
+              padding: 20px;
+              background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+              color: white;
+              border-radius: 12px;
+              margin-bottom: 20px;
+            }
+            .header h1 { margin: 0 0 5px 0; font-size: 24px; }
+            .header p { margin: 3px 0; opacity: 0.9; }
+            .section { margin-bottom: 25px; page-break-inside: avoid; }
+            .section-title {
+              font-size: 16px;
+              font-weight: bold;
+              color: #7c3aed;
+              border-bottom: 2px solid #7c3aed;
+              padding-bottom: 8px;
+              margin-bottom: 15px;
+            }
+            .stats-grid {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 12px;
+              margin-bottom: 20px;
+            }
+            .stat-card {
+              background: #f3f4f6;
+              padding: 15px;
+              border-radius: 10px;
+              text-align: center;
+            }
+            .stat-card.highlight { background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; }
+            .stat-card h4 { margin: 0 0 5px 0; font-size: 10px; opacity: 0.8; text-transform: uppercase; }
+            .stat-card p { margin: 0; font-size: 22px; font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            th, td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; font-size: 10px; }
+            th { background: #7c3aed; color: white; font-weight: 600; }
+            tr:nth-child(even) { background: #f9fafb; }
+            .rank { 
+              display: inline-flex; 
+              align-items: center; 
+              justify-content: center;
+              width: 24px; 
+              height: 24px; 
+              background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); 
+              color: white; 
+              border-radius: 50%; 
+              font-weight: bold;
+              font-size: 11px;
+            }
+            .progress-bar { 
+              height: 8px; 
+              background: #e5e7eb; 
+              border-radius: 4px; 
+              overflow: hidden;
+              margin-top: 4px;
+            }
+            .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #a855f7); border-radius: 4px; }
+            .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .footer {
+              text-align: center;
+              padding: 15px;
+              border-top: 2px solid #e5e7eb;
+              margin-top: 20px;
+              color: #6b7280;
+              font-size: 10px;
+            }
+            .no-print { margin-top: 20px; text-align: center; }
+            .btn {
+              padding: 12px 24px;
+              border: none;
+              border-radius: 8px;
+              cursor: pointer;
+              font-weight: 600;
+              font-size: 14px;
+              margin: 5px;
+            }
+            .btn-primary { background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; }
+            .btn-secondary { background: #6b7280; color: white; }
+            @media print {
+              .no-print { display: none !important; }
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>📊 ${user?.business_settings?.restaurant_name || 'Restaurant'}</h1>
+            <p><strong>Detailed Business Report</strong></p>
+            <p>${new Date(dateRange.start_date).toLocaleDateString()} - ${new Date(dateRange.end_date).toLocaleDateString()}</p>
+            <p>Generated: ${new Date().toLocaleString()}</p>
+          </div>
+
+          <!-- Summary Stats -->
+          <div class="section">
+            <div class="section-title">📈 Summary Overview</div>
+            <div class="stats-grid">
+              <div class="stat-card highlight">
+                <h4>Total Revenue</h4>
+                <p>₹${totalSales.toFixed(0)}</p>
+              </div>
+              <div class="stat-card">
+                <h4>Total Orders</h4>
+                <p>${totalOrders}</p>
+              </div>
+              <div class="stat-card">
+                <h4>Avg Order Value</h4>
+                <p>₹${totalOrders > 0 ? (totalSales / totalOrders).toFixed(0) : 0}</p>
+              </div>
+              <div class="stat-card">
+                <h4>Tax Collected</h4>
+                <p>₹${totalTax.toFixed(0)}</p>
+              </div>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-card" style="background: #dcfce7;">
+                <h4>Completed</h4>
+                <p style="color: #16a34a;">${completedOrders}</p>
+              </div>
+              <div class="stat-card" style="background: #fef3c7;">
+                <h4>Pending</h4>
+                <p style="color: #d97706;">${orders.filter(o => o.status === 'pending').length}</p>
+              </div>
+              <div class="stat-card" style="background: #dbeafe;">
+                <h4>Preparing</h4>
+                <p style="color: #2563eb;">${orders.filter(o => o.status === 'preparing').length}</p>
+              </div>
+              <div class="stat-card" style="background: #fee2e2;">
+                <h4>Cancelled</h4>
+                <p style="color: #dc2626;">${cancelledOrders}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <!-- Best Selling Items -->
+            <div class="section">
+              <div class="section-title">🏆 Top Selling Items</div>
+              ${bestSelling && bestSelling.length > 0 ? `
+                <table>
+                  <thead>
+                    <tr><th>#</th><th>Item</th><th>Qty</th><th>Revenue</th></tr>
+                  </thead>
+                  <tbody>
+                    ${bestSelling.slice(0, 10).map((item, i) => `
+                      <tr>
+                        <td><span class="rank">${i + 1}</span></td>
+                        <td><strong>${item.name || 'Unknown'}</strong><br><small style="color:#6b7280">${item.category || ''}</small></td>
+                        <td>${item.total_quantity || 0}</td>
+                        <td>₹${(item.total_revenue || 0).toFixed(0)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              ` : '<p style="color:#6b7280;text-align:center;">No data available</p>'}
+            </div>
+
+            <!-- Staff Performance -->
+            <div class="section">
+              <div class="section-title">👥 Staff Performance</div>
+              ${staffPerformance && staffPerformance.length > 0 ? `
+                <table>
+                  <thead>
+                    <tr><th>Staff</th><th>Orders</th><th>Sales</th><th>Avg</th></tr>
+                  </thead>
+                  <tbody>
+                    ${staffPerformance.slice(0, 10).map(staff => `
+                      <tr>
+                        <td><strong>${staff.waiter_name}</strong></td>
+                        <td>${staff.total_orders}</td>
+                        <td>₹${(staff.total_sales || 0).toFixed(0)}</td>
+                        <td>₹${(staff.avg_order_value || 0).toFixed(0)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              ` : '<p style="color:#6b7280;text-align:center;">No data available</p>'}
+            </div>
+          </div>
+
+          <div class="two-col">
+            <!-- Peak Hours -->
+            <div class="section">
+              <div class="section-title">⏰ Peak Hours Analysis</div>
+              ${peakHours && peakHours.length > 0 ? `
+                <table>
+                  <thead>
+                    <tr><th>Hour</th><th>Orders</th><th>Sales</th><th>Activity</th></tr>
+                  </thead>
+                  <tbody>
+                    ${peakHours.slice(0, 12).map(hour => {
+                      const maxOrders = Math.max(...peakHours.map(h => h.order_count || 0));
+                      const pct = maxOrders > 0 ? ((hour.order_count || 0) / maxOrders) * 100 : 0;
+                      return `
+                        <tr>
+                          <td>${hour.hour}:00</td>
+                          <td>${hour.order_count || 0}</td>
+                          <td>₹${(hour.total_sales || 0).toFixed(0)}</td>
+                          <td>
+                            <div class="progress-bar">
+                              <div class="progress-fill" style="width:${pct}%"></div>
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              ` : '<p style="color:#6b7280;text-align:center;">No data available</p>'}
+            </div>
+
+            <!-- Category Analysis -->
+            <div class="section">
+              <div class="section-title">📦 Sales by Category</div>
+              ${categoryAnalysis && categoryAnalysis.length > 0 ? `
+                <table>
+                  <thead>
+                    <tr><th>Category</th><th>Items</th><th>Revenue</th><th>Share</th></tr>
+                  </thead>
+                  <tbody>
+                    ${categoryAnalysis.map(cat => {
+                      const maxRev = Math.max(...categoryAnalysis.map(c => c.total_revenue || 0));
+                      const pct = maxRev > 0 ? ((cat.total_revenue || 0) / maxRev) * 100 : 0;
+                      return `
+                        <tr>
+                          <td><strong>${cat.category}</strong></td>
+                          <td>${cat.total_quantity || 0}</td>
+                          <td>₹${(cat.total_revenue || 0).toFixed(0)}</td>
+                          <td>
+                            <div class="progress-bar">
+                              <div class="progress-fill" style="width:${pct}%"></div>
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              ` : '<p style="color:#6b7280;text-align:center;">No data available</p>'}
+            </div>
+          </div>
+
+          <!-- Orders Table -->
+          ${orders.length > 0 ? `
+            <div class="section">
+              <div class="section-title">📋 Order Details (${orders.length} orders)</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Table</th>
+                    <th>Staff</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${orders.slice(0, 50).map(order => `
+                    <tr>
+                      <td>${order.id.slice(0, 8)}</td>
+                      <td>${new Date(order.created_at).toLocaleDateString()}</td>
+                      <td>${order.table_number}</td>
+                      <td>${order.waiter_name}</td>
+                      <td>${order.items.map(i => i.quantity + 'x ' + i.name).join(', ').slice(0, 40)}${order.items.length > 2 ? '...' : ''}</td>
+                      <td><strong>₹${order.total.toFixed(0)}</strong></td>
+                      <td style="color: ${order.status === 'completed' ? '#16a34a' : order.status === 'cancelled' ? '#dc2626' : '#d97706'}">${order.status}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+              ${orders.length > 50 ? '<p style="text-align:center;color:#6b7280;font-size:10px;">Showing first 50 orders. Export CSV for complete data.</p>' : ''}
+            </div>
+          ` : ''}
+
+          <div class="footer">
+            <p><strong>BillByteKOT</strong> - Restaurant Management System</p>
+            <p>${user?.business_settings?.address || ''} ${user?.business_settings?.phone ? '| ' + user.business_settings.phone : ''}</p>
+            <p>Report generated on ${new Date().toLocaleString()}</p>
+          </div>
+
+          <div class="no-print">
+            <button class="btn btn-primary" onclick="window.print()">📄 Save as PDF / Print</button>
+            <button class="btn btn-secondary" onclick="window.close()">✕ Close</button>
+            <p style="margin-top:10px;font-size:12px;color:#6b7280;">
+              Click "Save as PDF" in print dialog to download PDF
+            </p>
+          </div>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      
+      toast.success("Detailed report ready! Click 'Save as PDF' to download");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate detailed report");
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -857,49 +1250,70 @@ const ReportsPage = ({ user }) => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-violet-600" />
-                  Export Reports
+                  Quick Export
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  {/* Quick Presets */}
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: 'today', label: 'Today' },
+                      { key: 'week', label: 'Last 7 Days' },
+                      { key: 'month', label: 'Last 30 Days' },
+                    ].map(preset => (
+                      <button
+                        key={preset.key}
+                        onClick={() => applyPreset(preset.key)}
+                        className={`px-4 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
+                          activePreset === preset.key
+                            ? 'border-violet-500 bg-violet-50 text-violet-700'
+                            : 'border-gray-200 hover:border-violet-300'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Date Range Display */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>Start Date</Label>
-                      <Input
+                      <Label className="text-xs text-gray-500">From</Label>
+                      <input
                         type="date"
                         value={dateRange.start_date}
-                        onChange={(e) =>
-                          setDateRange({
-                            ...dateRange,
-                            start_date: e.target.value,
-                          })
-                        }
+                        onChange={(e) => {
+                          setActivePreset('custom');
+                          setDateRange({ ...dateRange, start_date: e.target.value });
+                        }}
+                        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-violet-500 outline-none transition-all"
                         data-testid="start-date-input"
                       />
                     </div>
                     <div>
-                      <Label>End Date</Label>
-                      <Input
+                      <Label className="text-xs text-gray-500">To</Label>
+                      <input
                         type="date"
                         value={dateRange.end_date}
-                        onChange={(e) =>
-                          setDateRange({
-                            ...dateRange,
-                            end_date: e.target.value,
-                          })
-                        }
+                        onChange={(e) => {
+                          setActivePreset('custom');
+                          setDateRange({ ...dateRange, end_date: e.target.value });
+                        }}
+                        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-violet-500 outline-none transition-all"
                         data-testid="end-date-input"
                       />
                     </div>
                   </div>
+                  
                   <Button
                     onClick={handleExportCSV}
-                    disabled={loading}
-                    className="bg-gradient-to-r from-violet-600 to-purple-600"
+                    disabled={exportLoading}
+                    className="w-full bg-gradient-to-r from-violet-600 to-purple-600"
                     data-testid="export-button"
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    {loading ? "Exporting..." : "Export to CSV"}
+                    {exportLoading ? "Exporting..." : "Export to CSV"}
                   </Button>
                 </div>
               </CardContent>
@@ -1267,164 +1681,157 @@ const ReportsPage = ({ user }) => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Start Date</Label>
-                      <Input
-                        type="date"
-                        value={dateRange.start_date}
-                        onChange={(e) =>
-                          setDateRange({
-                            ...dateRange,
-                            start_date: e.target.value,
-                          })
-                        }
-                        data-testid="export-start-date"
-                      />
-                    </div>
-                    <div>
-                      <Label>End Date</Label>
-                      <Input
-                        type="date"
-                        value={dateRange.end_date}
-                        onChange={(e) =>
-                          setDateRange({
-                            ...dateRange,
-                            end_date: e.target.value,
-                          })
-                        }
-                        data-testid="export-end-date"
-                      />
+                  {/* Quick Date Presets - More Prominent */}
+                  <div>
+                    <Label className="text-base font-semibold mb-3 block">Quick Select Date Range</Label>
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                      {[
+                        { key: 'today', label: 'Today', icon: '📅' },
+                        { key: 'yesterday', label: 'Yesterday', icon: '⏪' },
+                        { key: 'week', label: 'Last 7 Days', icon: '📆' },
+                        { key: 'month', label: 'Last 30 Days', icon: '🗓️' },
+                        { key: 'thisMonth', label: 'This Month', icon: '📊' },
+                        { key: 'lastMonth', label: 'Last Month', icon: '📈' },
+                      ].map(preset => (
+                        <button
+                          key={preset.key}
+                          onClick={() => applyPreset(preset.key)}
+                          className={`p-3 rounded-xl border-2 transition-all text-center ${
+                            activePreset === preset.key
+                              ? 'border-violet-500 bg-violet-50 text-violet-700 shadow-md'
+                              : 'border-gray-200 hover:border-violet-300 hover:bg-violet-50'
+                          }`}
+                        >
+                          <span className="text-xl block mb-1">{preset.icon}</span>
+                          <span className="text-xs font-medium">{preset.label}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Button
-                      onClick={handleExportCSV}
-                      disabled={loading}
-                      className="h-12 bg-gradient-to-r from-green-600 to-emerald-600"
-                      data-testid="export-csv-button"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 mr-2" />
-                      {loading ? "Exporting..." : "CSV"}
-                    </Button>
-                    
-                    <Button
-                      onClick={handleExportExcel}
-                      disabled={loading}
-                      className="h-12 bg-gradient-to-r from-blue-600 to-cyan-600"
-                      data-testid="export-excel-button"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 mr-2" />
-                      {loading ? "Exporting..." : "Excel"}
-                    </Button>
-                    
-                    <Button
-                      onClick={handleExportPDF}
-                      disabled={loading}
-                      className="h-12 bg-gradient-to-r from-red-600 to-pink-600"
-                      data-testid="export-pdf-button"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      {loading ? "Exporting..." : "PDF"}
-                    </Button>
-                    
-                    <Button
-                      onClick={handlePrintReport}
-                      disabled={loading}
-                      variant="outline"
-                      className="h-12"
-                      data-testid="print-report-button"
-                    >
-                      <Printer className="w-4 h-4 mr-2" />
-                      Print
-                    </Button>
-                  </div>
-
-                  <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                    <h4 className="font-semibold text-gray-900 mb-3">📊 Export Formats Available:</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                      <div className="p-2 bg-white rounded border border-green-200">
-                        <p className="font-semibold text-green-700 text-sm">CSV</p>
-                        <p className="text-xs text-gray-600">Excel, Google Sheets</p>
+                  {/* Custom Date Range */}
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <Label className="text-sm font-semibold mb-3 block flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4" />
+                      Custom Date Range
+                    </Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs text-gray-500 mb-1 block">Start Date</Label>
+                        <input
+                          type="date"
+                          value={dateRange.start_date}
+                          onChange={(e) => {
+                            setActivePreset('custom');
+                            setDateRange({ ...dateRange, start_date: e.target.value });
+                          }}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none transition-all text-base"
+                          data-testid="export-start-date"
+                        />
                       </div>
-                      <div className="p-2 bg-white rounded border border-blue-200">
-                        <p className="font-semibold text-blue-700 text-sm">Excel</p>
-                        <p className="text-xs text-gray-600">Microsoft Excel (.xls)</p>
-                      </div>
-                      <div className="p-2 bg-white rounded border border-red-200">
-                        <p className="font-semibold text-red-700 text-sm">PDF</p>
-                        <p className="text-xs text-gray-600">Print & Save as PDF</p>
+                      <div>
+                        <Label className="text-xs text-gray-500 mb-1 block">End Date</Label>
+                        <input
+                          type="date"
+                          value={dateRange.end_date}
+                          onChange={(e) => {
+                            setActivePreset('custom');
+                            setDateRange({ ...dateRange, end_date: e.target.value });
+                          }}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none transition-all text-base"
+                          data-testid="export-end-date"
+                        />
                       </div>
                     </div>
-                    <h4 className="font-semibold text-gray-900 mb-2 text-sm">Includes:</h4>
-                    <ul className="text-xs text-gray-700 space-y-1">
-                      <li>✓ Order details (ID, table, waiter, customer)</li>
-                      <li>✓ Item breakdown with quantities</li>
-                      <li>✓ Subtotal, tax, and total amounts</li>
-                      <li>✓ Order status and timestamps</li>
-                      <li>✓ Summary statistics</li>
-                    </ul>
+                    <div className="mt-3 p-2 bg-violet-100 rounded-lg text-center">
+                      <span className="text-sm text-violet-700 font-medium">
+                        📅 Selected: {new Date(dateRange.start_date).toLocaleDateString()} → {new Date(dateRange.end_date).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Quick Export Presets */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle>Quick Export Presets</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const today = new Date().toISOString().split("T")[0];
-                      setDateRange({ start_date: today, end_date: today });
-                    }}
-                  >
-                    Today
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const today = new Date();
-                      const weekAgo = new Date(today.setDate(today.getDate() - 7));
-                      setDateRange({
-                        start_date: weekAgo.toISOString().split("T")[0],
-                        end_date: new Date().toISOString().split("T")[0],
-                      });
-                    }}
-                  >
-                    Last 7 Days
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const today = new Date();
-                      const monthAgo = new Date(today.setDate(today.getDate() - 30));
-                      setDateRange({
-                        start_date: monthAgo.toISOString().split("T")[0],
-                        end_date: new Date().toISOString().split("T")[0],
-                      });
-                    }}
-                  >
-                    Last 30 Days
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const today = new Date();
-                      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                      setDateRange({
-                        start_date: firstDay.toISOString().split("T")[0],
-                        end_date: new Date().toISOString().split("T")[0],
-                      });
-                    }}
-                  >
-                    This Month
-                  </Button>
+                  {/* Export Buttons */}
+                  <div>
+                    <Label className="text-base font-semibold mb-3 block">Export Format</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <Button
+                        onClick={handleExportCSV}
+                        disabled={exportLoading}
+                        className="h-16 bg-gradient-to-r from-green-600 to-emerald-600 flex-col gap-1"
+                        data-testid="export-csv-button"
+                      >
+                        <FileSpreadsheet className="w-6 h-6" />
+                        <span className="text-sm">{exportLoading ? "..." : "CSV"}</span>
+                      </Button>
+                      
+                      <Button
+                        onClick={handleExportExcel}
+                        disabled={exportLoading}
+                        className="h-16 bg-gradient-to-r from-blue-600 to-cyan-600 flex-col gap-1"
+                        data-testid="export-excel-button"
+                      >
+                        <FileSpreadsheet className="w-6 h-6" />
+                        <span className="text-sm">{exportLoading ? "..." : "Excel"}</span>
+                      </Button>
+                      
+                      <Button
+                        onClick={handleExportPDF}
+                        disabled={exportLoading}
+                        className="h-16 bg-gradient-to-r from-red-600 to-pink-600 flex-col gap-1"
+                        data-testid="export-pdf-button"
+                      >
+                        <FileText className="w-6 h-6" />
+                        <span className="text-sm">{exportLoading ? "..." : "PDF"}</span>
+                      </Button>
+                      
+                      <Button
+                        onClick={handleDetailedReport}
+                        disabled={exportLoading}
+                        className="h-16 bg-gradient-to-r from-violet-600 to-purple-600 flex-col gap-1"
+                        data-testid="detailed-report-button"
+                      >
+                        <Sparkles className="w-6 h-6" />
+                        <span className="text-sm">{exportLoading ? "..." : "Detailed"}</span>
+                      </Button>
+                      
+                      <Button
+                        onClick={handlePrintReport}
+                        disabled={exportLoading}
+                        variant="outline"
+                        className="h-16 flex-col gap-1 border-2"
+                        data-testid="print-report-button"
+                      >
+                        <Printer className="w-6 h-6" />
+                        <span className="text-sm">Print</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-violet-600" />
+                      Export Options:
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div className="p-2 bg-white rounded-lg border">
+                        <p className="font-semibold text-green-700">CSV / Excel</p>
+                        <p className="text-xs text-gray-600">Order data for spreadsheets</p>
+                      </div>
+                      <div className="p-2 bg-white rounded-lg border">
+                        <p className="font-semibold text-red-700">PDF</p>
+                        <p className="text-xs text-gray-600">Basic sales report</p>
+                      </div>
+                      <div className="p-2 bg-white rounded-lg border border-violet-300 bg-violet-50">
+                        <p className="font-semibold text-violet-700">⭐ Detailed Report</p>
+                        <p className="text-xs text-gray-600">Full analytics: Best sellers, Staff, Peak hours, Categories</p>
+                      </div>
+                      <div className="p-2 bg-white rounded-lg border">
+                        <p className="font-semibold text-gray-700">Print</p>
+                        <p className="text-xs text-gray-600">Quick print view</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
