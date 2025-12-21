@@ -1,23 +1,38 @@
-# BillByteKOT - Best Restaurant Billing Software India
+# BillByteKOT - Restaurant Billing & POS Software
 # https://billbytekot.in
 
 User-agent: *
 Allow: /
-Allow: /blog
-Allow: /blog/
-Allow: /download
-Allow: /contact
-Allow: /login
-Allow: /register
-Allow: /privacy
-Allow: /help
-Allow: /terms
+Allow: /$
+Allow: /blog/$
+Allow: /blog/*.html$
+Allow: /download/$
+Allow: /contact/$
+Allow: /login/$
+Allow: /register/$
+Allow: /privacy/$
+Allow: /help/$
+Allow: /terms/$
+Allow: /pricing/$
+Allow: /features/$
+Allow: /about/$
+Allow: /api/health-check/$
 
 # Disallow private/authenticated pages
-Disallow: /dashboard
-Disallow: /menu
-Disallow: /orders
-Disallow: /billing
+Disallow: /dashboard/
+Disallow: /menu/
+Disallow: /orders/
+Disallow: /billing/
+Disallow: /api/
+Disallow: /*?*
+Disallow: /*?$
+Disallow: /*.json$
+Disallow: /*.js$
+Disallow: /*.css$
+
+# Sitemap location
+Sitemap: https://billbytekot.in/sitemap.xml
+Sitemap: https://billbytekot.in/sitemap-blog.xml
 Disallow: /tables
 Disallow: /kitchen
 Disallow: /inventory

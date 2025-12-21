@@ -752,6 +752,16 @@ const SettingsPage = ({ user }) => {
                 />
               </div>
 
+              <div>
+                <Label>UPI ID (for QR Payments)</Label>
+                <Input
+                  value={businessSettings.upi_id || ''}
+                  onChange={(e) => setBusinessSettings({ ...businessSettings, upi_id: e.target.value })}
+                  placeholder="yourname@upi or 9876543210@paytm"
+                />
+                <p className="text-xs text-gray-500 mt-1">Used for generating payment QR codes</p>
+              </div>
+
               <div className="md:col-span-2">
                 <Label>Tagline</Label>
                 <Input

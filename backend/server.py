@@ -430,9 +430,21 @@ class OrderItem(BaseModel):
     notes: Optional[str] = None
 
 
+async def get_next_invoice_number(organization_id: str) -> int:
+    """Get the next invoice number for an organization"""
+    counter = await db.counters.find_one_and_update(
+        {"_id": f"invoice_{organization_id}"},
+        {"$inc": {"seq": 1}},
+        upsert=True,
+        return_document=True,
+        new=True
+    )
+    return counter["seq"]
+
 class Order(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    invoice_number: Optional[int] = None  # Sequential invoice number
     table_id: str
     table_number: int
     items: List[OrderItem]
@@ -2736,6 +2748,9 @@ async def create_order(
     table_id = order_data.table_id or "counter"
     table_number = order_data.table_number or 0
 
+    # Get next invoice number for the organization
+    invoice_number = await get_next_invoice_number(user_org_id)
+    
     order_obj = Order(
         table_id=table_id,
         table_number=table_number,
@@ -2750,6 +2765,7 @@ async def create_order(
         tracking_token=tracking_token,
         order_type=order_data.order_type or "takeaway",
         organization_id=user_org_id,
+        invoice_number=invoice_number
     )
 
     doc = order_obj.model_dump()
@@ -4878,7 +4894,7 @@ async def export_orders_to_excel(
     end_date: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
-    """Export all orders to Excel file"""
+    """Export all orders to Excel file with sequential invoice numbers"""
     user_org_id = current_user.get("organization_id") or current_user["id"]
     
     # Build query
@@ -4892,17 +4908,21 @@ async def export_orders_to_excel(
         if end_date:
             query["created_at"]["$lte"] = end_date
     
-    # Fetch orders
+    # Fetch orders sorted by creation date (newest first)
     orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(length=10000)
     
     if not orders:
         raise HTTPException(status_code=404, detail="No orders found")
     
-    # Create CSV content
-    csv_content = "Order ID,Date,Time,Table,Customer Name,Customer Phone,Waiter,Items,Subtotal,Tax,Discount,Total,Payment Method,Status\n"
+    # Create CSV content with improved formatting
+    csv_content = (
+        "Invoice #,Order ID,Date,Time,Table,Customer Name,Phone,Waiter,"
+        "Item Name,Quantity,Unit Price,Item Total,Subtotal,Tax,Discount,Total,Payment Method,Status\n"
+    )
     
     for order in orders:
         order_id = order.get("id", "")[:8]
+        invoice_number = order.get("invoice_number", "")
         created_at = order.get("created_at", "")
         
         # Parse date and time
@@ -4919,10 +4939,7 @@ async def export_orders_to_excel(
         customer_phone = order.get("customer_phone", "")
         waiter_name = order.get("waiter_name", "")
         
-        # Format items
-        items = order.get("items", [])
-        items_str = "; ".join([f"{item['quantity']}x {item['name']}" for item in items])
-        
+        # Get order totals
         subtotal = order.get("subtotal", 0)
         tax = order.get("tax", 0)
         discount = order.get("discount", 0)
@@ -4930,17 +4947,92 @@ async def export_orders_to_excel(
         payment_method = order.get("payment_method", "")
         status = order.get("status", "")
         
-        # Escape commas in text fields
-        items_str = items_str.replace(",", ";")
-        customer_name = customer_name.replace(",", " ")
+        # Format items with each item on a new line
+        items = order.get("items", [])
+        first_item = True
         
-        csv_content += f'"{order_id}","{date_str}","{time_str}","{table_number}","{customer_name}","{customer_phone}","{waiter_name}","{items_str}",{subtotal},{tax},{discount},{total},"{payment_method}","{status}"\n'
-    
+        for item in items:
+            item_name = item.get('name', '').replace('"', '""')
+            quantity = item.get('quantity', 0)
+            price = item.get('price', 0)
+            item_total = quantity * price
+            
+            if first_item:
+                # First item includes order details
+                csv_content += (
+                    f'"{invoice_number}",'  # Invoice #
+                    f'"{order_id}",'        # Order ID
+                    f'"{date_str}",'        # Date
+                    f'"{time_str}",'        # Time
+                    f'"{table_number}",'     # Table
+                    f'"{customer_name}",'    # Customer Name
+                    f'"{customer_phone}",'   # Phone
+                    f'"{waiter_name}",'      # Waiter
+                    f'"{item_name}",'        # Item Name
+                    f'{quantity},'           # Quantity
+                    f'{price:.2f},'          # Unit Price
+                    f'{item_total:.2f},'     # Item Total
+                    f'"",'                   # Empty for subtotal
+                    f'"",'                   # Empty for tax
+                    f'"",'                   # Empty for discount
+                    f'"",'                   # Empty for total
+                    f'"",'                   # Empty for payment method
+                    f'""\n'                  # Empty for status
+                )
+                first_item = False
+            else:
+                # Subsequent items only show item details
+                csv_content += (
+                    f'"",'                   # Empty invoice #
+                    f'"",'                   # Empty order ID
+                    f'"",'                   # Empty date
+                    f'"",'                   # Empty time
+                    f'"",'                   # Empty table
+                    f'"",'                   # Empty customer name
+                    f'"",'                   # Empty phone
+                    f'"",'                   # Empty waiter
+                    f'"{item_name}",'        # Item Name
+                    f'{quantity},'           # Quantity
+                    f'{price:.2f},'          # Unit Price
+                    f'{item_total:.2f},'     # Item Total
+                    f'"",'                   # Empty for subtotal
+                    f'"",'                   # Empty for tax
+                    f'"",'                   # Empty for discount
+                    f'"",'                   # Empty for total
+                    f'"",'                   # Empty for payment method
+                    f'""\n'                  # Empty for status
+                )
+        
+        # Add order totals on a new line
+        if items:  # Only add if there are items
+            csv_content += (
+                f'"",'                   # Empty invoice #
+                f'"",'                   # Empty order ID
+                f'"",'                   # Empty date
+                f'"",'                   # Empty time
+                f'"",'                   # Empty table
+                f'"",'                   # Empty customer name
+                f'"",'                   # Empty phone
+                f'"",'                   # Empty waiter
+                f'"",'                   # Empty item name
+                f'"",'                   # Empty quantity
+                f'"",'                   # Empty unit price
+                f'"",'                   # Empty item total
+                f'{subtotal:.2f},'       # Subtotal
+                f'{tax:.2f},'            # Tax
+                f'{discount:.2f},'       # Discount
+                f'{total:.2f},'          # Total
+                f'"{payment_method}",'   # Payment Method
+                f'"{status}"\n'         # Status
+            )
+        
+        # Add an empty line between orders for better readability
+        csv_content += '"","","","","","","","","","","","","","","","","",""\n'
     # Return as downloadable file
     return Response(
         content=csv_content,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=orders_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=invoices_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
     )
 
 
