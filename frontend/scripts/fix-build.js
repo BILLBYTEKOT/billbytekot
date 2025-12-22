@@ -52,7 +52,10 @@ const chromeFixedContent = `<!doctype html>
     </script>
     
     <!-- Extract and preserve existing head content -->
-    ${indexContent.match(/<head[^>]*>(.*?)<\/head>/s)?.[1]?.replace(/<script[^>]*>.*?<\/script>/gs, '').replace(/<link[^>]*rel="stylesheet"[^>]*>/g, '') || ''}
+    ${indexContent.match(/<head[^>]*>(.*?)<\/head>/s)?.[1]
+        ?.replace(/<script[^>]*>.*?<\/script>/gs, '')
+        .replace(/<link[^>]*rel="stylesheet"[^>]*>/g, '')
+        .replace(/href="\/site\.webmanifest"/g, 'href="/manifest.json"') || ''}
     
     <!-- Loading indicator styles -->
     <style>
@@ -299,10 +302,17 @@ const chromeFixedContent = `<!doctype html>
         });
     </script>
     
-    ${indexContent.match(/<script[^>]*src="[^"]*static\/css\/[^"]*"[^>]*>/g)?.[0]?.replace('src="/', 'href="./').replace('<script', '<link rel="stylesheet"').replace('></script>', ' crossorigin="anonymous">') || ''}
+    <!-- Extract and add CSS files -->
+    ${indexContent.match(/<link[^>]*href="[^"]*static\/css\/[^"]*"[^>]*>/g)?.map(link => 
+        link.replace('href="/', 'href="./')
+            .replace('<link', '<link crossorigin="anonymous"')
+    ).join('\n    ') || ''}
+    
+    <!-- Extract and add JS files with proper loading -->
     ${indexContent.match(/<script[^>]*src="[^"]*static\/js\/[^"]*"[^>]*>/g)?.map(script => 
         script.replace('src="/', 'src="./')
               .replace('<script', '<script crossorigin="anonymous" onload="onResourceLoad()" onerror="onResourceError(this.src)"')
+              .replace('>', '></script>')
     ).join('\n    ') || ''}
     
     ${indexContent.match(/<script[^>]*src="https:\/\/[^"]*"[^>]*>.*?<\/script>/gs)?.join('\n    ') || ''}
