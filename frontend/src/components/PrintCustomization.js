@@ -60,7 +60,32 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
 
   useEffect(() => {
     generatePreview();
+    // Validate settings
+    validateSettings();
   }, [customization, activeTab]);
+
+  const validateSettings = () => {
+    const errors = [];
+    
+    if (!businessSettings?.restaurant_name) {
+      errors.push('Restaurant name is required for proper receipt printing');
+    }
+    
+    if (customization.print_copies < 1 || customization.print_copies > 5) {
+      errors.push('Print copies must be between 1 and 5');
+    }
+    
+    if (customization.show_gstin && !businessSettings?.gstin) {
+      errors.push('GSTIN is enabled but not configured in business settings');
+    }
+    
+    if (customization.show_fssai && !businessSettings?.fssai) {
+      errors.push('FSSAI is enabled but not configured in business settings');
+    }
+    
+    // You can add more validation as needed
+    return errors;
+  };
 
   const generatePreview = () => {
     if (activeTab === 'receipt') {
@@ -225,16 +250,33 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
   const handleSave = async () => {
     setLoading(true);
     try {
+      const token = localStorage.getItem('token');
       const updatedSettings = {
         ...businessSettings,
         print_customization: customization
       };
       
-      await axios.put(`${API}/business/settings`, updatedSettings);
+      const response = await axios.put(`${API}/business/settings`, updatedSettings, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      console.log('Print settings saved:', response.data);
       toast.success('Print settings saved successfully!');
-      if (onUpdate) onUpdate(updatedSettings);
+      
+      if (onUpdate) {
+        onUpdate(updatedSettings);
+      }
+      
+      // Update local storage
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user.business_settings) {
+        user.business_settings.print_customization = customization;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      
     } catch (error) {
-      toast.error('Failed to save print settings');
+      console.error('Failed to save print settings:', error);
+      toast.error(error.response?.data?.detail || 'Failed to save print settings');
     } finally {
       setLoading(false);
     }
@@ -270,6 +312,65 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
       kot_highlight_notes: true,
     });
     toast.info('Settings reset to defaults');
+  };
+
+  const handleTestPrint = () => {
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    const content = activeTab === 'receipt' ? generateReceiptPreview() : generateKOTPreview();
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Test Print - ${activeTab === 'receipt' ? 'Receipt' : 'KOT'}</title>
+          <style>
+            body {
+              font-family: 'Courier New', Consolas, monospace;
+              font-size: ${customization.font_size === 'small' ? '10px' : 
+                          customization.font_size === 'large' ? '14px' : '12px'};
+              line-height: 1.4;
+              margin: 20px;
+              background: white;
+            }
+            @media print {
+              body { margin: 0; padding: 10px; }
+              .no-print { display: none; }
+            }
+            .print-content {
+              white-space: pre-wrap;
+              font-family: inherit;
+            }
+            .print-actions {
+              margin-top: 20px;
+              text-align: center;
+            }
+            .print-btn {
+              background: #7c3aed;
+              color: white;
+              border: none;
+              padding: 10px 20px;
+              border-radius: 5px;
+              cursor: pointer;
+              margin: 0 5px;
+              font-size: 14px;
+            }
+            .print-btn:hover {
+              background: #6d28d9;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-content">${content}</div>
+          <div class="print-actions no-print">
+            <button class="print-btn" onclick="window.print()">Print</button>
+            <button class="print-btn" onclick="window.close()">Close</button>
+          </div>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    toast.success('Test print window opened!');
   };
 
   const ToggleSwitch = ({ label, checked, onChange, description }) => (
@@ -321,6 +422,31 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
           KOT Settings
         </button>
       </div>
+
+      {/* Status Indicator */}
+      <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <div>
+                <p className="font-medium text-green-800">Print Settings Status</p>
+                <p className="text-sm text-green-600">
+                  {businessSettings?.restaurant_name ? 'Ready for printing' : 'Configure business details first'}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-medium text-green-800">
+                Paper: {customization.paper_width}
+              </p>
+              <p className="text-xs text-green-600">
+                Font: {customization.font_size}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Settings Panel */}
@@ -509,6 +635,53 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                 </CardContent>
               </Card>
 
+              {/* Printer Setup Guide */}
+              <Card className="border-0 shadow-lg bg-blue-50 border-blue-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-blue-600" />
+                    Printer Setup Guide
+                  </CardTitle>
+                  <CardDescription>
+                    Quick guide to set up thermal printers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-sm space-y-2">
+                    <div className="flex items-start gap-2">
+                      <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</span>
+                      <div>
+                        <p className="font-medium">Connect Printer</p>
+                        <p className="text-gray-600 text-xs">Connect thermal printer via USB or network</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
+                      <div>
+                        <p className="font-medium">Install Drivers</p>
+                        <p className="text-gray-600 text-xs">Download drivers from manufacturer website</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</span>
+                      <div>
+                        <p className="font-medium">Test Print</p>
+                        <p className="text-gray-600 text-xs">Use the "Test Print" button to verify setup</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-white rounded-lg border border-blue-200">
+                    <p className="text-xs font-medium text-blue-800 mb-1">Recommended Printers:</p>
+                    <ul className="text-xs text-blue-700 space-y-1">
+                      <li>• Epson TM-T82III (₹8,500) - Most popular</li>
+                      <li>• TVS RP 3160 Star (₹6,500) - Budget option</li>
+                      <li>• Citizen CT-S310II (₹7,200) - Reliable</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Advanced Options */}
               <Card className="border-0 shadow-lg">
                 <CardHeader className="pb-3">
@@ -650,6 +823,14 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
             >
               <Save className="w-4 h-4 mr-2" />
               {loading ? 'Saving...' : 'Save Settings'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleTestPrint}
+              className="px-4"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Test Print
             </Button>
             <Button
               variant="outline"
