@@ -9,7 +9,152 @@ import blogPostsData from '../data/blogPosts';
 const BlogPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const blogPosts = blogPostsData;
+  const blogPosts = blogPostsData.concat([
+    {
+      id: 1,
+      title: 'Complete Guide to Restaurant Billing Software in India 2024',
+      excerpt: 'Everything you need to know about choosing the right billing software for your restaurant. Compare features, pricing, and benefits. Includes ROI calculator and implementation guide.',
+      author: 'BillByteKOT Team',
+      date: '2024-12-09',
+      category: 'Complete Guide',
+      readTime: '15 min read',
+      image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800',
+      slug: 'restaurant-billing-software-guide-2024',
+      featured: true
+    },
+    {
+      id: 2,
+      title: 'Free vs Paid Restaurant Billing Software: Complete Comparison',
+      excerpt: 'Detailed comparison of free and paid restaurant billing software. Learn when to upgrade, hidden costs, and which option is right for your business size.',
+      author: 'BillByteKOT Team',
+      date: '2024-12-09',
+      category: 'Comparison',
+      readTime: '12 min read',
+      image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800',
+      slug: 'free-vs-paid-restaurant-software',
+      featured: true
+    },
+    {
+      id: 3,
+      title: 'WhatsApp Integration for Restaurants: Send Bills & Updates Instantly',
+      excerpt: 'Learn how to send digital receipts and order updates directly to customer WhatsApp using Meta\'s official Cloud API. No login required! Includes setup guide and cost analysis.',
+      author: 'BillByteKOT Team',
+      date: '2024-12-09',
+      category: 'Features',
+      readTime: '8 min read',
+      image: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800',
+      slug: 'whatsapp-integration-restaurants',
+      featured: true
+    },
+    {
+      id: 4,
+      title: 'Thermal Printing for Restaurants: Complete Guide to KOT & Receipt Printing',
+      excerpt: 'Master thermal printing with our complete guide. Covers 6 professional receipt themes, printer selection, customization options, and ROI calculation. Save ₹24,000/year!',
+      author: 'BillByteKOT Team',
+      date: '2024-12-09',
+      category: 'Hardware Guide',
+      readTime: '10 min read',
+      image: 'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=800',
+      slug: 'thermal-printing-guide-restaurants',
+      featured: true
+    },
+    {
+      id: 5,
+      title: 'Bulk Upload Menu & Inventory: Save 95% Time on Data Entry',
+      excerpt: 'Import hundreds of menu items and inventory records in minutes using CSV files. Complete guide with templates, error handling, and best practices. Save hours of manual work!',
+      author: 'BillByteKOT Team',
+      date: '2024-12-09',
+      category: 'Productivity',
+      readTime: '7 min read',
+      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800',
+      slug: 'bulk-upload-menu-inventory',
+      featured: false
+    },
+    {
+      id: 6,
+      title: 'What is KOT System? Benefits for Your Restaurant',
+      excerpt: 'Learn how Kitchen Order Ticket (KOT) systems streamline restaurant operations, reduce errors by 80%, and improve kitchen efficiency. Real case studies included.',
+      author: 'Restaurant Expert',
+      date: '2024-12-05',
+      category: 'KOT System',
+      readTime: '6 min read',
+      image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800',
+      slug: 'kot-system-benefits-restaurants',
+      featured: false
+    },
+    {
+      id: 7,
+      title: 'Multi-Currency Support: Serve International Customers',
+      excerpt: 'Accept payments in multiple currencies with automatic conversion. Perfect for tourist areas and international chains. Supports INR, USD, EUR, GBP, and more.',
+      author: 'BillByteKOT Team',
+      date: '2024-12-03',
+      category: 'Features',
+      readTime: '5 min read',
+      image: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800',
+      slug: 'multi-currency-support-restaurants',
+      featured: false
+    },
+    {
+      id: 8,
+      title: 'Restaurant Inventory Management: Never Run Out of Stock',
+      excerpt: 'Master inventory management with proven strategies. Reduce waste by 40%, control costs, optimize stock levels, and get low-stock alerts automatically.',
+      author: 'Operations Manager',
+      date: '2024-12-01',
+      category: 'Management',
+      readTime: '9 min read',
+      image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800',
+      slug: 'restaurant-inventory-management',
+      featured: false
+    },
+    {
+      id: 9,
+      title: 'Table Management & Reservations: Optimize Your Seating',
+      excerpt: 'Maximize table turnover with smart table management. Handle reservations, waitlists, and optimize seating arrangements. Increase revenue by 30%.',
+      author: 'BillByteKOT Team',
+      date: '2024-11-28',
+      category: 'Features',
+      readTime: '7 min read',
+      image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+      slug: 'table-management-reservations',
+      featured: false
+    },
+    {
+      id: 10,
+      title: 'Staff Management: Track Performance & Payroll',
+      excerpt: 'Manage staff efficiently with attendance tracking, performance metrics, and automated payroll. Includes shift scheduling and commission tracking.',
+      author: 'HR Expert',
+      date: '2024-11-25',
+      category: 'Management',
+      readTime: '8 min read',
+      image: 'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800',
+      slug: 'staff-management-payroll',
+      featured: false
+    },
+    {
+      id: 11,
+      title: 'Analytics & Reports: Data-Driven Restaurant Decisions',
+      excerpt: 'Make smarter decisions with comprehensive analytics. Track sales, identify trends, analyze customer behavior, and optimize your menu for maximum profit.',
+      author: 'Data Analyst',
+      date: '2024-11-20',
+      category: 'Analytics',
+      readTime: '10 min read',
+      image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800',
+      slug: 'restaurant-analytics-reports',
+      featured: false
+    },
+    {
+      id: 12,
+      title: 'Payment Integration: Accept All Payment Methods',
+      excerpt: 'Integrate Razorpay and accept UPI, cards, wallets, and more. Handle split bills, discounts, tips, and refunds seamlessly. PCI-DSS compliant.',
+      author: 'Payment Expert',
+      date: '2024-11-15',
+      category: 'Payments',
+      readTime: '6 min read',
+      image: 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800',
+      slug: 'payment-integration-razorpay',
+      featured: false
+    }
+  ]);
 
   const filteredPosts = blogPosts.filter(post =>
     post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
