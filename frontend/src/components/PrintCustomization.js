@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { API } from '../App';
 import { Button } from './ui/button';
@@ -10,8 +10,6 @@ import {
   Printer, 
   Settings, 
   Maximize2, 
-  Type, 
-  AlignCenter, 
   Layout,
   Eye,
   Save,
@@ -20,49 +18,68 @@ import {
   FileText,
   Hash,
   Smartphone,
-  Monitor
+  Monitor,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 
 const PrintCustomization = ({ businessSettings, onUpdate }) => {
-  const ps = businessSettings?.print_customization || {};
-  const [customization, setCustomization] = useState({
-    paper_width: ps.paper_width || '80mm',
-    font_size: ps.font_size || 'medium',
-    header_style: ps.header_style || 'centered',
-    show_logo: ps.show_logo ?? true,
-    show_address: ps.show_address ?? true,
-    show_phone: ps.show_phone ?? true,
-    show_email: ps.show_email ?? false,
-    show_website: ps.show_website ?? false,
-    show_gstin: ps.show_gstin ?? true,
-    show_fssai: ps.show_fssai ?? false,
-    show_tagline: ps.show_tagline ?? true,
-    show_customer_name: ps.show_customer_name ?? true,
-    show_waiter_name: ps.show_waiter_name ?? true,
-    show_table_number: ps.show_table_number ?? true,
-    show_order_time: ps.show_order_time ?? true,
-    show_item_notes: ps.show_item_notes ?? true,
-    border_style: ps.border_style || 'single',
-    separator_style: ps.separator_style || 'dashes',
-    footer_style: ps.footer_style || 'simple',
-    qr_code_enabled: ps.qr_code_enabled ?? false,
-    auto_print: ps.auto_print ?? false,
-    print_copies: ps.print_copies || 1,
-    kot_auto_print: ps.kot_auto_print ?? true,
-    kot_font_size: ps.kot_font_size || 'large',
-    kot_show_time: ps.kot_show_time ?? true,
-    kot_highlight_notes: ps.kot_highlight_notes ?? true,
-  });
+  // Initialize with proper defaults and existing settings
+  const initializeCustomization = useCallback(() => {
+    const ps = businessSettings?.print_customization || {};
+    return {
+      paper_width: ps.paper_width || '80mm',
+      font_size: ps.font_size || 'medium',
+      header_style: ps.header_style || 'centered',
+      show_logo: ps.show_logo ?? true,
+      show_address: ps.show_address ?? true,
+      show_phone: ps.show_phone ?? true,
+      show_email: ps.show_email ?? false,
+      show_website: ps.show_website ?? false,
+      show_gstin: ps.show_gstin ?? true,
+      show_fssai: ps.show_fssai ?? false,
+      show_tagline: ps.show_tagline ?? true,
+      show_customer_name: ps.show_customer_name ?? true,
+      show_waiter_name: ps.show_waiter_name ?? true,
+      show_table_number: ps.show_table_number ?? true,
+      show_order_time: ps.show_order_time ?? true,
+      show_item_notes: ps.show_item_notes ?? true,
+      border_style: ps.border_style || 'single',
+      separator_style: ps.separator_style || 'dashes',
+      footer_style: ps.footer_style || 'simple',
+      qr_code_enabled: ps.qr_code_enabled ?? false,
+      auto_print: ps.auto_print ?? false,
+      print_copies: ps.print_copies || 1,
+      kot_auto_print: ps.kot_auto_print ?? true,
+      kot_font_size: ps.kot_font_size || 'large',
+      kot_show_time: ps.kot_show_time ?? true,
+      kot_highlight_notes: ps.kot_highlight_notes ?? true,
+    };
+  }, [businessSettings]);
 
+  const [customization, setCustomization] = useState(initializeCustomization);
   const [previewContent, setPreviewContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('receipt');
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Update customization when businessSettings change
+  useEffect(() => {
+    setCustomization(initializeCustomization());
+  }, [initializeCustomization]);
+
+  // Track changes for unsaved indicator
+  useEffect(() => {
+    const initialSettings = initializeCustomization();
+    const hasChanges = JSON.stringify(customization) !== JSON.stringify(initialSettings);
+    setHasUnsavedChanges(hasChanges);
+  }, [customization, initializeCustomization]);
 
   useEffect(() => {
     generatePreview();
-    // Validate settings
     validateSettings();
-  }, [customization, activeTab]);
+  }, [customization, activeTab, businessSettings]);
 
   const validateSettings = () => {
     const errors = [];
@@ -83,7 +100,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
       errors.push('FSSAI is enabled but not configured in business settings');
     }
     
-    // You can add more validation as needed
+    setValidationErrors(errors);
     return errors;
   };
 
@@ -248,21 +265,38 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
   };
 
   const handleSave = async () => {
+    const errors = validateSettings();
+    if (errors.length > 0) {
+      toast.error('Please fix validation errors before saving');
+      return;
+    }
+
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Please login again to save settings');
+        return;
+      }
+
       const updatedSettings = {
         ...businessSettings,
         print_customization: customization
       };
       
+      console.log('Saving print settings:', customization);
+      
       const response = await axios.put(`${API}/business/settings`, updatedSettings, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       
-      console.log('Print settings saved:', response.data);
+      console.log('Print settings saved successfully:', response.data);
       toast.success('Print settings saved successfully!');
       
+      // Update parent component
       if (onUpdate) {
         onUpdate(updatedSettings);
       }
@@ -274,16 +308,25 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
         localStorage.setItem('user', JSON.stringify(user));
       }
       
+      setHasUnsavedChanges(false);
+      
     } catch (error) {
       console.error('Failed to save print settings:', error);
-      toast.error(error.response?.data?.detail || 'Failed to save print settings');
+      const errorMessage = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          'Failed to save print settings';
+      toast.error(errorMessage);
+      
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleReset = () => {
-    setCustomization({
+    const defaultSettings = {
       paper_width: '80mm',
       font_size: 'medium',
       header_style: 'centered',
@@ -310,7 +353,9 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
       kot_font_size: 'large',
       kot_show_time: true,
       kot_highlight_notes: true,
-    });
+    };
+    
+    setCustomization(defaultSettings);
     toast.info('Settings reset to defaults');
   };
 
@@ -373,6 +418,10 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
     toast.success('Test print window opened!');
   };
 
+  const updateCustomization = (updates) => {
+    setCustomization(prev => ({ ...prev, ...updates }));
+  };
+
   const ToggleSwitch = ({ label, checked, onChange, description }) => (
     <div className="flex items-center justify-between py-2">
       <div>
@@ -396,7 +445,26 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mobile-scroll-fix">
+      {/* Validation Errors */}
+      {validationErrors.length > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-red-800 mb-2">Configuration Issues:</p>
+                <ul className="text-sm text-red-700 space-y-1">
+                  {validationErrors.map((error, idx) => (
+                    <li key={idx}>• {error}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tab Navigation */}
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
         <button
@@ -424,23 +492,43 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
       </div>
 
       {/* Status Indicator */}
-      <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+      <Card className={`border-0 shadow-lg ${
+        validationErrors.length > 0 
+          ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200' 
+          : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+      }`}>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <div className={`w-3 h-3 rounded-full ${
+                validationErrors.length > 0 ? 'bg-yellow-500' : 'bg-green-500'
+              } animate-pulse`}></div>
               <div>
-                <p className="font-medium text-green-800">Print Settings Status</p>
-                <p className="text-sm text-green-600">
-                  {businessSettings?.restaurant_name ? 'Ready for printing' : 'Configure business details first'}
+                <p className={`font-medium ${
+                  validationErrors.length > 0 ? 'text-yellow-800' : 'text-green-800'
+                }`}>
+                  Print Settings Status
+                  {hasUnsavedChanges && <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Unsaved Changes</span>}
+                </p>
+                <p className={`text-sm ${
+                  validationErrors.length > 0 ? 'text-yellow-600' : 'text-green-600'
+                }`}>
+                  {validationErrors.length > 0 
+                    ? `${validationErrors.length} issue(s) need attention`
+                    : businessSettings?.restaurant_name ? 'Ready for printing' : 'Configure business details first'
+                  }
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-medium text-green-800">
+              <p className={`text-sm font-medium ${
+                validationErrors.length > 0 ? 'text-yellow-800' : 'text-green-800'
+              }`}>
                 Paper: {customization.paper_width}
               </p>
-              <p className="text-xs text-green-600">
+              <p className={`text-xs ${
+                validationErrors.length > 0 ? 'text-yellow-600' : 'text-green-600'
+              }`}>
                 Font: {customization.font_size}
               </p>
             </div>
@@ -448,9 +536,9 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Settings Panel */}
-        <div className="space-y-4">
+        <div className="space-y-4 order-2 xl:order-1">
           {activeTab === 'receipt' ? (
             <>
               {/* Paper & Font Settings */}
@@ -468,7 +556,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                       {['58mm', '80mm'].map(width => (
                         <button
                           key={width}
-                          onClick={() => setCustomization({...customization, paper_width: width})}
+                          onClick={() => updateCustomization({ paper_width: width })}
                           className={`p-3 border-2 rounded-lg flex items-center justify-center gap-2 transition-all ${
                             customization.paper_width === width 
                               ? 'border-violet-600 bg-violet-50' 
@@ -488,7 +576,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                       {['small', 'medium', 'large'].map(size => (
                         <button
                           key={size}
-                          onClick={() => setCustomization({...customization, font_size: size})}
+                          onClick={() => updateCustomization({ font_size: size })}
                           className={`p-2 border-2 rounded-lg capitalize transition-all ${
                             customization.font_size === size 
                               ? 'border-violet-600 bg-violet-50' 
@@ -507,7 +595,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                       {['single', 'double'].map(style => (
                         <button
                           key={style}
-                          onClick={() => setCustomization({...customization, border_style: style})}
+                          onClick={() => updateCustomization({ border_style: style })}
                           className={`p-2 border-2 rounded-lg capitalize transition-all ${
                             customization.border_style === style 
                               ? 'border-violet-600 bg-violet-50' 
@@ -531,7 +619,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                       ].map(style => (
                         <button
                           key={style.id}
-                          onClick={() => setCustomization({...customization, separator_style: style.id})}
+                          onClick={() => updateCustomization({ separator_style: style.id })}
                           className={`p-2 border-2 rounded-lg text-xs transition-all ${
                             customization.separator_style === style.id 
                               ? 'border-violet-600 bg-violet-50' 
@@ -558,42 +646,42 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                   <ToggleSwitch 
                     label="Show Logo" 
                     checked={customization.show_logo}
-                    onChange={(v) => setCustomization({...customization, show_logo: v})}
+                    onChange={(v) => updateCustomization({ show_logo: v })}
                   />
                   <ToggleSwitch 
                     label="Show Tagline" 
                     checked={customization.show_tagline}
-                    onChange={(v) => setCustomization({...customization, show_tagline: v})}
+                    onChange={(v) => updateCustomization({ show_tagline: v })}
                   />
                   <ToggleSwitch 
                     label="Show Address" 
                     checked={customization.show_address}
-                    onChange={(v) => setCustomization({...customization, show_address: v})}
+                    onChange={(v) => updateCustomization({ show_address: v })}
                   />
                   <ToggleSwitch 
                     label="Show Phone" 
                     checked={customization.show_phone}
-                    onChange={(v) => setCustomization({...customization, show_phone: v})}
+                    onChange={(v) => updateCustomization({ show_phone: v })}
                   />
                   <ToggleSwitch 
                     label="Show Email" 
                     checked={customization.show_email}
-                    onChange={(v) => setCustomization({...customization, show_email: v})}
+                    onChange={(v) => updateCustomization({ show_email: v })}
                   />
                   <ToggleSwitch 
                     label="Show Website" 
                     checked={customization.show_website}
-                    onChange={(v) => setCustomization({...customization, show_website: v})}
+                    onChange={(v) => updateCustomization({ show_website: v })}
                   />
                   <ToggleSwitch 
                     label="Show GSTIN" 
                     checked={customization.show_gstin}
-                    onChange={(v) => setCustomization({...customization, show_gstin: v})}
+                    onChange={(v) => updateCustomization({ show_gstin: v })}
                   />
                   <ToggleSwitch 
                     label="Show FSSAI" 
                     checked={customization.show_fssai}
-                    onChange={(v) => setCustomization({...customization, show_fssai: v})}
+                    onChange={(v) => updateCustomization({ show_fssai: v })}
                   />
                 </CardContent>
               </Card>
@@ -610,75 +698,28 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                   <ToggleSwitch 
                     label="Show Table Number" 
                     checked={customization.show_table_number}
-                    onChange={(v) => setCustomization({...customization, show_table_number: v})}
+                    onChange={(v) => updateCustomization({ show_table_number: v })}
                   />
                   <ToggleSwitch 
                     label="Show Waiter Name" 
                     checked={customization.show_waiter_name}
-                    onChange={(v) => setCustomization({...customization, show_waiter_name: v})}
+                    onChange={(v) => updateCustomization({ show_waiter_name: v })}
                   />
                   <ToggleSwitch 
                     label="Show Customer Name" 
                     checked={customization.show_customer_name}
-                    onChange={(v) => setCustomization({...customization, show_customer_name: v})}
+                    onChange={(v) => updateCustomization({ show_customer_name: v })}
                   />
                   <ToggleSwitch 
                     label="Show Order Time" 
                     checked={customization.show_order_time}
-                    onChange={(v) => setCustomization({...customization, show_order_time: v})}
+                    onChange={(v) => updateCustomization({ show_order_time: v })}
                   />
                   <ToggleSwitch 
                     label="Show Item Notes" 
                     checked={customization.show_item_notes}
-                    onChange={(v) => setCustomization({...customization, show_item_notes: v})}
+                    onChange={(v) => updateCustomization({ show_item_notes: v })}
                   />
-                </CardContent>
-              </Card>
-
-              {/* Printer Setup Guide */}
-              <Card className="border-0 shadow-lg bg-blue-50 border-blue-200">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Settings className="w-5 h-5 text-blue-600" />
-                    Printer Setup Guide
-                  </CardTitle>
-                  <CardDescription>
-                    Quick guide to set up thermal printers
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="text-sm space-y-2">
-                    <div className="flex items-start gap-2">
-                      <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</span>
-                      <div>
-                        <p className="font-medium">Connect Printer</p>
-                        <p className="text-gray-600 text-xs">Connect thermal printer via USB or network</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
-                      <div>
-                        <p className="font-medium">Install Drivers</p>
-                        <p className="text-gray-600 text-xs">Download drivers from manufacturer website</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</span>
-                      <div>
-                        <p className="font-medium">Test Print</p>
-                        <p className="text-gray-600 text-xs">Use the "Test Print" button to verify setup</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 p-3 bg-white rounded-lg border border-blue-200">
-                    <p className="text-xs font-medium text-blue-800 mb-1">Recommended Printers:</p>
-                    <ul className="text-xs text-blue-700 space-y-1">
-                      <li>• Epson TM-T82III (₹8,500) - Most popular</li>
-                      <li>• TVS RP 3160 Star (₹6,500) - Budget option</li>
-                      <li>• Citizen CT-S310II (₹7,200) - Reliable</li>
-                    </ul>
-                  </div>
                 </CardContent>
               </Card>
 
@@ -694,27 +735,27 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                   <ToggleSwitch 
                     label="QR Code on Receipt" 
                     checked={customization.qr_code_enabled}
-                    onChange={(v) => setCustomization({...customization, qr_code_enabled: v})}
+                    onChange={(v) => updateCustomization({ qr_code_enabled: v })}
                     description="Add QR code for payment/feedback"
                   />
                   <ToggleSwitch 
                     label="Auto Print After Payment" 
                     checked={customization.auto_print}
-                    onChange={(v) => setCustomization({...customization, auto_print: v})}
+                    onChange={(v) => updateCustomization({ auto_print: v })}
                     description="Automatically print receipt after payment"
                   />
                   <div>
                     <Label>Print Copies</Label>
                     <div className="flex items-center gap-2 mt-2">
                       <button
-                        onClick={() => setCustomization({...customization, print_copies: Math.max(1, customization.print_copies - 1)})}
+                        onClick={() => updateCustomization({ print_copies: Math.max(1, customization.print_copies - 1) })}
                         className="w-10 h-10 border-2 rounded-lg hover:bg-gray-50"
                       >
                         -
                       </button>
                       <span className="w-12 text-center font-bold text-lg">{customization.print_copies}</span>
                       <button
-                        onClick={() => setCustomization({...customization, print_copies: Math.min(5, customization.print_copies + 1)})}
+                        onClick={() => updateCustomization({ print_copies: Math.min(5, customization.print_copies + 1) })}
                         className="w-10 h-10 border-2 rounded-lg hover:bg-gray-50"
                       >
                         +
@@ -741,7 +782,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                   <ToggleSwitch 
                     label="Auto Print KOT" 
                     checked={customization.kot_auto_print}
-                    onChange={(v) => setCustomization({...customization, kot_auto_print: v})}
+                    onChange={(v) => updateCustomization({ kot_auto_print: v })}
                     description="Automatically print KOT when order is placed"
                   />
                   
@@ -751,7 +792,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                       {['small', 'medium', 'large'].map(size => (
                         <button
                           key={size}
-                          onClick={() => setCustomization({...customization, kot_font_size: size})}
+                          onClick={() => updateCustomization({ kot_font_size: size })}
                           className={`p-2 border-2 rounded-lg capitalize transition-all ${
                             customization.kot_font_size === size 
                               ? 'border-violet-600 bg-violet-50' 
@@ -768,87 +809,68 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                   <ToggleSwitch 
                     label="Show Order Time" 
                     checked={customization.kot_show_time}
-                    onChange={(v) => setCustomization({...customization, kot_show_time: v})}
+                    onChange={(v) => updateCustomization({ kot_show_time: v })}
                     description="Display time when order was placed"
                   />
                   
                   <ToggleSwitch 
                     label="Highlight Special Notes" 
                     checked={customization.kot_highlight_notes}
-                    onChange={(v) => setCustomization({...customization, kot_highlight_notes: v})}
+                    onChange={(v) => updateCustomization({ kot_highlight_notes: v })}
                     description="Make special instructions stand out"
                   />
-                </CardContent>
-              </Card>
-
-              {/* KOT Display Options */}
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Palette className="w-5 h-5 text-violet-600" />
-                    KOT Display Options
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Paper Width</Label>
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      {['58mm', '80mm'].map(width => (
-                        <button
-                          key={width}
-                          onClick={() => setCustomization({...customization, paper_width: width})}
-                          className={`p-3 border-2 rounded-lg flex items-center justify-center gap-2 transition-all ${
-                            customization.paper_width === width 
-                              ? 'border-violet-600 bg-violet-50' 
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          {width === '58mm' ? <Smartphone className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
-                          {width}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             </>
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={handleSave}
-              disabled={loading}
-              className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600"
+              disabled={loading || validationErrors.length > 0}
+              className={`flex-1 ${
+                validationErrors.length > 0 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-violet-600 to-purple-600'
+              }`}
             >
               <Save className="w-4 h-4 mr-2" />
               {loading ? 'Saving...' : 'Save Settings'}
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleTestPrint}
-              className="px-4"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Test Print
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              className="px-4"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleTestPrint}
+                className="flex-1 sm:flex-none px-4"
+                disabled={validationErrors.length > 0}
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Test Print
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleReset}
+                className="px-4"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Live Preview Panel */}
-        <div className="lg:sticky lg:top-4">
+        <div className="order-1 xl:order-2 xl:sticky xl:top-4">
           <Card className="border-0 shadow-lg">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Eye className="w-5 h-5 text-violet-600" />
                 Live Preview
+                {hasUnsavedChanges && (
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded ml-2">
+                    Unsaved
+                  </span>
+                )}
               </CardTitle>
               <CardDescription>
                 {activeTab === 'receipt' ? 'Receipt preview' : 'KOT preview'} with current settings
@@ -856,9 +878,9 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
             </CardHeader>
             <CardContent>
               <div 
-                className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-4 overflow-auto"
+                className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-4 overflow-auto mobile-scroll-fix"
                 style={{ 
-                  maxHeight: '600px',
+                  maxHeight: '400px',
                   fontFamily: "'Courier New', Consolas, monospace",
                   fontSize: customization.font_size === 'small' ? '10px' : 
                            customization.font_size === 'large' ? '14px' : '12px',
@@ -872,6 +894,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
               <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
                 <span>Paper: {customization.paper_width}</span>
                 <span>Font: {customization.font_size}</span>
+                <span>Copies: {customization.print_copies}</span>
               </div>
             </CardContent>
           </Card>

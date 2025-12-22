@@ -10,6 +10,64 @@ body {
         sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Fix mobile scrolling issues */
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+
+/* Fix mobile scrolling and touch issues */
+html {
+    -webkit-overflow-scrolling: touch;
+    touch-action: manipulation;
+    scroll-behavior: smooth;
+}
+
+/* Prevent horizontal scrolling on mobile */
+* {
+    box-sizing: border-box;
+}
+
+/* Fix mobile viewport issues */
+#root {
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 768px) {
+    body {
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+    
+    /* Fix sticky scrolling on mobile */
+    .mobile-scroll-fix {
+        -webkit-overflow-scrolling: touch;
+        overflow-y: auto;
+        transform: translateZ(0);
+    }
+    
+    /* Prevent zoom on input focus */
+    input, select, textarea {
+        font-size: 16px !important;
+    }
+    
+    /* Fix touch targets */
+    button, a, [role="button"] {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* Fix for iOS Safari scrolling issues */
+@supports (-webkit-touch-callout: none) {
+    body {
+        -webkit-overflow-scrolling: touch;
+        overflow-scrolling: touch;
+    }
 }
 
 code {
@@ -111,5 +169,76 @@ code {
         border-right-color: inherit;
         border-top-color: inherit;
         border-bottom-color: inherit;
+    }
+}
+
+/* Additional mobile fixes for better scrolling */
+.print-customization-container {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    height: 100%;
+}
+
+/* Fix for mobile card scrolling */
+.mobile-card-scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    max-height: 70vh;
+}
+
+/* Prevent body scroll when modal is open */
+.modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+}
+
+/* Fix for iOS Safari bottom bar */
+@supports (padding: max(0px)) {
+    .safe-area-bottom {
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+}
+
+/* Fix for Android Chrome address bar */
+.full-height {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+}
+
+/* Smooth scrolling for all elements */
+* {
+    scroll-behavior: smooth;
+}
+
+/* Fix for touch scrolling momentum */
+.momentum-scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow-scrolling: touch;
+}
+
+/* Prevent horizontal scroll on small screens */
+@media (max-width: 640px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .grid {
+        gap: 1rem;
+    }
+    
+    /* Fix for cards on mobile */
+    .card-mobile {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+        border-radius: 0;
+    }
+}
+
+/* Fix for sticky elements on mobile */
+@media (max-width: 1024px) {
+    .sticky {
+        position: static !important;
     }
 }
