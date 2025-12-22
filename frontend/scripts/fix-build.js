@@ -7,7 +7,12 @@ console.log('🔧 Fixing build files for Chrome compatibility...');
 const indexPath = path.join(__dirname, '../build/index.html');
 let indexContent = fs.readFileSync(indexPath, 'utf8');
 
-// Add Chrome-specific fixes
+// Extract CSS and JS files from the original build
+const cssFiles = indexContent.match(/<link[^>]*href="[^"]*static\/css\/[^"]*"[^>]*>/g) || [];
+const jsFiles = indexContent.match(/<script[^>]*src="[^"]*static\/js\/[^"]*"[^>]*>/g) || [];
+const externalScripts = indexContent.match(/<script[^>]*src="https:\/\/[^"]*"[^>]*>.*?<\/script>/gs) || [];
+
+// Create a clean, properly formatted HTML
 const chromeFixedContent = `<!doctype html>
 <html lang="en-IN" prefix="og: https://ogp.me/ns#">
 <head>
@@ -51,11 +56,80 @@ const chromeFixedContent = `<!doctype html>
         window.chromeResourceFix();
     </script>
     
-    <!-- Extract and preserve existing head content -->
-    ${indexContent.match(/<head[^>]*>(.*?)<\/head>/s)?.[1]
-        ?.replace(/<script[^>]*>.*?<\/script>/gs, '')
-        .replace(/<link[^>]*rel="stylesheet"[^>]*>/g, '')
-        .replace(/href="\/site\.webmanifest"/g, 'href="/manifest.json"') || ''}
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    
+    <!-- Primary SEO Meta Tags -->
+    <title>Restaurant Billing Software India | Free KOT System & POS - BillByteKOT</title>
+    <meta name="description" content="Best restaurant billing software in India with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Trusted by 500+ restaurants. Start free trial - ₹499/year only!"/>
+    <meta name="keywords" content="restaurant billing software, restaurant billing software free download, restaurant billing software India, best restaurant billing software, restaurant POS software, restaurant POS system, KOT software, KOT system for restaurant, kitchen order ticket software, restaurant management software, billing software for restaurant, restaurant billing app, free restaurant billing software, GST billing software for restaurant, thermal printer billing software, restaurant inventory software, cafe billing software, hotel billing software, food billing software, restaurant software India, POS software India, billing software India, restaurant management system, restaurant order management, table management software, WhatsApp billing software, cloud POS system, online restaurant billing, restaurant billing system, best POS for restaurant India, cheap restaurant software, affordable restaurant POS, small restaurant billing software, dhaba billing software, canteen billing software, food court billing software, QSR POS system, fast food billing software, fine dining POS, bar billing software, bakery billing software, sweet shop billing software, restaurant software free trial, restaurant billing software with inventory, multi-outlet restaurant software, chain restaurant POS, restaurant analytics software, restaurant reporting software, BillByteKOT, billbytekot restaurant, billbytekot billing"/>
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://billbytekot.in/"/>
+    
+    <!-- Author and Publisher -->
+    <meta name="author" content="BillByteKOT - FinVerge Technologies"/>
+    <link rel="publisher" href="https://billbytekot.in/"/>
+    
+    <!-- Search Engine Optimization -->
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"/>
+    <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"/>
+    <meta name="bingbot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"/>
+    <meta name="revisit-after" content="3 days"/>
+    <meta name="rating" content="General"/>
+    <meta name="distribution" content="Global"/>
+    <meta name="geo.region" content="IN"/>
+    <meta name="geo.placename" content="India"/>
+    <meta name="geo.position" content="28.6139;77.2090"/>
+    <meta name="ICBM" content="28.6139, 77.2090"/>
+    <meta name="target" content="all"/>
+    <meta name="audience" content="all"/>
+    <meta name="coverage" content="Worldwide"/>
+    <meta name="referrer" content="no-referrer-when-downgrade"/>
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website"/>
+    <meta property="og:url" content="https://billbytekot.in/"/>
+    <meta property="og:site_name" content="BillByteKOT - Restaurant Billing Software"/>
+    <meta property="og:title" content="Restaurant Billing Software India | Free KOT System & POS - BillByteKOT"/>
+    <meta property="og:description" content="Best restaurant billing software in India with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Trusted by 500+ restaurants."/>
+    <meta property="og:image" content="https://billbytekot.in/images/og-image.jpg"/>
+    <meta property="og:image:width" content="1200"/>
+    <meta property="og:image:height" content="630"/>
+    <meta property="og:locale" content="en_IN"/>
+    <meta property="og:see_also" content="https://www.facebook.com/billbytekot"/>
+    <meta property="og:see_also" content="https://twitter.com/billbytekot"/>
+    <meta property="og:see_also" content="https://www.linkedin.com/company/billbytekot"/>
+    <meta property="article:publisher" content="https://www.facebook.com/billbytekot"/>
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image"/>
+    <meta name="twitter:site" content="@billbytekot"/>
+    <meta name="twitter:creator" content="@billbytekot"/>
+    <meta name="twitter:title" content="Restaurant Billing Software India | Free KOT System & POS - BillByteKOT"/>
+    <meta name="twitter:description" content="Best restaurant billing software in India with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Trusted by 500+ restaurants."/>
+    <meta name="twitter:image" content="https://billbytekot.in/images/twitter-card.jpg"/>
+    <meta name="twitter:image:alt" content="BillByteKOT - Restaurant Billing Software"/>
+
+    <!-- Alternate Languages -->
+    <link rel="alternate" hreflang="en-in" href="https://billbytekot.in/"/>
+    <link rel="alternate" hreflang="hi-in" href="https://billbytekot.in/hi/"/>
+    <link rel="alternate" hreflang="x-default" href="https://billbytekot.in/"/>
+
+    <!-- PWA -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <meta name="apple-mobile-web-app-title" content="BillByteKOT"/>
+    
+    <!-- CSS Files -->
+    ${cssFiles.map(css => 
+        css.replace('href="/', 'href="./')
+           .replace('<link', '<link crossorigin="anonymous"')
+    ).join('\n    ')}
     
     <!-- Loading indicator styles -->
     <style>
@@ -179,7 +253,7 @@ const chromeFixedContent = `<!doctype html>
         }
         
         let loadedResources = 0;
-        const totalResources = 2; // 2 JS files
+        const totalResources = ${jsFiles.length}; // Count actual JS files
         let loadTimeout;
         let retryCount = 0;
         const maxRetries = 3;
@@ -302,20 +376,15 @@ const chromeFixedContent = `<!doctype html>
         });
     </script>
     
-    <!-- Extract and add CSS files -->
-    ${indexContent.match(/<link[^>]*href="[^"]*static\/css\/[^"]*"[^>]*>/g)?.map(link => 
-        link.replace('href="/', 'href="./')
-            .replace('<link', '<link crossorigin="anonymous"')
-    ).join('\n    ') || ''}
-    
-    <!-- Extract and add JS files with proper loading -->
-    ${indexContent.match(/<script[^>]*src="[^"]*static\/js\/[^"]*"[^>]*>/g)?.map(script => 
+    <!-- JS Files with proper loading -->
+    ${[...new Set(jsFiles)].map(script => 
         script.replace('src="/', 'src="./')
               .replace('<script', '<script crossorigin="anonymous" onload="onResourceLoad()" onerror="onResourceError(this.src)"')
               .replace('>', '></script>')
-    ).join('\n    ') || ''}
+    ).join('\n    ')}
     
-    ${indexContent.match(/<script[^>]*src="https:\/\/[^"]*"[^>]*>.*?<\/script>/gs)?.join('\n    ') || ''}
+    <!-- External Scripts -->
+    ${externalScripts.join('\n    ')}
 </body>
 </html>`;
 
@@ -324,3 +393,6 @@ fs.writeFileSync(indexPath, chromeFixedContent);
 
 console.log('✅ Build files fixed for Chrome compatibility!');
 console.log('📁 Updated: build/index.html');
+console.log('🔧 Fixed syntax errors and malformed HTML');
+console.log('📊 JS Files found:', jsFiles.length);
+console.log('📊 CSS Files found:', cssFiles.length);
