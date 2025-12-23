@@ -26,34 +26,49 @@ const chromeFixedContent = `<!doctype html>
     <meta http-equiv="Expires" content="0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     
-    <!-- Chrome DevTools Console Debug -->
+    <!-- Restaurant Loading System -->
     <script>
-        console.log('🔧 Chrome Fix Applied - BillByteKOT Loading...');
-        console.log('📍 URL:', window.location.href);
-        console.log('🌐 User Agent:', navigator.userAgent);
+        console.log('🍽️ BillByteKOT Kitchen Loading...');
+        console.log('📍 Restaurant URL:', window.location.href);
+        console.log('👨‍🍳 Preparing your digital kitchen...');
         
-        // Chrome-specific resource loading fix
-        window.chromeResourceFix = function() {
-            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
-            if (isChrome) {
-                console.log('🔍 Chrome detected - applying fixes...');
-                
-                // Force reload resources if they fail
-                window.addEventListener('error', function(e) {
-                    if (e.target.tagName === 'SCRIPT' && e.target.src) {
-                        console.warn('🔄 Script failed, retrying:', e.target.src);
-                        setTimeout(() => {
-                            const newScript = document.createElement('script');
-                            newScript.src = e.target.src + '?t=' + Date.now();
-                            newScript.defer = true;
-                            document.head.appendChild(newScript);
-                        }, 1000);
-                    }
-                }, true);
-            }
+        // Enhanced resource loading with restaurant theme
+        window.restaurantLoader = function() {
+            const loadingMessages = [
+                '🔥 Heating up the kitchen...',
+                '📋 Preparing KOT system...',
+                '🧾 Setting up billing...',
+                '📊 Loading inventory...',
+                '🖨️ Connecting thermal printer...',
+                '💳 Initializing payment system...'
+            ];
+            
+            let messageIndex = 0;
+            const messageInterval = setInterval(() => {
+                if (messageIndex < loadingMessages.length) {
+                    console.log(loadingMessages[messageIndex]);
+                    messageIndex++;
+                } else {
+                    clearInterval(messageInterval);
+                }
+            }, 800);
+            
+            // Enhanced error handling with restaurant context
+            window.addEventListener('error', function(e) {
+                if (e.target.tagName === 'SCRIPT' && e.target.src) {
+                    console.warn('🔄 Kitchen system retry:', e.target.src.split('/').pop());
+                    setTimeout(() => {
+                        const newScript = document.createElement('script');
+                        newScript.src = e.target.src + '?t=' + Date.now();
+                        newScript.defer = true;
+                        newScript.crossOrigin = 'anonymous';
+                        document.head.appendChild(newScript);
+                    }, 1000);
+                }
+            }, true);
         };
         
-        window.chromeResourceFix();
+        window.restaurantLoader();
     </script>
     
     <!-- Favicon -->
@@ -139,7 +154,7 @@ const chromeFixedContent = `<!doctype html>
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 50%, #059669 100%);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -149,61 +164,131 @@ const chromeFixedContent = `<!doctype html>
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top: 4px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
+        .kitchen-loader {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin-bottom: 30px;
         }
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .chef-hat {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            position: relative;
+            margin: 0 auto 10px;
+            animation: bounce 2s infinite;
+        }
+        
+        .chef-hat::before {
+            content: '';
+            position: absolute;
+            top: 45px;
+            left: 5px;
+            width: 50px;
+            height: 15px;
+            background: white;
+            border-radius: 50px;
+        }
+        
+        .cooking-steam {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .steam-line {
+            width: 3px;
+            height: 20px;
+            background: rgba(255,255,255,0.7);
+            margin: 0 3px;
+            border-radius: 3px;
+            display: inline-block;
+            animation: steam 1.5s infinite;
+        }
+        
+        .steam-line:nth-child(1) { animation-delay: 0s; }
+        .steam-line:nth-child(2) { animation-delay: 0.3s; }
+        .steam-line:nth-child(3) { animation-delay: 0.6s; }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        @keyframes steam {
+            0% { opacity: 0; transform: translateY(0) scaleX(1); }
+            50% { opacity: 1; transform: translateY(-10px) scaleX(1.2); }
+            100% { opacity: 0; transform: translateY(-20px) scaleX(0.8); }
         }
         
         .loading-text {
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 24px;
+            font-weight: 700;
             margin-bottom: 10px;
+            text-align: center;
+            background: linear-gradient(45deg, #fbbf24, #f59e0b, #d97706);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
         .loading-subtext {
+            font-size: 16px;
+            opacity: 0.9;
+            text-align: center;
+            max-width: 350px;
+            margin-bottom: 20px;
+        }
+        
+        .kitchen-status {
             font-size: 14px;
             opacity: 0.8;
             text-align: center;
-            max-width: 300px;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
         }
         
         .error-container {
-            background: #dc2626;
-            padding: 20px;
-            border-radius: 10px;
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            padding: 25px;
+            border-radius: 15px;
             margin-top: 20px;
             max-width: 400px;
             text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
         
         .retry-button {
-            background: white;
-            color: #dc2626;
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 12px 24px;
+            border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 10px;
+            margin: 8px;
+            transition: transform 0.2s;
         }
         
-        .chrome-warning {
-            background: #fbbf24;
-            color: #92400e;
+        .retry-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .restaurant-tips {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
             padding: 15px;
-            border-radius: 8px;
+            border-radius: 10px;
             margin-top: 15px;
             font-size: 14px;
+            border: 1px solid rgba(251, 191, 36, 0.3);
         }
     </style>
 </head>
@@ -218,39 +303,46 @@ const chromeFixedContent = `<!doctype html>
     
     <!-- Loading Screen -->
     <div id="loading-screen" class="loading-container">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Loading BillByteKOT...</div>
-        <div class="loading-subtext">Restaurant Billing & KOT Management System</div>
-        <div id="chrome-warning" class="chrome-warning" style="display: none;">
-            <strong>Chrome Browser Detected</strong><br>
-            If you see a white screen, try:<br>
-            • Hard refresh (Ctrl+Shift+R)<br>
-            • Clear cache and cookies<br>
-            • Disable extensions temporarily
+        <div class="kitchen-loader">
+            <div class="cooking-steam">
+                <div class="steam-line"></div>
+                <div class="steam-line"></div>
+                <div class="steam-line"></div>
+            </div>
+            <div class="chef-hat"></div>
+        </div>
+        <div class="loading-text">BillByteKOT Kitchen</div>
+        <div class="loading-subtext">Preparing your restaurant management system...</div>
+        <div class="kitchen-status">🔥 Kitchen warming up...</div>
+        <div id="restaurant-tips" class="restaurant-tips" style="display: none;">
+            <strong>💡 Pro Tip:</strong><br>
+            While we're setting up your kitchen, remember:<br>
+            • KOT system streamlines orders<br>
+            • Thermal printing saves time<br>
+            • Real-time inventory prevents stockouts
         </div>
         <div id="error-message" class="error-container" style="display: none;">
-            <div>⚠️ Loading Error</div>
+            <div>🍽️ Kitchen Setup Issue</div>
             <div style="font-size: 12px; margin-top: 10px;">
-                Failed to load application resources. This appears to be a Chrome-specific issue.
+                Having trouble setting up your restaurant system. Let's get your kitchen running!
             </div>
-            <button class="retry-button" onclick="window.location.reload(true)">Hard Refresh</button>
-            <button class="retry-button" onclick="clearChromeCache()">Clear Cache & Retry</button>
+            <button class="retry-button" onclick="window.location.reload(true)">🔄 Restart Kitchen</button>
+            <button class="retry-button" onclick="clearRestaurantCache()">🧹 Clear Cache</button>
         </div>
     </div>
     
     <!-- React App Root -->
     <div id="root"></div>
     
-    <!-- Chrome-specific Resource Loading Script -->
+    <!-- Restaurant Kitchen Loading Script -->
     <script>
-        console.log('🔧 Chrome-specific fixes loading...');
+        console.log('🍽️ Restaurant kitchen system loading...');
         
-        // Detect Chrome
-        const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
-        if (isChrome) {
-            console.log('🌐 Chrome browser detected - applying Chrome-specific fixes');
-            document.getElementById('chrome-warning').style.display = 'block';
-        }
+        // Show restaurant tips after 3 seconds
+        setTimeout(() => {
+            const tips = document.getElementById('restaurant-tips');
+            if (tips) tips.style.display = 'block';
+        }, 3000);
         
         let loadedResources = 0;
         const totalResources = ${jsFiles.length}; // Count actual JS files
@@ -258,33 +350,55 @@ const chromeFixedContent = `<!doctype html>
         let retryCount = 0;
         const maxRetries = 3;
         
+        // Kitchen status messages
+        const kitchenStatus = document.querySelector('.kitchen-status');
+        const statusMessages = [
+            '🔥 Kitchen warming up...',
+            '📋 Setting up KOT system...',
+            '🧾 Preparing billing module...',
+            '📊 Loading inventory system...',
+            '🖨️ Connecting thermal printer...',
+            '💳 Initializing payments...',
+            '👨‍🍳 Almost ready to serve!'
+        ];
+        
+        let statusIndex = 0;
+        const statusInterval = setInterval(() => {
+            if (statusIndex < statusMessages.length && kitchenStatus) {
+                kitchenStatus.textContent = statusMessages[statusIndex];
+                statusIndex++;
+            }
+        }, 1500);
+        
         function hideLoadingScreen() {
+            clearInterval(statusInterval);
             const loadingScreen = document.getElementById('loading-screen');
             if (loadingScreen) {
                 loadingScreen.style.opacity = '0';
-                loadingScreen.style.transition = 'opacity 0.5s ease';
+                loadingScreen.style.transition = 'opacity 0.8s ease';
                 setTimeout(() => {
                     loadingScreen.style.display = 'none';
-                }, 500);
+                }, 800);
             }
         }
         
         function showError() {
+            clearInterval(statusInterval);
             const errorMessage = document.getElementById('error-message');
-            if (errorMessage) {
-                errorMessage.style.display = 'block';
-            }
+            const tips = document.getElementById('restaurant-tips');
+            if (errorMessage) errorMessage.style.display = 'block';
+            if (tips) tips.style.display = 'none';
         }
         
-        function clearChromeCache() {
-            console.log('🧹 Clearing Chrome cache...');
+        function clearRestaurantCache() {
+            console.log('🧹 Clearing restaurant system cache...');
             
             // Clear service worker cache
             if ('caches' in window) {
                 caches.keys().then(names => {
                     names.forEach(name => {
                         caches.delete(name);
-                        console.log('🗑️ Deleted cache:', name);
+                        console.log('🗑️ Cleared cache:', name);
                     });
                 });
             }
@@ -293,7 +407,7 @@ const chromeFixedContent = `<!doctype html>
             try {
                 localStorage.clear();
                 sessionStorage.clear();
-                console.log('🗑️ Cleared storage');
+                console.log('🗑️ Cleared restaurant data');
             } catch (e) {
                 console.warn('Could not clear storage:', e);
             }
@@ -306,20 +420,20 @@ const chromeFixedContent = `<!doctype html>
         
         function onResourceLoad() {
             loadedResources++;
-            console.log(\`✅ Resource loaded (\${loadedResources}/\${totalResources})\`);
+            console.log(\`✅ Kitchen module loaded (\${loadedResources}/\${totalResources})\`);
             
             if (loadedResources >= totalResources) {
                 clearTimeout(loadTimeout);
-                setTimeout(hideLoadingScreen, 1000);
+                setTimeout(hideLoadingScreen, 1500);
             }
         }
         
         function onResourceError(resource) {
-            console.error('❌ Failed to load:', resource);
+            console.error('❌ Kitchen module failed:', resource.split('/').pop());
             
             if (retryCount < maxRetries) {
                 retryCount++;
-                console.log(\`🔄 Retrying (\${retryCount}/\${maxRetries})...\`);
+                console.log(\`🔄 Retrying kitchen setup (\${retryCount}/\${maxRetries})...\`);
                 
                 // Retry with cache-busting
                 setTimeout(() => {
@@ -339,15 +453,15 @@ const chromeFixedContent = `<!doctype html>
         
         // Set timeout for loading
         loadTimeout = setTimeout(() => {
-            console.warn('⏰ Loading timeout - showing error');
+            console.warn('⏰ Kitchen setup taking longer than expected...');
             showError();
-        }, 20000); // 20 second timeout for Chrome
+        }, 25000); // 25 second timeout
         
         // Hide loading screen when React renders
         const observer = new MutationObserver((mutations) => {
             const root = document.getElementById('root');
             if (root && root.children.length > 0) {
-                console.log('✅ React app rendered');
+                console.log('🎉 Restaurant kitchen is ready to serve!');
                 clearTimeout(loadTimeout);
                 hideLoadingScreen();
                 observer.disconnect();
@@ -359,20 +473,18 @@ const chromeFixedContent = `<!doctype html>
             subtree: true
         });
         
-        // Chrome-specific error handling
+        // Enhanced error handling
         window.addEventListener('error', function(e) {
-            console.error('🚨 Global error:', e);
+            console.error('🚨 Kitchen system error:', e);
             if (e.filename && e.filename.includes('static/js/')) {
-                console.error('❌ JavaScript loading error in Chrome');
-                if (isChrome) {
-                    showError();
-                }
+                console.error('❌ Kitchen module loading error');
+                showError();
             }
         });
         
         // Unhandled promise rejection handler
         window.addEventListener('unhandledrejection', function(e) {
-            console.error('🚨 Unhandled promise rejection:', e.reason);
+            console.error('🚨 Kitchen system promise rejection:', e.reason);
         });
     </script>
     
