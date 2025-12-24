@@ -41,7 +41,7 @@ const InventoryPage = ({ user }) => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLowStock, setFilterLowStock] = useState(false);
-  const [filterCategory, setFilterCategory] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [viewMode, setViewMode] = useState('grid'); // grid or table
@@ -378,7 +378,7 @@ const InventoryPage = ({ user }) => {
                            (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
                            (item.barcode && item.barcode.includes(searchTerm));
       const matchesLowStock = filterLowStock ? item.quantity <= item.min_quantity : true;
-      const matchesCategory = filterCategory ? item.category_id === filterCategory : true;
+      const matchesCategory = filterCategory && filterCategory !== 'all' ? item.category_id === filterCategory : true;
       return matchesSearch && matchesLowStock && matchesCategory;
     })
     .sort((a, b) => {
@@ -1071,7 +1071,7 @@ const InventoryPage = ({ user }) => {
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map(category => (
                   <SelectItem key={category.id} value={category.id.toString()}>
                     <div className="flex items-center gap-2">
@@ -1145,7 +1145,7 @@ const InventoryPage = ({ user }) => {
           </div>
 
           {/* Active Filters Display */}
-          {(searchTerm || filterCategory || filterLowStock) && (
+          {(searchTerm || (filterCategory && filterCategory !== 'all') || filterLowStock) && (
             <div className="flex gap-2 mt-3 flex-wrap">
               <span className="text-sm text-gray-500">Active filters:</span>
               {searchTerm && (
@@ -1156,10 +1156,10 @@ const InventoryPage = ({ user }) => {
                   </button>
                 </Badge>
               )}
-              {filterCategory && (
+              {filterCategory && filterCategory !== 'all' && (
                 <Badge variant="outline" className="gap-1">
                   Category: {categories.find(c => c.id.toString() === filterCategory)?.name}
-                  <button onClick={() => setFilterCategory('')} className="ml-1 hover:bg-gray-200 rounded-full p-0.5">
+                  <button onClick={() => setFilterCategory('all')} className="ml-1 hover:bg-gray-200 rounded-full p-0.5">
                     <XCircle className="w-3 h-3" />
                   </button>
                 </Badge>
@@ -1177,7 +1177,7 @@ const InventoryPage = ({ user }) => {
                 size="sm"
                 onClick={() => {
                   setSearchTerm('');
-                  setFilterCategory('');
+                  setFilterCategory('all');
                   setFilterLowStock(false);
                 }}
                 className="text-xs h-6"
@@ -1411,12 +1411,12 @@ const InventoryPage = ({ user }) => {
               <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
               <p className="text-gray-500 mb-4">
-                {searchTerm || filterCategory || filterLowStock 
+                {searchTerm || (filterCategory && filterCategory !== 'all') || filterLowStock 
                   ? 'Try adjusting your search or filters' 
                   : 'Start by adding your first inventory item'
                 }
               </p>
-              {!searchTerm && !filterCategory && !filterLowStock && ['admin', 'cashier'].includes(user?.role) && (
+              {!searchTerm && (!filterCategory || filterCategory === 'all') && !filterLowStock && ['admin', 'cashier'].includes(user?.role) && (
                 <Button 
                   onClick={() => setDialogOpen(true)}
                   className="bg-gradient-to-r from-violet-600 to-purple-600"
