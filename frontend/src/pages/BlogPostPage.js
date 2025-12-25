@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { ChefHat, Calendar, User, Clock, ArrowLeft, Share2, BookmarkPlus } from 'lucide-react';
@@ -15,6 +16,32 @@ const BlogPostPage = () => {
   if (newBlogPost) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        {/* SEO Meta Tags */}
+        <Helmet>
+          <title>{newBlogPost.title} | BillByteKOT Blog</title>
+          <meta name="description" content={newBlogPost.excerpt || newBlogPost.title} />
+          <meta name="keywords" content={`${newBlogPost.category}, restaurant billing, KOT system, BillByteKOT, ${newBlogPost.title.toLowerCase()}`} />
+          <link rel="canonical" href={`https://billbytekot.in/blog/${slug}`} />
+          
+          {/* Open Graph */}
+          <meta property="og:title" content={`${newBlogPost.title} | BillByteKOT`} />
+          <meta property="og:description" content={newBlogPost.excerpt || newBlogPost.title} />
+          <meta property="og:image" content={newBlogPost.image} />
+          <meta property="og:url" content={`https://billbytekot.in/blog/${slug}`} />
+          <meta property="og:type" content="article" />
+          
+          {/* Twitter */}
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content={newBlogPost.title} />
+          <meta name="twitter:description" content={newBlogPost.excerpt || newBlogPost.title} />
+          <meta name="twitter:image" content={newBlogPost.image} />
+          
+          {/* Article specific */}
+          <meta property="article:published_time" content={newBlogPost.date} />
+          <meta property="article:author" content={newBlogPost.author} />
+          <meta property="article:section" content={newBlogPost.category} />
+        </Helmet>
+        
         {/* Header */}
         <header className="bg-white border-b sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4">
@@ -811,6 +838,32 @@ BillByteKOT offers a complete KOT solution for just ₹999/year:
 
   return (
     <div className="min-h-screen bg-white">
+      {/* SEO Meta Tags for Legacy Blog Posts */}
+      <Helmet>
+        <title>{post.title} | BillByteKOT Blog</title>
+        <meta name="description" content={post.content?.substring(0, 160) || post.title} />
+        <meta name="keywords" content={`${post.category}, restaurant billing, KOT system, BillByteKOT`} />
+        <link rel="canonical" href={`https://billbytekot.in/blog/${slug}`} />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content={`${post.title} | BillByteKOT`} />
+        <meta property="og:description" content={post.content?.substring(0, 160) || post.title} />
+        <meta property="og:image" content={post.image} />
+        <meta property="og:url" content={`https://billbytekot.in/blog/${slug}`} />
+        <meta property="og:type" content="article" />
+        
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={post.title} />
+        <meta name="twitter:description" content={post.content?.substring(0, 160) || post.title} />
+        <meta name="twitter:image" content={post.image} />
+        
+        {/* Article specific */}
+        <meta property="article:published_time" content={post.date} />
+        <meta property="article:author" content={post.author} />
+        <meta property="article:section" content={post.category} />
+      </Helmet>
+      
       {/* Header */}
       <header className="bg-white border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">

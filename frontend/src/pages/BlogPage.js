@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -164,6 +165,25 @@ const BlogPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* SEO Meta Tags */}
+      <Helmet>
+        <title>Restaurant Billing Software Blog | Tips, Guides & Updates | BillByteKOT</title>
+        <meta name="description" content="Expert guides on restaurant billing software, KOT systems, thermal printing, inventory management, and restaurant technology. Free tips and tutorials for restaurant owners." />
+        <meta name="keywords" content="restaurant billing software blog, KOT system guide, restaurant POS tips, thermal printer setup, restaurant management tips, BillByteKOT blog" />
+        <link rel="canonical" href="https://billbytekot.in/blog" />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content="Restaurant Billing Software Blog | BillByteKOT" />
+        <meta property="og:description" content="Expert guides on restaurant billing software, KOT systems, and restaurant technology." />
+        <meta property="og:url" content="https://billbytekot.in/blog" />
+        <meta property="og:type" content="website" />
+        
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Restaurant Billing Software Blog | BillByteKOT" />
+        <meta name="twitter:description" content="Expert guides on restaurant billing software, KOT systems, and restaurant technology." />
+      </Helmet>
+      
       {/* Header */}
       <header className="bg-white border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
