@@ -810,7 +810,7 @@ const SettingsPage = ({ user }) => {
             <div>
               <Label className="mb-3 block">Thermal Print Format</Label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {themes.map((theme) => (
+                {themes.length > 0 ? themes.map((theme) => (
                   <button
                     key={theme.id}
                     type="button"
@@ -823,9 +823,34 @@ const SettingsPage = ({ user }) => {
                   >
                     <p className="font-medium text-sm">{theme.name}</p>
                     <p className="text-xs text-gray-500 mt-1">{theme.description}</p>
-                    <p className="text-xs text-violet-600 mt-1 font-medium">{theme.width}</p>
+                    <p className="text-xs text-violet-600 mt-1 font-medium">{theme.recommended_width || '80mm'}</p>
                   </button>
-                ))}
+                )) : (
+                  // Fallback themes if API fails
+                  [
+                    { id: 'classic', name: 'Classic', description: 'Traditional receipt format', recommended_width: '80mm' },
+                    { id: 'modern', name: 'Modern', description: 'Modern with emojis and borders', recommended_width: '80mm' },
+                    { id: 'minimal', name: 'Minimal', description: 'Clean and simple design', recommended_width: '80mm' },
+                    { id: 'elegant', name: 'Elegant', description: 'Professional and elegant', recommended_width: '80mm' },
+                    { id: 'compact', name: 'Compact', description: 'Space-saving 58mm format', recommended_width: '58mm' },
+                    { id: 'detailed', name: 'Detailed', description: 'Comprehensive invoice format', recommended_width: '80mm' }
+                  ].map((theme) => (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      onClick={() => setBusinessSettings({ ...businessSettings, receipt_theme: theme.id })}
+                      className={`p-4 border-2 rounded-lg text-left transition-all ${
+                        businessSettings.receipt_theme === theme.id
+                          ? 'border-violet-600 bg-violet-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <p className="font-medium text-sm">{theme.name}</p>
+                      <p className="text-xs text-gray-500 mt-1">{theme.description}</p>
+                      <p className="text-xs text-violet-600 mt-1 font-medium">{theme.recommended_width}</p>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 

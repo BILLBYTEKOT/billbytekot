@@ -179,27 +179,37 @@ const BillingPage = ({ user }) => {
   const printThermalBill = async () => {
     if (!order) return;
     try {
-      // Use centralized print utility with global settings
-      const settings = getPrintSettings();
-      const content = generateReceiptContent(order, businessSettings);
+      // Get receipt from backend with theme applied
+      const theme = businessSettings?.receipt_theme || 'classic';
+      const response = await axios.post(`${API}/print/bill/${orderId}`, null, {
+        params: { theme }
+      });
       
       // Store receipt content for preview
-      setReceiptContent(content);
+      setReceiptContent(response.data.content);
       setShowPrintPreview(true);
       
       // Update thermal paper size from settings
+      const settings = getPrintSettings();
       setThermalPaperSize(settings.paper_width || '80mm');
       
       toast.success('Receipt ready for printing!');
     } catch (error) {
       console.error('Failed to print bill', error);
-      toast.error('Failed to generate receipt');
+      // Fallback to frontend generation if backend fails
+      try {
+        const content = generateReceiptContent(order, businessSettings);
+        setReceiptContent(content);
+        setShowPrintPreview(true);
+        toast.success('Receipt ready for printing!');
+      } catch (fallbackError) {
+        toast.error('Failed to generate receipt');
+      }
     }
   };
 
   const handleActualPrint = () => {
     // Use centralized print utility
-    const settings = getPrintSettings();
     printDocument(receiptContent, `Receipt - ${order?.id?.slice(0, 8)}`, 'receipt');
   };
 
