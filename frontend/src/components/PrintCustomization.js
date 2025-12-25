@@ -344,15 +344,40 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
 
       // Ensure we have valid business settings structure
       const currentSettings = businessSettings || {};
+      
+      // Build print_customization with proper types for backend
+      const printCustomization = {
+        paper_width: customization.paper_width || '80mm',
+        font_size: customization.font_size || 'medium',
+        header_style: customization.header_style || 'centered',
+        show_logo: Boolean(customization.show_logo),
+        show_address: Boolean(customization.show_address),
+        show_phone: Boolean(customization.show_phone),
+        show_email: Boolean(customization.show_email),
+        show_website: Boolean(customization.show_website),
+        show_gstin: Boolean(customization.show_gstin),
+        show_fssai: Boolean(customization.show_fssai),
+        show_tagline: Boolean(customization.show_tagline),
+        show_customer_name: Boolean(customization.show_customer_name),
+        show_waiter_name: Boolean(customization.show_waiter_name),
+        show_table_number: Boolean(customization.show_table_number),
+        show_order_time: Boolean(customization.show_order_time),
+        show_item_notes: Boolean(customization.show_item_notes),
+        border_style: customization.border_style || 'single',
+        separator_style: customization.separator_style || 'dashes',
+        footer_style: customization.footer_style || 'simple',
+        qr_code_enabled: Boolean(customization.qr_code_enabled),
+        auto_print: Boolean(customization.auto_print),
+        print_copies: Math.max(1, Math.min(5, parseInt(customization.print_copies) || 1)),
+        kot_auto_print: Boolean(customization.kot_auto_print),
+        kot_font_size: customization.kot_font_size || 'large',
+        kot_show_time: Boolean(customization.kot_show_time),
+        kot_highlight_notes: Boolean(customization.kot_highlight_notes),
+      };
+      
       const updatedSettings = {
         ...currentSettings,
-        print_customization: {
-          ...customization,
-          // Ensure all required fields are present
-          paper_width: customization.paper_width || '80mm',
-          font_size: customization.font_size || 'medium',
-          print_copies: Math.max(1, Math.min(5, customization.print_copies || 1))
-        }
+        print_customization: printCustomization
       };
       
       console.log('Saving print settings:', updatedSettings.print_customization);
@@ -384,7 +409,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
         if (user && typeof user === 'object') {
           user.business_settings = {
             ...(user.business_settings || {}),
-            print_customization: updatedSettings.print_customization
+            print_customization: printCustomization
           };
           localStorage.setItem('user', JSON.stringify(user));
         }
@@ -410,12 +435,25 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
         }, 2000);
       } else if (error.response?.status === 403) {
         errorMessage = 'You do not have permission to modify print settings.';
+      } else if (error.response?.status === 422) {
+        // Validation error from backend
+        const detail = error.response?.data?.detail;
+        if (Array.isArray(detail)) {
+          errorMessage = detail.map(d => d.msg || d.message || JSON.stringify(d)).join(', ');
+        } else if (typeof detail === 'string') {
+          errorMessage = detail;
+        } else {
+          errorMessage = 'Invalid settings format. Please check your inputs.';
+        }
+        console.error('Validation error details:', detail);
       } else if (error.response?.status === 400) {
         errorMessage = error.response?.data?.detail || 'Invalid settings data. Please check your inputs.';
       } else if (error.response?.status >= 500) {
         errorMessage = 'Server error. Please try again later.';
       } else if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
+        errorMessage = typeof error.response.data.detail === 'string' 
+          ? error.response.data.detail 
+          : 'Invalid settings data';
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {

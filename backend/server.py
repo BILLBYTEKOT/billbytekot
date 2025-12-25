@@ -238,9 +238,10 @@ CURRENCY_SYMBOLS = {
 # Models
 class PrintCustomization(BaseModel):
     """Print customization settings"""
+    model_config = ConfigDict(extra="allow")  # Allow extra fields
     paper_width: str = "80mm"  # 58mm, 80mm, 110mm, custom
     custom_width: Optional[int] = None  # in mm if paper_width is "custom"
-    font_size: int = 12  # 8-16px
+    font_size: Optional[str] = "medium"  # small, medium, large (or int 8-16px for legacy)
     line_spacing: float = 1.3  # 1.0-2.0
     margin_top: int = 5  # in mm
     margin_bottom: int = 5  # in mm
@@ -248,6 +249,7 @@ class PrintCustomization(BaseModel):
     margin_right: int = 5  # in mm
     show_logo: bool = True
     show_qr_code: bool = False
+    qr_code_enabled: bool = False  # Alias for show_qr_code
     qr_code_content: str = "website"  # website, order_id, custom
     custom_qr_text: Optional[str] = None
     header_style: str = "centered"  # centered, left, right
@@ -255,17 +257,34 @@ class PrintCustomization(BaseModel):
     show_item_notes: bool = True
     show_preparation_time: bool = False
     show_server_name: bool = True
+    show_waiter_name: bool = True  # Alias for show_server_name
     show_table_number: bool = True
     show_customer_name: bool = True
     show_order_date: bool = True
     show_order_time: bool = True
     date_format: str = "DD-MM-YYYY"  # DD-MM-YYYY, MM-DD-YYYY, YYYY-MM-DD
     time_format: str = "12h"  # 12h, 24h
-    separator_style: str = "dash"  # dash, equal, heavy, light, none
+    separator_style: str = "dashes"  # dashes, dots, equals, line, dash, equal, heavy, light, none
+    border_style: str = "single"  # single, double
+    footer_style: str = "simple"  # simple, detailed
     total_style: str = "bold"  # bold, boxed, highlighted
     print_copies: int = 1  # 1-5
     auto_cut: bool = True
     beep_on_print: bool = False
+    auto_print: bool = False  # Auto print after payment
+    # Header content options
+    show_address: bool = True
+    show_phone: bool = True
+    show_email: bool = False
+    show_website: bool = False
+    show_gstin: bool = True
+    show_fssai: bool = False
+    show_tagline: bool = True
+    # KOT specific settings
+    kot_auto_print: bool = True
+    kot_font_size: str = "large"  # small, medium, large
+    kot_show_time: bool = True
+    kot_highlight_notes: bool = True
 
 
 class BusinessSettings(BaseModel):
