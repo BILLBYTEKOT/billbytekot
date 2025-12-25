@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import {
@@ -39,6 +39,69 @@ import {
   MessageCircle,
   Mail,
 } from "lucide-react";
+
+// Custom hook for scroll animations
+const useScrollAnimation = () => {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            entry.target.classList.add('animate-fade-in-up');
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+    );
+
+    const elements = document.querySelectorAll('.animate-on-scroll');
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
+};
+
+// Animated Counter Component
+const AnimatedCounter = ({ end, duration = 2000, suffix = '' }) => {
+  const [count, setCount] = useState(0);
+  const countRef = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isVisible) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (countRef.current) {
+      observer.observe(countRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [isVisible]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    let startTime;
+    const animate = (currentTime) => {
+      if (!startTime) startTime = currentTime;
+      const progress = Math.min((currentTime - startTime) / duration, 1);
+      setCount(Math.floor(progress * end));
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    requestAnimationFrame(animate);
+  }, [isVisible, end, duration]);
+
+  return <span ref={countRef}>{count}{suffix}</span>;
+};
 
 // Desktop App Download Section Component
 const DesktopDownloadSection = () => {
@@ -253,6 +316,9 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [email, setEmail] = useState("");
+  
+  // Initialize scroll animations
+  useScrollAnimation();
 
   const handleGetStarted = () => {
     navigate("/login");
@@ -576,33 +642,38 @@ const LandingPage = () => {
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 py-20 md:py-32">
         <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+        {/* Animated background elements */}
+        <div className="absolute top-20 left-10 w-72 h-72 bg-violet-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-float-slow"></div>
+        <div className="absolute top-40 right-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-float" style={{animationDelay: '1s'}}></div>
+        <div className="absolute bottom-20 left-1/3 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-float-slow" style={{animationDelay: '2s'}}></div>
+        
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 rounded-full mb-6">
-              <Sparkles className="w-4 h-4 text-violet-600" aria-hidden="true" />
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 rounded-full mb-6 animate-fade-in-down">
+              <Sparkles className="w-4 h-4 text-violet-600 animate-pulse" aria-hidden="true" />
               <span className="text-sm font-medium text-violet-600">
                 AI-Powered Restaurant Management
               </span>
             </div>
 
             <h1
-              className="text-5xl md:text-7xl font-bold mb-6 leading-tight"
+              className="text-5xl md:text-7xl font-bold mb-6 leading-tight animate-fade-in-up"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
               Smart Restaurant
-              <span className="block bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 bg-clip-text text-transparent text-gradient-animate">
                 Billing Made Simple
               </span>
             </h1>
 
-            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-2xl mx-auto font-light">
+            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-2xl mx-auto font-light animate-fade-in-up delay-200">
               AI-powered POS system trusted by 500+ restaurants. Start billing in minutes.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fade-in-up delay-400">
               <Button
                 size="lg"
-                className="bg-gradient-to-r from-violet-600 to-purple-600 h-14 px-8 text-lg"
+                className="bg-gradient-to-r from-violet-600 to-purple-600 h-14 px-8 text-lg btn-animate hover-lift"
                 onClick={handleGetStarted}
               >
                 Start Free Trial
@@ -611,7 +682,7 @@ const LandingPage = () => {
               <Button
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 text-lg"
+                className="h-14 px-8 text-lg hover-lift"
                 onClick={() => navigate("/contact")}
               >
                 <MessageCircle className="w-5 h-5 mr-2" />
@@ -620,7 +691,7 @@ const LandingPage = () => {
               <Button
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 text-lg"
+                className="h-14 px-8 text-lg hover-lift"
                 onClick={() =>
                   document
                     .getElementById("demo")
@@ -633,10 +704,10 @@ const LandingPage = () => {
 
 
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto">
+            {/* Stats with animated counters */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto animate-fade-in-up delay-600">
               {stats.map((stat, index) => (
-                <div key={index} className="text-center">
+                <div key={index} className="text-center hover-scale">
                   <div className="text-3xl md:text-4xl font-bold text-violet-600 mb-1">
                     {stat.value}
                   </div>
@@ -802,8 +873,12 @@ const LandingPage = () => {
                 color: "from-purple-500 to-pink-500"
               }
             ].map((item, i) => (
-              <div key={i} className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center hover:bg-white/20 transition-all">
-                <div className={`w-16 h-16 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl`}>
+              <div 
+                key={i} 
+                className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center hover:bg-white/20 transition-all card-hover animate-on-scroll"
+                style={{ animationDelay: `${i * 150}ms` }}
+              >
+                <div className={`w-16 h-16 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl hover-bounce`}>
                   {item.icon}
                 </div>
                 <div className="text-xs font-bold text-violet-300 mb-2">STEP {item.step}</div>
@@ -816,7 +891,7 @@ const LandingPage = () => {
           {/* Feature Screenshots */}
           <div className="mt-16 max-w-5xl mx-auto">
             <div className="grid md:grid-cols-3 gap-6">
-              <div className="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-all">
+              <div className="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-all card-hover animate-on-scroll">
                 <div className="aspect-video bg-gradient-to-br from-violet-600/30 to-purple-600/30 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
                   <img 
                     src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'%3E%3Crect fill='%237c3aed' width='400' height='225'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'%3EDashboard%3C/text%3E%3C/svg%3E"
@@ -829,7 +904,7 @@ const LandingPage = () => {
                 <p className="text-sm text-gray-400">Track sales, orders, and revenue at a glance</p>
               </div>
               
-              <div className="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-all">
+              <div className="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-all card-hover animate-on-scroll" style={{animationDelay: '100ms'}}>
                 <div className="aspect-video bg-gradient-to-br from-green-600/30 to-emerald-600/30 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
                   <img 
                     src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'%3E%3Crect fill='%2310b981' width='400' height='225'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'%3EMenu%3C/text%3E%3C/svg%3E"
@@ -842,7 +917,7 @@ const LandingPage = () => {
                 <p className="text-sm text-gray-400">Organize items by category with images</p>
               </div>
               
-              <div className="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-all">
+              <div className="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-all card-hover animate-on-scroll" style={{animationDelay: '200ms'}}>
                 <div className="aspect-video bg-gradient-to-br from-orange-600/30 to-amber-600/30 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
                   <img 
                     src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'%3E%3Crect fill='%23f97316' width='400' height='225'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'%3EThermal Print%3C/text%3E%3C/svg%3E"
@@ -1004,7 +1079,7 @@ const LandingPage = () => {
         className="py-20 bg-gradient-to-br from-gray-50 to-gray-100"
       >
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
+          <div className="text-center mb-16 animate-on-scroll">
             <h2
               className="text-4xl md:text-5xl font-bold mb-4"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
@@ -1020,11 +1095,12 @@ const LandingPage = () => {
             {features.map((feature, index) => (
               <Card
                 key={index}
-                className="border-0 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1"
+                className={`border-0 shadow-lg card-hover animate-on-scroll`}
+                style={{ animationDelay: `${index * 100}ms` }}
               >
                 <CardHeader>
                   <div
-                    className={`w-12 h-12 bg-gradient-to-br ${feature.color} rounded-xl flex items-center justify-center mb-4`}
+                    className={`w-12 h-12 bg-gradient-to-br ${feature.color} rounded-xl flex items-center justify-center mb-4 hover-rotate`}
                   >
                     <feature.icon className="w-6 h-6 text-white" />
                   </div>
@@ -1042,8 +1118,8 @@ const LandingPage = () => {
       {/* Invoice/Receipt Showcase Section */}
       <section className="py-20 bg-white overflow-hidden">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 rounded-full mb-4">
+          <div className="text-center mb-16 animate-on-scroll">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 rounded-full mb-4 animate-bounce-in">
               <Printer className="w-4 h-4 text-green-600" />
               <span className="text-sm font-medium text-green-600">Professional Invoices</span>
             </div>
