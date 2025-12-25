@@ -798,7 +798,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
-                  <ToggleSwitcheSwitcheSwitch 
+                  <ToggleSwitch 
                     label="Show Logo" 
                     checked={customization.show_logo}
                     onChange={(v) => updateCustomization({ show_logo: v })}
