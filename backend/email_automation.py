@@ -128,7 +128,7 @@ async def send_welcome_email(email: str, username: str) -> Dict[str, Any]:
         <p style="color: #666;">
             • 📚 <a href="https://billbytekot.in/help" style="color: #667eea;">Help Center</a><br>
             • 💬 Email: support@billbytekot.in<br>
-            • 📞 Phone: +91-XXXXXXXXXX
+            • 📞 Phone: +91-8310832669
         </p>
     """
     

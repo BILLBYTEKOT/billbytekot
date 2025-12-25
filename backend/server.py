@@ -4719,7 +4719,7 @@ async def ai_support_chat(chat_request: AIChatRequest):
         "whatsapp": "WhatsApp integration lets you send bills, order updates, and promotional messages to customers. Setup: Go to Settings > WhatsApp, enable it, and add your business number. You can auto-notify customers on order status changes!",
         "mobile": "Yes! BillByteKOT works on any device - desktop, tablet, or mobile. We also have a native Android app coming soon. Join our early access program to be notified!",
         "desktop": "Download our desktop app for Windows, Mac, or Linux from the Download page. It offers offline support, direct thermal printing, and faster performance!",
-        "support": "We offer 24/7 support! Email us at support@billbytekot.in, call +91-98765-43210 (Mon-Sat, 9 AM-6 PM IST), or use this chat. Premium users get priority support with faster response times.",
+        "support": "We offer 24/7 support! Email us at support@billbytekot.in, call +91-8310832669 (Mon-Sat, 9 AM-6 PM IST), or use this chat. Premium users get priority support with faster response times.",
         "trial": "Start your 7-day free trial now! No credit card required. You get full access to all premium features including AI analytics, thermal printing, and unlimited bills. After trial, upgrade for just ₹999/year!",
         "features": "Key features: AI-powered billing, KOT system, thermal printing (6 themes), multi-currency support, inventory management, staff management, real-time analytics, WhatsApp integration, table management, and more!",
         "inventory": "Inventory management helps track stock levels, get low-stock alerts, manage suppliers, and auto-deduct items when sold. Go to Inventory page to add items and set minimum quantities.",
@@ -4731,7 +4731,7 @@ async def ai_support_chat(chat_request: AIChatRequest):
         "security": "Your data is 100% secure with bank-grade encryption, HTTPS, secure MongoDB storage, and 99.9% uptime. We never share your data with third parties.",
         "setup": "Quick setup: 1) Sign up (30 seconds), 2) Add your restaurant details, 3) Create menu items, 4) Add tables, 5) Start billing! Takes less than 5 minutes total.",
         "demo": "Try our interactive demo! Login and you'll see a guided walkthrough showing how to create orders, assign tables, and process payments. It's hands-on and takes just 2 minutes!",
-        "contact": "Contact us: Email: support@billbytekot.in or contact@billbytekot.in | Phone: +91-98765-43210 (Mon-Sat, 9-6 PM IST) | Office: FinVerge Technologies, Bangalore, India. Or submit a ticket using the contact form!"
+        "contact": "Contact us: Email: support@billbytekot.in or contact@billbytekot.in | Phone: +91-8310832669 (Mon-Sat, 9-6 PM IST) | Office: FinVerge Technologies, Bangalore, India. Or submit a ticket using the contact form!"
     }
     
     # Simple keyword matching for responses

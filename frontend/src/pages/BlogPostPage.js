@@ -390,7 +390,7 @@ Start your free trial today and experience the difference modern billing softwar
 **Need Help Choosing?** Contact our restaurant technology experts for a free consultation. We'll help you find the perfect solution for your specific needs.
 
 📧 Email: support@billbytekot.in  
-📞 Phone: +91-98765-43210  
+📞 Phone: +91-8310832669  
 💬 Live Chat: Available 24/7
       `
     },
@@ -775,7 +775,7 @@ BillByteKOT offers a complete KOT solution for just ₹999/year:
 **Questions about KOT?** Our restaurant technology experts are here to help!
 
 📧 support@billbytekot.in  
-📞 +91-98765-43210  
+📞 +91-8310832669  
 💬 Live chat available 24/7
       `
     }

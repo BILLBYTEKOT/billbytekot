@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 
 // Default values
 const defaultLogo = 'https://billbytekot.in/logo.png';
-const defaultPhone = '+91XXXXXXXXXX';
+const defaultPhone = '+91-8310832669';
 const defaultEmail = 'support@billbytekot.in';
 const defaultAddress = {
   street: 'Your Street Address',

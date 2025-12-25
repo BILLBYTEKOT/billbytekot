@@ -5,11 +5,11 @@ import { ChefHat, ArrowLeft, Mail, Phone, MessageCircle, HelpCircle } from 'luci
 
 const ForgotPasswordPage = () => {
   const supportEmail = "support@billbytekot.in";
-  const supportPhone = "+91 8210066921"; // Update with actual number
+  const supportPhone = "+91 8310832669";
   
   const handleWhatsApp = () => {
     const message = encodeURIComponent("Hi, I need help resetting my BillByteKOT password. My registered email is: ");
-    window.open(`https://wa.me/918210066921?text=${message}`, '_blank');
+    window.open(`https://wa.me/918310832669?text=${message}`, '_blank');
   };
 
   const handleEmail = () => {

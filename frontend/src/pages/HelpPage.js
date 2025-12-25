@@ -317,7 +317,7 @@ const HelpPage = ({ user }) => {
                 <Phone className="w-6 h-6 text-green-600" />
               </div>
               <h3 className="font-bold mb-1">Phone Support</h3>
-              <p className="text-sm text-gray-600">+91-98765-43210</p>
+              <p className="text-sm text-gray-600">+91-8310832669</p>
             </CardContent>
           </Card> */}
           
