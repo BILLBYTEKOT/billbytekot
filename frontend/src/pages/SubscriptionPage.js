@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { 
   Crown, CheckCircle, AlertCircle, Sparkles, Zap, Shield, 
   Clock, Gift, Star, TrendingUp, Users, Printer, BarChart3,
-  Smartphone, Globe, HeadphonesIcon, Rocket, Tag, X
+  Smartphone, Globe, HeadphonesIcon, Rocket, Tag, X, Timer
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,10 +20,31 @@ const SubscriptionPage = ({ user }) => {
   const [couponCode, setCouponCode] = useState('');
   const [couponApplied, setCouponApplied] = useState(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchSubscriptionStatus();
+    
+    // Countdown timer for early adopter offer
+    const calculateTimeLeft = () => {
+      const endDate = new Date('2025-12-31T23:59:59');
+      const now = new Date();
+      const difference = endDate - now;
+      
+      if (difference > 0) {
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60)
+        });
+      }
+    };
+    
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const fetchSubscriptionStatus = async () => {
@@ -70,42 +91,107 @@ const SubscriptionPage = ({ user }) => {
       });
       
       const finalAmount = response.data.amount;
+      const campaignInfo = response.data.campaign_active ? ' (Early Adopter Special!)' : '';
       const discountInfo = response.data.coupon_applied 
         ? ` (${response.data.coupon_applied.discount_display} discount applied!)` 
         : '';
       
+      // Razorpay options with mobile-specific settings
       const options = {
         key: response.data.key_id,
         amount: finalAmount,
         currency: response.data.currency,
         order_id: response.data.razorpay_order_id,
         name: 'BillByteKOT AI',
-        description: `Premium Subscription - 1 Year${discountInfo}`,
+        description: `Premium Subscription - 1 Year${campaignInfo}${discountInfo}`,
+        image: 'https://billbytekot.in/logo.png',
         handler: async (razorpayResponse) => {
           try {
-            await axios.post(`${API}/subscription/verify`, {
+            const verifyResponse = await axios.post(`${API}/subscription/verify`, {
               razorpay_payment_id: razorpayResponse.razorpay_payment_id,
               razorpay_order_id: razorpayResponse.razorpay_order_id,
               razorpay_signature: razorpayResponse.razorpay_signature
             });
-            toast.success('🎉 Premium activated! Welcome to BillByteKOT AI Pro!');
+            toast.success(verifyResponse.data.message || '🎉 Premium activated! Welcome to BillByteKOT AI Pro!');
             fetchSubscriptionStatus();
             // Update local user data
             const userData = JSON.parse(localStorage.getItem('user') || '{}');
             userData.subscription_active = true;
+            userData.is_early_adopter = response.data.campaign_active;
             localStorage.setItem('user', JSON.stringify(userData));
             setTimeout(() => navigate('/dashboard'), 2000);
           } catch (error) {
-            toast.error(error.response?.data?.detail || 'Subscription verification failed');
+            toast.error(error.response?.data?.detail || 'Subscription verification failed. Please contact support.');
           }
         },
-        theme: { color: '#7c3aed' }
+        prefill: {
+          name: user?.restaurant_name || user?.username || '',
+          email: user?.email || '',
+          contact: user?.phone || ''
+        },
+        notes: {
+          user_id: user?.id || '',
+          campaign: response.data.campaign_name || 'REGULAR'
+        },
+        theme: { 
+          color: '#7c3aed',
+          backdrop_color: 'rgba(0,0,0,0.7)'
+        },
+        modal: {
+          ondismiss: function() {
+            setLoading(false);
+            toast.info('Payment cancelled');
+          },
+          escape: true,
+          animation: true,
+          backdropclose: false
+        },
+        // Mobile-specific settings
+        config: {
+          display: {
+            blocks: {
+              banks: {
+                name: 'Pay via UPI/Bank',
+                instruments: [
+                  { method: 'upi' },
+                  { method: 'netbanking' },
+                  { method: 'card' },
+                  { method: 'wallet' }
+                ]
+              }
+            },
+            sequence: ['block.banks'],
+            preferences: {
+              show_default_blocks: true
+            }
+          }
+        },
+        retry: {
+          enabled: true,
+          max_count: 3
+        }
       };
+      
+      // Check if Razorpay is loaded
+      if (!window.Razorpay) {
+        toast.error('Payment system not loaded. Please refresh the page.');
+        setLoading(false);
+        return;
+      }
+      
       const razorpay = new window.Razorpay(options);
+      
+      // Handle payment failure
+      razorpay.on('payment.failed', function(response) {
+        console.error('Payment failed:', response.error);
+        toast.error(`Payment failed: ${response.error.description || 'Please try again'}`);
+        setLoading(false);
+      });
+      
       razorpay.open();
     } catch (error) {
+      console.error('Subscription error:', error);
       toast.error(error.response?.data?.detail || 'Failed to create subscription order');
-    } finally {
       setLoading(false);
     }
   };
@@ -126,17 +212,31 @@ const SubscriptionPage = ({ user }) => {
       <div className="max-w-6xl mx-auto space-y-8" data-testid="subscription-page">
         {/* Hero Section */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 text-violet-700 rounded-full text-sm font-medium">
-            <Sparkles className="w-4 h-4" />
-            Special Launch Offer
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-full text-sm font-bold animate-pulse">
+            <Gift className="w-4 h-4" />
+            🔥 Early Adopter Special - 99% OFF!
           </div>
-          <h1 className="text-5xl font-black bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 bg-clip-text text-transparent" 
+          <h1 className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 bg-clip-text text-transparent" 
               style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             Upgrade to Premium
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
             Unlock unlimited potential for your restaurant with our powerful features
           </p>
+          
+          {/* Countdown Timer */}
+          {subscriptionStatus?.campaign_active && (
+            <div className="inline-flex items-center gap-3 px-4 py-2 bg-red-50 border border-red-200 rounded-xl">
+              <Timer className="w-5 h-5 text-red-600" />
+              <span className="text-sm font-medium text-red-700">Offer ends in:</span>
+              <div className="flex gap-1">
+                <span className="bg-red-600 text-white px-2 py-1 rounded font-mono font-bold text-sm">{String(timeLeft.days).padStart(2, '0')}d</span>
+                <span className="bg-red-600 text-white px-2 py-1 rounded font-mono font-bold text-sm">{String(timeLeft.hours).padStart(2, '0')}h</span>
+                <span className="bg-red-600 text-white px-2 py-1 rounded font-mono font-bold text-sm">{String(timeLeft.minutes).padStart(2, '0')}m</span>
+                <span className="bg-red-600 text-white px-2 py-1 rounded font-mono font-bold text-sm animate-pulse">{String(timeLeft.seconds).padStart(2, '0')}s</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Trial Banner */}
@@ -277,7 +377,26 @@ const SubscriptionPage = ({ user }) => {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center">
-                {couponApplied ? (
+                {/* Early Adopter Pricing */}
+                {subscriptionStatus?.campaign_active && !couponApplied ? (
+                  <>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <span className="text-2xl text-gray-400 line-through">₹999</span>
+                      <span className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                        99% OFF
+                      </span>
+                    </div>
+                    <p className="text-6xl font-black bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+                      ₹9
+                    </p>
+                    <p className="text-gray-500">per year • Less than ₹1/month!</p>
+                    <div className="mt-2 p-2 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200">
+                      <p className="text-sm text-red-700 font-medium">
+                        🔥 Early Adopter Special - Save ₹990!
+                      </p>
+                    </div>
+                  </>
+                ) : couponApplied ? (
                   <>
                     <div className="flex items-center justify-center gap-2">
                       <span className="text-2xl text-gray-400 line-through">{couponApplied.original_price_display}</span>
@@ -298,9 +417,9 @@ const SubscriptionPage = ({ user }) => {
                 ) : (
                   <>
                     <p className="text-6xl font-black bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                      ₹999
+                      {subscriptionStatus?.price_display || '₹999'}
                     </p>
-                    <p className="text-gray-500">per year • Just ₹83/month</p>
+                    <p className="text-gray-500">per year • Just ₹{Math.round((subscriptionStatus?.price || 999) / 12)}/month</p>
                   </>
                 )}
               </div>
@@ -373,11 +492,17 @@ const SubscriptionPage = ({ user }) => {
                 </div>
               ) : (
                 <Button onClick={handleSubscribe} disabled={loading}
-                  className="w-full h-14 text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-lg">
+                  className={`w-full h-14 text-lg font-bold shadow-lg ${
+                    subscriptionStatus?.campaign_active 
+                      ? 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600' 
+                      : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700'
+                  }`}>
                   <Rocket className="w-5 h-5 mr-2" />
                   {loading ? 'Processing...' : couponApplied 
                     ? `Subscribe Now - ${couponApplied.final_price_display}/year` 
-                    : 'Subscribe Now - ₹999/year'}
+                    : subscriptionStatus?.campaign_active 
+                      ? `🔥 Get ₹9/Year Deal Now!`
+                      : `Subscribe Now - ${subscriptionStatus?.price_display || '₹999'}/year`}
                 </Button>
               )}
             </CardContent>

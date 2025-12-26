@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { AlertTriangle, Sparkles, Clock } from 'lucide-react';
+import { AlertTriangle, Sparkles, Clock, Gift } from 'lucide-react';
 
 const TrialBanner = ({ user }) => {
   const navigate = useNavigate();
@@ -22,14 +22,15 @@ const TrialBanner = ({ user }) => {
             <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0" />
             <div>
               <p className="font-bold text-red-900">Trial Expired - Subscription Required</p>
-              <p className="text-sm text-red-700">Your 7-day trial has ended. Subscribe to continue using BillByteKOT.</p>
+              <p className="text-sm text-red-700">Your 7-day trial has ended. Subscribe now to continue using BillByteKOT.</p>
             </div>
           </div>
           <Button 
             onClick={() => navigate('/subscription')} 
-            className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+            className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600"
           >
-            Subscribe Now - ₹999/year
+            <Gift className="w-4 h-4 mr-2" />
+            Get ₹9/Year Deal
           </Button>
         </CardContent>
       </Card>
@@ -48,7 +49,7 @@ const TrialBanner = ({ user }) => {
             <div>
               <p className="font-bold">⚠️ Trial Ending Soon!</p>
               <p className="text-sm text-orange-100">
-                Only {trial_days_left} {trial_days_left === 1 ? 'day' : 'days'} left • Subscribe now to keep all your data and features
+                Only {trial_days_left} {trial_days_left === 1 ? 'day' : 'days'} left • Early Adopter: ₹9/year (99% OFF)!
               </p>
             </div>
           </div>
@@ -57,7 +58,8 @@ const TrialBanner = ({ user }) => {
             variant="secondary" 
             className="bg-white text-orange-600 hover:bg-orange-50"
           >
-            Subscribe - ₹999/year
+            <Gift className="w-4 h-4 mr-2" />
+            Get ₹9/Year Deal
           </Button>
         </CardContent>
       </Card>
@@ -75,7 +77,7 @@ const TrialBanner = ({ user }) => {
           <div>
             <p className="font-bold">🎁 Free Trial Active!</p>
             <p className="text-sm text-green-100">
-              {trial_days_left} {trial_days_left === 1 ? 'day' : 'days'} remaining • Enjoy all premium features
+              {trial_days_left} {trial_days_left === 1 ? 'day' : 'days'} remaining • Early Adopter: ₹9/year!
             </p>
           </div>
         </div>
@@ -84,7 +86,8 @@ const TrialBanner = ({ user }) => {
           variant="secondary" 
           className="bg-white text-green-600 hover:bg-green-50"
         >
-          Upgrade to Premium
+          <Gift className="w-4 h-4 mr-2" />
+          Upgrade - ₹9/Year
         </Button>
       </CardContent>
     </Card>
