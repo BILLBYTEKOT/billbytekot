@@ -60,6 +60,12 @@ html {
         min-height: 44px;
         min-width: 44px;
     }
+    
+    /* Fix card overflow on mobile */
+    .card, [class*="Card"] {
+        max-width: 100%;
+        overflow: hidden;
+    }
 }
 
 /* Fix for iOS Safari scrolling issues */
