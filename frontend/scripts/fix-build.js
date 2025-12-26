@@ -141,10 +141,14 @@ const chromeFixedContent = `<!doctype html>
     <meta name="apple-mobile-web-app-title" content="BillByteKOT"/>
     
     <!-- CSS Files -->
-    ${cssFiles.map(css => 
-        css.replace('href="/', 'href="./')
-           .replace('<link', '<link crossorigin="anonymous"')
-    ).join('\n    ')}
+    ${cssFiles.map(css => {
+        // Ensure absolute paths for SPA routing
+        let fixed = css.replace(/href="\.?\/?/g, 'href="/');
+        if (!fixed.includes('crossorigin')) {
+            fixed = fixed.replace('<link', '<link crossorigin="anonymous"');
+        }
+        return fixed;
+    }).join('\n    ')}
     
     <!-- Loading indicator styles -->
     <style>
@@ -488,12 +492,16 @@ const chromeFixedContent = `<!doctype html>
         });
     </script>
     
-    <!-- JS Files with proper loading -->
-    ${[...new Set(jsFiles)].map(script => 
-        script.replace('src="/', 'src="./')
-              .replace('<script', '<script crossorigin="anonymous" onload="onResourceLoad()" onerror="onResourceError(this.src)"')
-              .replace('>', '></script>')
-    ).join('\n    ')}
+    <!-- JS Files with proper loading - ABSOLUTE PATHS for SPA routing -->
+    ${[...new Set(jsFiles)].map(script => {
+        // Ensure absolute paths for SPA routing
+        let fixed = script.replace(/src="\.?\/?static/g, 'src="/static');
+        fixed = fixed.replace('<script', '<script crossorigin="anonymous" onload="onResourceLoad()" onerror="onResourceError(this.src)"');
+        if (!fixed.endsWith('</script>')) {
+            fixed = fixed.replace(/><\/script>|>$/g, '></script>');
+        }
+        return fixed;
+    }).join('\n    ')}
     
     <!-- External Scripts -->
     ${externalScripts.join('\n    ')}
