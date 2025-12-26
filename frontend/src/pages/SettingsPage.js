@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, MessageCircle } from 'lucide-react';
+import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, MessageCircle, Megaphone, Plus, Trash2, Calendar, Eye, EyeOff, Sparkles } from 'lucide-react';
 import PrintCustomization from '../components/PrintCustomization';
 import WhatsAppDesktop from '../components/WhatsAppDesktop';
 import ValidationAlert from '../components/ValidationAlert';
@@ -54,6 +54,29 @@ const SettingsPage = ({ user }) => {
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [razorpayConfigured, setRazorpayConfigured] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
+  
+  // Campaign Management State
+  const [campaigns, setCampaigns] = useState([]);
+  const [campaignLoading, setCampaignLoading] = useState(false);
+  const [showCampaignForm, setShowCampaignForm] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState(null);
+  const [campaignForm, setCampaignForm] = useState({
+    title: '',
+    description: '',
+    discount_type: 'percentage', // percentage or fixed
+    discount_value: 10,
+    min_order_amount: 0,
+    max_discount: 0,
+    coupon_code: '',
+    start_date: '',
+    end_date: '',
+    is_active: true,
+    banner_text: '',
+    banner_color: 'violet',
+    show_on_landing: true,
+    usage_limit: 0, // 0 = unlimited
+    used_count: 0
+  });
 
   useEffect(() => {
     fetchRazorpaySettings();
@@ -61,6 +84,7 @@ const SettingsPage = ({ user }) => {
     fetchThemes();
     fetchCurrencies();
     fetchWhatsappSettings();
+    fetchCampaigns();
   }, []);
 
   const fetchRazorpaySettings = async () => {
@@ -140,6 +164,138 @@ const SettingsPage = ({ user }) => {
     } catch (error) {
       console.error('Failed to fetch WhatsApp settings', error);
     }
+  };
+
+  // Campaign Management Functions
+  const fetchCampaigns = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API}/campaigns`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setCampaigns(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch campaigns', error);
+      // Initialize with empty array if endpoint doesn't exist yet
+      setCampaigns([]);
+    }
+  };
+
+  const handleSaveCampaign = async () => {
+    if (!campaignForm.title) {
+      toast.error('Campaign title is required');
+      return;
+    }
+    if (!campaignForm.coupon_code) {
+      toast.error('Coupon code is required');
+      return;
+    }
+
+    setCampaignLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (editingCampaign) {
+        await axios.put(`${API}/campaigns/${editingCampaign.id}`, campaignForm, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Campaign updated successfully!');
+      } else {
+        await axios.post(`${API}/campaigns`, campaignForm, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Campaign created successfully!');
+      }
+      fetchCampaigns();
+      resetCampaignForm();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save campaign');
+    } finally {
+      setCampaignLoading(false);
+    }
+  };
+
+  const handleDeleteCampaign = async (campaignId) => {
+    if (!window.confirm('Are you sure you want to delete this campaign?')) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API}/campaigns/${campaignId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Campaign deleted!');
+      fetchCampaigns();
+    } catch (error) {
+      toast.error('Failed to delete campaign');
+    }
+  };
+
+  const handleToggleCampaign = async (campaign) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`${API}/campaigns/${campaign.id}`, {
+        ...campaign,
+        is_active: !campaign.is_active
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success(`Campaign ${campaign.is_active ? 'deactivated' : 'activated'}!`);
+      fetchCampaigns();
+    } catch (error) {
+      toast.error('Failed to update campaign');
+    }
+  };
+
+  const editCampaign = (campaign) => {
+    setEditingCampaign(campaign);
+    setCampaignForm({
+      title: campaign.title || '',
+      description: campaign.description || '',
+      discount_type: campaign.discount_type || 'percentage',
+      discount_value: campaign.discount_value || 10,
+      min_order_amount: campaign.min_order_amount || 0,
+      max_discount: campaign.max_discount || 0,
+      coupon_code: campaign.coupon_code || '',
+      start_date: campaign.start_date || '',
+      end_date: campaign.end_date || '',
+      is_active: campaign.is_active !== false,
+      banner_text: campaign.banner_text || '',
+      banner_color: campaign.banner_color || 'violet',
+      show_on_landing: campaign.show_on_landing !== false,
+      usage_limit: campaign.usage_limit || 0,
+      used_count: campaign.used_count || 0
+    });
+    setShowCampaignForm(true);
+  };
+
+  const resetCampaignForm = () => {
+    setEditingCampaign(null);
+    setCampaignForm({
+      title: '',
+      description: '',
+      discount_type: 'percentage',
+      discount_value: 10,
+      min_order_amount: 0,
+      max_discount: 0,
+      coupon_code: '',
+      start_date: '',
+      end_date: '',
+      is_active: true,
+      banner_text: '',
+      banner_color: 'violet',
+      show_on_landing: true,
+      usage_limit: 0,
+      used_count: 0
+    });
+    setShowCampaignForm(false);
+  };
+
+  const generateCouponCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCampaignForm({ ...campaignForm, coupon_code: code });
   };
 
   const handleSaveWhatsappSettings = async () => {
@@ -285,6 +441,15 @@ const SettingsPage = ({ user }) => {
           >
             <CreditCard className="w-4 h-4" />
             Payment
+          </button>
+          <button
+            onClick={() => setActiveTab('campaigns')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'campaigns' ? 'bg-white shadow text-orange-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Megaphone className="w-4 h-4" />
+            Campaigns
           </button>
 
           {/* WhatsApp Pro tab - Only show in desktop app */}
@@ -572,6 +737,319 @@ const SettingsPage = ({ user }) => {
             </div>
           </CardContent>
         </Card>
+        )}
+
+        {/* Campaigns Tab */}
+        {activeTab === 'campaigns' && (
+          <div className="space-y-6">
+            {/* Campaign Header */}
+            <Card className="border-0 shadow-xl bg-gradient-to-r from-orange-500 to-red-500 text-white">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/20 rounded-xl">
+                      <Megaphone className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold">Campaign Management</h2>
+                      <p className="text-orange-100">Create offers, discounts & promotional campaigns</p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => setShowCampaignForm(true)}
+                    className="bg-white text-orange-600 hover:bg-orange-50"
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> New Campaign
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Campaign Form */}
+            {showCampaignForm && (
+              <Card className="border-0 shadow-xl border-l-4 border-l-orange-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-orange-500" />
+                    {editingCampaign ? 'Edit Campaign' : 'Create New Campaign'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Campaign Title *</Label>
+                      <Input
+                        placeholder="e.g., New Year Special"
+                        value={campaignForm.title}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, title: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Coupon Code *</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="e.g., NEWYEAR25"
+                          value={campaignForm.coupon_code}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, coupon_code: e.target.value.toUpperCase() })}
+                          className="uppercase"
+                        />
+                        <Button variant="outline" onClick={generateCouponCode} type="button">
+                          Generate
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label>Description</Label>
+                      <Input
+                        placeholder="Brief description of the offer"
+                        value={campaignForm.description}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Discount Settings */}
+                  <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <h4 className="font-semibold text-orange-800 mb-3">Discount Settings</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <Label>Discount Type</Label>
+                        <select
+                          value={campaignForm.discount_type}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, discount_type: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                          <option value="percentage">Percentage (%)</option>
+                          <option value="fixed">Fixed Amount (₹)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label>Discount Value</Label>
+                        <Input
+                          type="number"
+                          placeholder={campaignForm.discount_type === 'percentage' ? '10' : '100'}
+                          value={campaignForm.discount_value}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, discount_value: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Min Order Amount (₹)</Label>
+                        <Input
+                          type="number"
+                          placeholder="0 = No minimum"
+                          value={campaignForm.min_order_amount}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, min_order_amount: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Max Discount (₹)</Label>
+                        <Input
+                          type="number"
+                          placeholder="0 = No limit"
+                          value={campaignForm.max_discount}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, max_discount: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date & Usage Settings */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Start Date</Label>
+                      <Input
+                        type="date"
+                        value={campaignForm.start_date}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, start_date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>End Date</Label>
+                      <Input
+                        type="date"
+                        value={campaignForm.end_date}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, end_date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Usage Limit</Label>
+                      <Input
+                        type="number"
+                        placeholder="0 = Unlimited"
+                        value={campaignForm.usage_limit}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, usage_limit: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Banner Settings */}
+                  <div className="p-4 bg-violet-50 rounded-lg border border-violet-200">
+                    <h4 className="font-semibold text-violet-800 mb-3">Landing Page Banner</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Banner Text</Label>
+                        <Input
+                          placeholder="🎉 Use code NEWYEAR25 for 25% OFF!"
+                          value={campaignForm.banner_text}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, banner_text: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Banner Color</Label>
+                        <select
+                          value={campaignForm.banner_color}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, banner_color: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        >
+                          <option value="violet">Purple</option>
+                          <option value="orange">Orange</option>
+                          <option value="green">Green</option>
+                          <option value="blue">Blue</option>
+                          <option value="red">Red</option>
+                          <option value="pink">Pink</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={campaignForm.show_on_landing}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, show_on_landing: e.target.checked })}
+                          className="w-4 h-4 text-violet-600 rounded"
+                        />
+                        <span className="text-sm">Show banner on landing page</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  {campaignForm.banner_text && campaignForm.show_on_landing && (
+                    <div className={`p-3 rounded-lg text-white text-center font-medium bg-gradient-to-r ${
+                      campaignForm.banner_color === 'violet' ? 'from-violet-600 to-purple-600' :
+                      campaignForm.banner_color === 'orange' ? 'from-orange-500 to-red-500' :
+                      campaignForm.banner_color === 'green' ? 'from-green-500 to-emerald-500' :
+                      campaignForm.banner_color === 'blue' ? 'from-blue-500 to-cyan-500' :
+                      campaignForm.banner_color === 'red' ? 'from-red-500 to-rose-500' :
+                      'from-pink-500 to-rose-500'
+                    }`}>
+                      {campaignForm.banner_text}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={handleSaveCampaign}
+                      disabled={campaignLoading}
+                      className="bg-gradient-to-r from-orange-500 to-red-500"
+                    >
+                      {campaignLoading ? 'Saving...' : editingCampaign ? 'Update Campaign' : 'Create Campaign'}
+                    </Button>
+                    <Button variant="outline" onClick={resetCampaignForm}>
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Campaigns List */}
+            <Card className="border-0 shadow-xl">
+              <CardHeader>
+                <CardTitle>Active & Past Campaigns</CardTitle>
+                <CardDescription>Manage your promotional campaigns</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {campaigns.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Megaphone className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                    <p className="text-gray-500 text-lg">No campaigns yet</p>
+                    <p className="text-gray-400 text-sm">Create your first campaign to attract more customers!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {campaigns.map((campaign) => (
+                      <div
+                        key={campaign.id}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          campaign.is_active
+                            ? 'border-green-200 bg-green-50'
+                            : 'border-gray-200 bg-gray-50 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-bold text-lg">{campaign.title}</h4>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                campaign.is_active ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'
+                              }`}>
+                                {campaign.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
+                            <p className="text-gray-600 text-sm mb-2">{campaign.description}</p>
+                            <div className="flex flex-wrap gap-3 text-sm">
+                              <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded font-mono font-bold">
+                                {campaign.coupon_code}
+                              </span>
+                              <span className="px-2 py-1 bg-violet-100 text-violet-700 rounded">
+                                {campaign.discount_type === 'percentage'
+                                  ? `${campaign.discount_value}% OFF`
+                                  : `₹${campaign.discount_value} OFF`}
+                              </span>
+                              {campaign.min_order_amount > 0 && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                  Min: ₹{campaign.min_order_amount}
+                                </span>
+                              )}
+                              {campaign.usage_limit > 0 && (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                                  Used: {campaign.used_count || 0}/{campaign.usage_limit}
+                                </span>
+                              )}
+                            </div>
+                            {(campaign.start_date || campaign.end_date) && (
+                              <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                <Calendar className="w-3 h-3" />
+                                {campaign.start_date && <span>From: {new Date(campaign.start_date).toLocaleDateString()}</span>}
+                                {campaign.end_date && <span>To: {new Date(campaign.end_date).toLocaleDateString()}</span>}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleCampaign(campaign)}
+                              className={campaign.is_active ? 'text-orange-600' : 'text-green-600'}
+                            >
+                              {campaign.is_active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => editCampaign(campaign)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteCampaign(campaign.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Business Tab */}
