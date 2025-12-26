@@ -21,6 +21,9 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.cors import CORSMiddleware
 
+# Import super admin router
+from super_admin import super_admin_router, set_database as set_super_admin_db
+
 try:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
 
@@ -6439,6 +6442,10 @@ async def team_login(credentials: TeamLogin):
 
 # Include all API routes
 app.include_router(api_router)
+
+# Include super admin routes and set database
+set_super_admin_db(db)
+app.include_router(super_admin_router)
 
 
 # Serve Windows app download

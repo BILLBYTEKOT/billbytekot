@@ -3,16 +3,30 @@ Super Admin Panel - Site Owner Only
 Monitor all users, subscriptions, tickets, and system health
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from datetime import datetime, timezone
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Query
+from datetime import datetime, timezone, timedelta
+from typing import Optional
 import os
 
-super_admin_router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
+super_admin_router = APIRouter(prefix="/api/super-admin", tags=["Super Admin"])
 
 # Super admin credentials (CHANGE THESE!)
 SUPER_ADMIN_USERNAME = os.getenv("SUPER_ADMIN_USERNAME", "superadmin")
 SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "change-this-password-123")
+
+# Database reference - will be set by server.py
+_db = None
+
+def set_database(database):
+    """Set the database reference from server.py"""
+    global _db
+    _db = database
+
+def get_db():
+    """Get the database reference"""
+    if _db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    return _db
 
 def verify_super_admin(username: str, password: str) -> bool:
     """Verify super admin credentials"""
@@ -21,13 +35,14 @@ def verify_super_admin(username: str, password: str) -> bool:
 
 @super_admin_router.get("/dashboard")
 async def get_super_admin_dashboard(
-    username: str,
-    password: str,
-    db = None  # Will be injected
+    username: str = Query(...),
+    password: str = Query(...)
 ):
     """Get complete system overview"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     # Get all users
     users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
@@ -36,7 +51,6 @@ async def get_super_admin_dashboard(
     tickets = await db.support_tickets.find({}, {"_id": 0}).to_list(1000)
     
     # Get all orders (last 30 days)
-    from datetime import timedelta
     thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     recent_orders = await db.orders.find(
         {"created_at": {"$gte": thirty_days_ago}},
@@ -67,21 +81,22 @@ async def get_super_admin_dashboard(
         },
         "users": users,
         "tickets": tickets,
-        "recent_orders": recent_orders[:100]  # Last 100 orders
+        "recent_orders": recent_orders[:100]
     }
 
 
 @super_admin_router.get("/users")
 async def get_all_users(
-    username: str,
-    password: str,
-    skip: int = 0,
-    limit: int = 100,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...),
+    skip: int = Query(0),
+    limit: int = Query(100)
 ):
     """Get all users with pagination"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     users = await db.users.find(
         {},
@@ -101,13 +116,14 @@ async def get_all_users(
 @super_admin_router.get("/users/{user_id}")
 async def get_user_details(
     user_id: str,
-    username: str,
-    password: str,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...)
 ):
     """Get detailed user information"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
     if not user:
@@ -148,15 +164,16 @@ async def get_user_details(
 @super_admin_router.put("/users/{user_id}/subscription")
 async def update_user_subscription(
     user_id: str,
-    username: str,
-    password: str,
-    subscription_active: bool,
-    subscription_expires_at: Optional[str] = None,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...),
+    subscription_active: bool = Query(...),
+    subscription_expires_at: Optional[str] = Query(None)
 ):
     """Manually update user subscription"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     update_data = {
         "subscription_active": subscription_active
@@ -183,13 +200,14 @@ async def update_user_subscription(
 @super_admin_router.delete("/users/{user_id}")
 async def delete_user(
     user_id: str,
-    username: str,
-    password: str,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...)
 ):
     """Delete user and all their data"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     # Delete user
     await db.users.delete_one({"id": user_id})
@@ -209,16 +227,17 @@ async def delete_user(
 
 @super_admin_router.get("/tickets")
 async def get_all_tickets(
-    username: str,
-    password: str,
-    status: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 100,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...),
+    status: Optional[str] = Query(None),
+    skip: int = Query(0),
+    limit: int = Query(100)
 ):
     """Get all support tickets"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     query = {}
     if status:
@@ -242,15 +261,16 @@ async def get_all_tickets(
 @super_admin_router.put("/tickets/{ticket_id}")
 async def update_ticket_status(
     ticket_id: str,
-    username: str,
-    password: str,
-    status: str,
-    admin_notes: Optional[str] = None,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...),
+    status: str = Query(...),
+    admin_notes: Optional[str] = Query(None)
 ):
     """Update ticket status and add admin notes"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     update_data = {
         "status": status,
@@ -277,13 +297,14 @@ async def update_ticket_status(
 
 @super_admin_router.get("/system/health")
 async def get_system_health(
-    username: str,
-    password: str,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...)
 ):
     """Get system health and statistics"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     # Database statistics
     users_count = await db.users.count_documents({})
@@ -292,7 +313,13 @@ async def get_system_health(
     tickets_count = await db.support_tickets.count_documents({})
     
     # Get database size (approximate)
-    stats = await db.command("dbStats")
+    try:
+        stats = await db.command("dbStats")
+        size_mb = stats.get("dataSize", 0) / (1024 * 1024)
+        storage_mb = stats.get("storageSize", 0) / (1024 * 1024)
+    except:
+        size_mb = 0
+        storage_mb = 0
     
     return {
         "database": {
@@ -300,8 +327,8 @@ async def get_system_health(
             "orders": orders_count,
             "menu_items": menu_items_count,
             "tickets": tickets_count,
-            "size_mb": stats.get("dataSize", 0) / (1024 * 1024),
-            "storage_mb": stats.get("storageSize", 0) / (1024 * 1024)
+            "size_mb": size_mb,
+            "storage_mb": storage_mb
         },
         "system": {
             "status": "healthy",
@@ -312,16 +339,16 @@ async def get_system_health(
 
 @super_admin_router.get("/analytics")
 async def get_analytics(
-    username: str,
-    password: str,
-    days: int = 30,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...),
+    days: int = Query(30)
 ):
     """Get system analytics"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
-    from datetime import timedelta
+    db = get_db()
+    
     start_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     
     # New users
@@ -362,21 +389,20 @@ async def get_analytics(
 
 @super_admin_router.get("/campaigns")
 async def get_all_campaigns(
-    username: str,
-    password: str,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...)
 ):
     """Get all campaigns including active early adopter campaign"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     # Get campaigns from database or use defaults
     campaigns = await db.campaigns.find({}, {"_id": 0}).to_list(100)
     
     # If no campaigns in DB, return the hardcoded early adopter campaign
     if not campaigns:
-        # Import from server.py
-        from datetime import timezone
         now = datetime.now(timezone.utc)
         early_adopter_end = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
         
@@ -413,21 +439,22 @@ async def get_all_campaigns(
 
 @super_admin_router.post("/campaigns")
 async def create_campaign(
-    username: str,
-    password: str,
-    name: str,
-    description: str,
-    price_paise: int,
-    original_price_paise: int,
-    start_date: str,
-    end_date: str,
-    badge: str = "",
-    max_users: int = 0,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...),
+    name: str = Query(...),
+    description: str = Query(...),
+    price_paise: int = Query(...),
+    original_price_paise: int = Query(...),
+    start_date: str = Query(...),
+    end_date: str = Query(...),
+    badge: str = Query(""),
+    max_users: int = Query(0)
 ):
     """Create a new pricing campaign"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     import uuid
     campaign_id = f"CAMPAIGN_{uuid.uuid4().hex[:8].upper()}"
@@ -462,18 +489,19 @@ async def create_campaign(
 @super_admin_router.put("/campaigns/{campaign_id}")
 async def update_campaign(
     campaign_id: str,
-    username: str,
-    password: str,
-    active: Optional[bool] = None,
-    price_paise: Optional[int] = None,
-    end_date: Optional[str] = None,
-    badge: Optional[str] = None,
-    max_users: Optional[int] = None,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...),
+    active: Optional[bool] = Query(None),
+    price_paise: Optional[int] = Query(None),
+    end_date: Optional[str] = Query(None),
+    badge: Optional[str] = Query(None),
+    max_users: Optional[int] = Query(None)
 ):
     """Update an existing campaign"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
     
@@ -494,8 +522,6 @@ async def update_campaign(
     )
     
     if result.matched_count == 0:
-        # If it's the default early adopter campaign, we can't update it in DB
-        # but we can acknowledge the request
         if campaign_id == "EARLY_ADOPTER_2025":
             return {
                 "message": "Early adopter campaign is hardcoded. To modify, update server.py EARLY_ADOPTER_END_DATE",
@@ -513,9 +539,8 @@ async def update_campaign(
 @super_admin_router.delete("/campaigns/{campaign_id}")
 async def delete_campaign(
     campaign_id: str,
-    username: str,
-    password: str,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...)
 ):
     """Delete a campaign (cannot delete default early adopter campaign)"""
     if not verify_super_admin(username, password):
@@ -526,6 +551,8 @@ async def delete_campaign(
             status_code=400, 
             detail="Cannot delete the default early adopter campaign. Modify server.py to change it."
         )
+    
+    db = get_db()
     
     result = await db.campaigns.delete_one({"id": campaign_id})
     
@@ -540,13 +567,14 @@ async def delete_campaign(
 
 @super_admin_router.get("/campaigns/stats")
 async def get_campaign_stats(
-    username: str,
-    password: str,
-    db = None
+    username: str = Query(...),
+    password: str = Query(...)
 ):
     """Get campaign performance statistics"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
     
     # Get all subscribed users
     subscribed_users = await db.users.find(
