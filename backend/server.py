@@ -2223,9 +2223,60 @@ async def get_razorpay_settings(current_user: dict = Depends(get_current_user)):
 
 
 # Subscription - ₹999/year with 7-day free trial
-SUBSCRIPTION_PRICE_PAISE = 99900  # ₹999 in paise
+# EARLY ADOPTER CAMPAIGN: ₹9/year till Dec 31, 2025
+SUBSCRIPTION_PRICE_PAISE = 99900  # ₹999 in paise (regular price)
+EARLY_ADOPTER_PRICE_PAISE = 900  # ₹9 in paise (early adopter price)
+EARLY_ADOPTER_END_DATE = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
 TRIAL_DAYS = 7
 SUBSCRIPTION_DAYS = 365
+
+# Campaign configuration (can be updated via admin panel)
+ACTIVE_CAMPAIGNS = {
+    "EARLY_ADOPTER_2025": {
+        "name": "Early Adopter Special",
+        "description": "Get BillByteKOT for just ₹9/year - 99% OFF!",
+        "price_paise": 900,  # ₹9
+        "original_price_paise": 99900,  # ₹999
+        "discount_percent": 99,
+        "start_date": "2025-01-01T00:00:00+00:00",
+        "end_date": "2025-12-31T23:59:59+00:00",
+        "active": True,
+        "badge": "🔥 99% OFF",
+        "max_users": 1000,  # First 1000 users
+        "current_users": 0
+    }
+}
+
+def get_current_subscription_price():
+    """Get current subscription price based on active campaigns"""
+    now = datetime.now(timezone.utc)
+    
+    # Check if early adopter campaign is active
+    if now <= EARLY_ADOPTER_END_DATE:
+        return {
+            "price_paise": EARLY_ADOPTER_PRICE_PAISE,
+            "original_price_paise": SUBSCRIPTION_PRICE_PAISE,
+            "price_display": "₹9",
+            "original_price_display": "₹999",
+            "discount_percent": 99,
+            "campaign_name": "Early Adopter Special",
+            "campaign_active": True,
+            "campaign_ends": EARLY_ADOPTER_END_DATE.isoformat(),
+            "badge": "🔥 99% OFF - Till Dec 31"
+        }
+    
+    # Regular pricing
+    return {
+        "price_paise": SUBSCRIPTION_PRICE_PAISE,
+        "original_price_paise": SUBSCRIPTION_PRICE_PAISE,
+        "price_display": "₹999",
+        "original_price_display": "₹999",
+        "discount_percent": 0,
+        "campaign_name": None,
+        "campaign_active": False,
+        "campaign_ends": None,
+        "badge": None
+    }
 
 # Coupon codes for discounts
 COUPON_CODES = {
@@ -2251,6 +2302,9 @@ async def get_subscription_status(current_user: dict = Depends(get_current_user)
     is_trial = trial_end and datetime.now(timezone.utc) < trial_end if trial_end else False
     trial_days_left = max(0, (trial_end - datetime.now(timezone.utc)).days) if trial_end else 0
     
+    # Get current pricing (with campaign if active)
+    pricing = get_current_subscription_price()
+    
     return {
         "subscription_active": current_user.get("subscription_active", False),
         "bill_count": current_user.get("bill_count", 0),
@@ -2260,8 +2314,16 @@ async def get_subscription_status(current_user: dict = Depends(get_current_user)
         "is_trial": is_trial,
         "trial_days_left": trial_days_left,
         "trial_end": trial_end.isoformat() if trial_end else None,
-        "price": 999,
-        "price_display": "₹999/year"
+        "price": pricing["price_paise"] // 100,
+        "price_paise": pricing["price_paise"],
+        "original_price": pricing["original_price_paise"] // 100,
+        "price_display": pricing["price_display"],
+        "original_price_display": pricing["original_price_display"],
+        "discount_percent": pricing["discount_percent"],
+        "campaign_active": pricing["campaign_active"],
+        "campaign_name": pricing["campaign_name"],
+        "campaign_ends": pricing["campaign_ends"],
+        "campaign_badge": pricing["badge"]
     }
 
 
@@ -2279,6 +2341,42 @@ async def start_trial(current_user: dict = Depends(get_current_user)):
         "trial_started": True,
         "trial_end": trial_end.isoformat() if trial_end else None,
         "trial_days": TRIAL_DAYS
+    }
+
+
+@api_router.get("/subscription/pricing")
+async def get_subscription_pricing():
+    """Get current subscription pricing (public endpoint - no auth required)"""
+    pricing = get_current_subscription_price()
+    
+    # Calculate time remaining for campaign
+    time_remaining = None
+    if pricing["campaign_active"] and pricing["campaign_ends"]:
+        end_date = datetime.fromisoformat(pricing["campaign_ends"].replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        if end_date > now:
+            delta = end_date - now
+            time_remaining = {
+                "days": delta.days,
+                "hours": delta.seconds // 3600,
+                "minutes": (delta.seconds % 3600) // 60,
+                "seconds": delta.seconds % 60,
+                "total_seconds": int(delta.total_seconds())
+            }
+    
+    return {
+        **pricing,
+        "time_remaining": time_remaining,
+        "features": [
+            "Unlimited Bills & Orders",
+            "6 Thermal Printer Themes",
+            "WhatsApp Integration",
+            "AI-Powered Analytics",
+            "Multi-Staff Management",
+            "Priority 24/7 Support",
+            "Free Updates Forever",
+            "GST Compliant Billing"
+        ]
     }
 
 
@@ -2338,8 +2436,13 @@ async def create_subscription_order(
     DEFAULT_RAZORPAY_KEY_ID = "rzp_live_RmGqVf5JPGOT6G"
     DEFAULT_RAZORPAY_KEY_SECRET = "SKYS5tgjwU3H3Pf2ch3ZFtuH"
     
-    # Calculate price with coupon if provided
-    final_price = SUBSCRIPTION_PRICE_PAISE
+    # Get current campaign pricing
+    pricing = get_current_subscription_price()
+    base_price = pricing["price_paise"]  # This will be ₹9 (900 paise) during campaign
+    original_price = pricing["original_price_paise"]
+    
+    # Calculate price with coupon if provided (on top of campaign price)
+    final_price = base_price
     coupon_applied = None
     discount_amount = 0
     
@@ -2349,11 +2452,11 @@ async def create_subscription_order(
             coupon = COUPON_CODES[coupon_code]
             if coupon.get("active", True):
                 if "discount_percent" in coupon:
-                    discount_amount = int(SUBSCRIPTION_PRICE_PAISE * coupon["discount_percent"] / 100)
+                    discount_amount = int(base_price * coupon["discount_percent"] / 100)
                 elif "discount_amount" in coupon:
-                    discount_amount = coupon["discount_amount"]
+                    discount_amount = min(coupon["discount_amount"], base_price)  # Can't discount more than price
                 
-                final_price = max(0, SUBSCRIPTION_PRICE_PAISE - discount_amount)
+                final_price = max(100, base_price - discount_amount)  # Minimum ₹1 (100 paise)
                 coupon_applied = {
                     "code": coupon_code,
                     "description": coupon["description"],
@@ -2375,13 +2478,18 @@ async def create_subscription_order(
         return {
             "razorpay_order_id": razor_order["id"],
             "amount": final_price,
-            "original_amount": SUBSCRIPTION_PRICE_PAISE,
+            "original_amount": original_price,
+            "campaign_price": base_price,
             "discount_amount": discount_amount,
             "currency": "INR",
             "key_id": razorpay_key_id,
             "price_display": f"₹{final_price / 100:.0f}",
-            "original_price_display": f"₹{SUBSCRIPTION_PRICE_PAISE / 100:.0f}",
-            "coupon_applied": coupon_applied
+            "original_price_display": f"₹{original_price / 100:.0f}",
+            "campaign_price_display": pricing["price_display"],
+            "coupon_applied": coupon_applied,
+            "campaign_active": pricing["campaign_active"],
+            "campaign_name": pricing["campaign_name"],
+            "campaign_badge": pricing["badge"]
         }
     except Exception as e:
         raise HTTPException(
@@ -2407,13 +2515,18 @@ async def verify_subscription_payment(
     razorpay_key_id = os.environ.get("RAZORPAY_KEY_ID") or DEFAULT_RAZORPAY_KEY_ID
     razorpay_key_secret = os.environ.get("RAZORPAY_KEY_SECRET") or DEFAULT_RAZORPAY_KEY_SECRET
     
+    # Get current campaign pricing for recording
+    pricing = get_current_subscription_price()
+    
     try:
         razorpay_client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
         
         # Fetch payment details first
         payment = None
+        amount_paid = 0
         try:
             payment = razorpay_client.payment.fetch(data.razorpay_payment_id)
+            amount_paid = payment.get('amount', 0)
             print(f"Payment fetched: {payment}")
         except Exception as fetch_error:
             print(f"Error fetching payment: {fetch_error}")
@@ -2438,10 +2551,11 @@ async def verify_subscription_payment(
             payment_captured = payment.get('status') in ['captured', 'authorized']
             print(f"Payment status: {payment.get('status')}, captured: {payment_captured}")
         
-        # Accept payment if either signature is valid OR payment is captured OR amount matches
+        # Accept payment if either signature is valid OR payment is captured
+        # Also accept if amount matches expected campaign price (₹9 = 900 paise or ₹999 = 99900 paise)
         if not signature_valid and not payment_captured:
-            if payment and payment.get('amount') == 99900:
-                print("Payment amount matches, accepting")
+            if payment and amount_paid in [900, 99900, pricing["price_paise"]]:
+                print(f"Payment amount {amount_paid} matches expected, accepting")
                 payment_captured = True
             else:
                 raise HTTPException(
@@ -2451,6 +2565,9 @@ async def verify_subscription_payment(
         
         # Activate subscription
         expires_at = datetime.now(timezone.utc) + timedelta(days=SUBSCRIPTION_DAYS)
+        
+        # Determine campaign used
+        campaign_name = "EARLY_ADOPTER_2025" if pricing["campaign_active"] else "REGULAR"
 
         await db.users.update_one(
             {"id": current_user["id"]},
@@ -2461,18 +2578,25 @@ async def verify_subscription_payment(
                     "subscription_payment_id": data.razorpay_payment_id,
                     "subscription_order_id": data.razorpay_order_id,
                     "subscription_verified_at": datetime.now(timezone.utc).isoformat(),
+                    "subscription_campaign": campaign_name,
+                    "subscription_price_paid": amount_paid,
+                    "subscription_original_price": pricing["original_price_paise"],
+                    "is_early_adopter": pricing["campaign_active"]
                 }
             },
         )
         
-        print(f"Subscription activated for user: {current_user['id']}")
+        print(f"Subscription activated for user: {current_user['id']} via campaign: {campaign_name}")
 
         return {
             "status": "subscription_activated", 
             "expires_at": expires_at.isoformat(),
             "days": SUBSCRIPTION_DAYS,
-            "message": "🎉 Premium subscription activated successfully!",
-            "payment_id": data.razorpay_payment_id
+            "message": "🎉 Premium subscription activated successfully!" + (" You're an Early Adopter! 🔥" if pricing["campaign_active"] else ""),
+            "payment_id": data.razorpay_payment_id,
+            "amount_paid": amount_paid,
+            "campaign": campaign_name,
+            "is_early_adopter": pricing["campaign_active"]
         }
     except HTTPException:
         raise
@@ -2481,6 +2605,7 @@ async def verify_subscription_payment(
         # Try to activate anyway if payment ID exists
         try:
             expires_at = datetime.now(timezone.utc) + timedelta(days=SUBSCRIPTION_DAYS)
+            campaign_name = "EARLY_ADOPTER_2025" if pricing["campaign_active"] else "REGULAR"
             await db.users.update_one(
                 {"id": current_user["id"]},
                 {
@@ -2490,6 +2615,8 @@ async def verify_subscription_payment(
                         "subscription_payment_id": data.razorpay_payment_id,
                         "subscription_order_id": data.razorpay_order_id,
                         "subscription_verified_at": datetime.now(timezone.utc).isoformat(),
+                        "subscription_campaign": campaign_name,
+                        "is_early_adopter": pricing["campaign_active"]
                     }
                 },
             )

@@ -252,15 +252,15 @@ async def send_onboarding_day5(email: str, username: str, trial_days_left: int) 
         
         <h3 style="color: #333;">Ready to Subscribe?</h3>
         <p style="color: #666;">
-            Continue using BillByteKOT for just <strong>₹499/year</strong> with unlimited bills!
+            Continue using BillByteKOT for just <strong>₹9/year</strong> with our Early Adopter Special (99% OFF)! Offer ends Dec 31, 2025.
         </p>
         
         <div style="text-align: center; margin: 30px 0;">
-            <a href="https://billbytekot.in/subscription" class="button">Subscribe Now</a>
+            <a href="https://billbytekot.in/subscription" class="button">Subscribe Now - ₹9/Year</a>
         </div>
     """
     
-    text_body = f"Hi {username}! {trial_days_left} days left in your trial. Subscribe for just ₹499/year. Visit: https://billbytekot.in/subscription"
+    text_body = f"Hi {username}! {trial_days_left} days left in your trial. Early Adopter Special: ₹9/year (99% OFF)! Visit: https://billbytekot.in/subscription"
     
     html_body = get_email_template(content)
     return await send_email(email, subject, html_body, text_body)

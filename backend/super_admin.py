@@ -356,3 +356,221 @@ async def get_analytics(
         "active_users": active_users,
         "start_date": start_date
     }
+
+
+# ============ CAMPAIGN MANAGEMENT ============
+
+@super_admin_router.get("/campaigns")
+async def get_all_campaigns(
+    username: str,
+    password: str,
+    db = None
+):
+    """Get all campaigns including active early adopter campaign"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Get campaigns from database or use defaults
+    campaigns = await db.campaigns.find({}, {"_id": 0}).to_list(100)
+    
+    # If no campaigns in DB, return the hardcoded early adopter campaign
+    if not campaigns:
+        # Import from server.py
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
+        early_adopter_end = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+        
+        campaigns = [{
+            "id": "EARLY_ADOPTER_2025",
+            "name": "Early Adopter Special",
+            "description": "Get BillByteKOT for just ₹9/year - 99% OFF!",
+            "price_paise": 900,
+            "original_price_paise": 99900,
+            "discount_percent": 99,
+            "start_date": "2025-01-01T00:00:00+00:00",
+            "end_date": "2025-12-31T23:59:59+00:00",
+            "active": now <= early_adopter_end,
+            "badge": "🔥 99% OFF",
+            "max_users": 1000,
+            "type": "early_adopter",
+            "is_default": True
+        }]
+    
+    # Get subscriber count for each campaign
+    for campaign in campaigns:
+        if campaign.get("id"):
+            subscriber_count = await db.users.count_documents({
+                "subscription_active": True,
+                "subscription_campaign": campaign["id"]
+            })
+            campaign["current_subscribers"] = subscriber_count
+    
+    return {
+        "campaigns": campaigns,
+        "total": len(campaigns)
+    }
+
+
+@super_admin_router.post("/campaigns")
+async def create_campaign(
+    username: str,
+    password: str,
+    name: str,
+    description: str,
+    price_paise: int,
+    original_price_paise: int,
+    start_date: str,
+    end_date: str,
+    badge: str = "",
+    max_users: int = 0,
+    db = None
+):
+    """Create a new pricing campaign"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    import uuid
+    campaign_id = f"CAMPAIGN_{uuid.uuid4().hex[:8].upper()}"
+    
+    discount_percent = int((1 - price_paise / original_price_paise) * 100) if original_price_paise > 0 else 0
+    
+    campaign = {
+        "id": campaign_id,
+        "name": name,
+        "description": description,
+        "price_paise": price_paise,
+        "original_price_paise": original_price_paise,
+        "discount_percent": discount_percent,
+        "start_date": start_date,
+        "end_date": end_date,
+        "active": True,
+        "badge": badge or f"{discount_percent}% OFF",
+        "max_users": max_users,
+        "current_users": 0,
+        "type": "custom",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.campaigns.insert_one(campaign)
+    
+    return {
+        "message": "Campaign created successfully",
+        "campaign": campaign
+    }
+
+
+@super_admin_router.put("/campaigns/{campaign_id}")
+async def update_campaign(
+    campaign_id: str,
+    username: str,
+    password: str,
+    active: Optional[bool] = None,
+    price_paise: Optional[int] = None,
+    end_date: Optional[str] = None,
+    badge: Optional[str] = None,
+    max_users: Optional[int] = None,
+    db = None
+):
+    """Update an existing campaign"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if active is not None:
+        update_data["active"] = active
+    if price_paise is not None:
+        update_data["price_paise"] = price_paise
+    if end_date is not None:
+        update_data["end_date"] = end_date
+    if badge is not None:
+        update_data["badge"] = badge
+    if max_users is not None:
+        update_data["max_users"] = max_users
+    
+    result = await db.campaigns.update_one(
+        {"id": campaign_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        # If it's the default early adopter campaign, we can't update it in DB
+        # but we can acknowledge the request
+        if campaign_id == "EARLY_ADOPTER_2025":
+            return {
+                "message": "Early adopter campaign is hardcoded. To modify, update server.py EARLY_ADOPTER_END_DATE",
+                "campaign_id": campaign_id,
+                "note": "This campaign runs till Dec 31, 2025 by default"
+            }
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    return {
+        "message": "Campaign updated successfully",
+        "campaign_id": campaign_id
+    }
+
+
+@super_admin_router.delete("/campaigns/{campaign_id}")
+async def delete_campaign(
+    campaign_id: str,
+    username: str,
+    password: str,
+    db = None
+):
+    """Delete a campaign (cannot delete default early adopter campaign)"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    if campaign_id == "EARLY_ADOPTER_2025":
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot delete the default early adopter campaign. Modify server.py to change it."
+        )
+    
+    result = await db.campaigns.delete_one({"id": campaign_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    return {
+        "message": "Campaign deleted successfully",
+        "campaign_id": campaign_id
+    }
+
+
+@super_admin_router.get("/campaigns/stats")
+async def get_campaign_stats(
+    username: str,
+    password: str,
+    db = None
+):
+    """Get campaign performance statistics"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Get all subscribed users
+    subscribed_users = await db.users.find(
+        {"subscription_active": True},
+        {"_id": 0, "subscription_campaign": 1, "subscription_price_paid": 1, "created_at": 1}
+    ).to_list(10000)
+    
+    # Calculate stats
+    total_subscribers = len(subscribed_users)
+    total_revenue = sum(u.get("subscription_price_paid", 0) for u in subscribed_users)
+    
+    # Group by campaign
+    campaign_stats = {}
+    for user in subscribed_users:
+        campaign = user.get("subscription_campaign", "unknown")
+        if campaign not in campaign_stats:
+            campaign_stats[campaign] = {"count": 0, "revenue": 0}
+        campaign_stats[campaign]["count"] += 1
+        campaign_stats[campaign]["revenue"] += user.get("subscription_price_paid", 0)
+    
+    return {
+        "total_subscribers": total_subscribers,
+        "total_revenue_paise": total_revenue,
+        "total_revenue_display": f"₹{total_revenue / 100:.2f}",
+        "by_campaign": campaign_stats,
+        "early_adopter_active": datetime.now(timezone.utc) <= datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+    }

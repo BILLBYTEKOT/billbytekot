@@ -1252,7 +1252,7 @@ const LandingPage = () => {
                 <CardContent className="pt-6">
                   <ul className="space-y-4">
                     {[
-                      "₹499/year - Affordable pricing",
+                      "₹9/year - Early Adopter Special (99% OFF)",
                       "7-day free trial, no credit card",
                       "Cloud-based - Access anywhere",
                       "Automatic updates included",
@@ -1734,7 +1734,7 @@ const LandingPage = () => {
             {[
               {
                 q: "How does the free trial work?",
-                a: "You get 7 days of full access to all premium features, completely free. No credit card required. After the trial, upgrade to Premium for just ₹999/year.",
+                a: "You get 7 days of full access to all premium features, completely free. No credit card required. After the trial, upgrade to Premium for just ₹9/year with our Early Adopter Special (99% OFF till Dec 31, 2025)!",
               },
               {
                 q: "Can I use my own Razorpay account?",
@@ -1758,7 +1758,7 @@ const LandingPage = () => {
               },
               {
                 q: "What's included in the Premium plan?",
-                a: "Unlimited bills, 6 thermal print formats, advanced AI analytics, priority 24/7 support, multi-currency, and all future features. Just ₹999/year!",
+                a: "Unlimited bills, 6 thermal print formats, advanced AI analytics, priority 24/7 support, multi-currency, WhatsApp integration, and all future features. Early Adopter Special: Just ₹9/year (99% OFF) till Dec 31, 2025!",
               },
             ].map((faq, index) => (
               <Card key={index} className="border-0 shadow-lg">
