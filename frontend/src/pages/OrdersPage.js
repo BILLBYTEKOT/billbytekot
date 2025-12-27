@@ -8,10 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Eye, Printer, CreditCard, MessageCircle, X, Receipt, Download, Minus, Search } from 'lucide-react';
+import { Plus, Eye, Printer, CreditCard, MessageCircle, X, Receipt, Minus, Search, Edit, Trash2, Ban, MoreVertical, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TrialBanner from '../components/TrialBanner';
-import { printKOT as printKOTUtil, printReceipt as printReceiptUtil, getPrintSettings, generateKOTContent, generateReceiptContent } from '../utils/printUtils';
+import { printKOT as printKOTUtil, printReceipt as printReceiptUtil } from '../utils/printUtils';
 
 const OrdersPage = ({ user }) => {
   const [orders, setOrders] = useState([]);
@@ -28,10 +28,14 @@ const OrdersPage = ({ user }) => {
   const [whatsappModal, setWhatsappModal] = useState({ open: false, orderId: null, customerName: '' });
   const [whatsappPhone, setWhatsappPhone] = useState('');
   const [viewOrderModal, setViewOrderModal] = useState({ open: false, order: null });
-  const [receiptContent, setReceiptContent] = useState('');
   const [printLoading, setPrintLoading] = useState(false);
   const [menuSearch, setMenuSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+  const [editOrderModal, setEditOrderModal] = useState({ open: false, order: null });
+  const [editItems, setEditItems] = useState([]);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState({ open: false, order: null });
+  const [cancelConfirmModal, setCancelConfirmModal] = useState({ open: false, order: null });
+  const [actionMenuOpen, setActionMenuOpen] = useState(null);
   const navigate = useNavigate();
 
   // Get unique categories from menu items
@@ -236,6 +240,106 @@ const OrdersPage = ({ user }) => {
       toast.error('Failed to print receipt');
     } finally {
       setPrintLoading(false);
+    }
+  };
+
+  // Edit order - open modal with order items
+  const handleEditOrder = (order) => {
+    // Convert order items to editable format
+    const items = order.items.map(item => ({
+      menu_item_id: item.menu_item_id || item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      notes: item.notes || ''
+    }));
+    setEditItems(items);
+    setEditOrderModal({ open: true, order });
+    setActionMenuOpen(null);
+  };
+
+  // Update order items
+  const handleUpdateOrder = async () => {
+    if (editItems.length === 0) {
+      toast.error('Order must have at least one item');
+      return;
+    }
+
+    try {
+      const subtotal = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const tax = subtotal * 0.05;
+      const total = subtotal + tax;
+
+      await axios.put(`${API}/orders/${editOrderModal.order.id}`, {
+        items: editItems,
+        subtotal,
+        tax,
+        total
+      });
+
+      toast.success('Order updated successfully!');
+      setEditOrderModal({ open: false, order: null });
+      setEditItems([]);
+      fetchOrders();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update order');
+    }
+  };
+
+  // Add item to edit order
+  const handleAddEditItem = (menuItem) => {
+    const existingIndex = editItems.findIndex(item => item.menu_item_id === menuItem.id);
+    if (existingIndex !== -1) {
+      const updated = [...editItems];
+      updated[existingIndex].quantity += 1;
+      setEditItems(updated);
+    } else {
+      setEditItems([...editItems, {
+        menu_item_id: menuItem.id,
+        name: menuItem.name,
+        price: menuItem.price,
+        quantity: 1,
+        notes: ''
+      }]);
+    }
+  };
+
+  // Remove item from edit order
+  const handleRemoveEditItem = (index) => {
+    setEditItems(editItems.filter((_, i) => i !== index));
+  };
+
+  // Change quantity in edit order
+  const handleEditQuantityChange = (index, quantity) => {
+    if (quantity < 1) return;
+    const updated = [...editItems];
+    updated[index].quantity = quantity;
+    setEditItems(updated);
+  };
+
+  // Cancel order
+  const handleCancelOrder = async () => {
+    try {
+      await axios.put(`${API}/orders/${cancelConfirmModal.order.id}/cancel`);
+      toast.success('Order cancelled');
+      setCancelConfirmModal({ open: false, order: null });
+      fetchOrders();
+      fetchTables();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to cancel order');
+    }
+  };
+
+  // Delete order
+  const handleDeleteOrder = async () => {
+    try {
+      await axios.delete(`${API}/orders/${deleteConfirmModal.order.id}`);
+      toast.success('Order deleted');
+      setDeleteConfirmModal({ open: false, order: null });
+      fetchOrders();
+      fetchTables();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete order');
     }
   };
 
@@ -511,9 +615,56 @@ const OrdersPage = ({ user }) => {
                     )}
                     <p className="text-[10px] sm:text-xs text-gray-400">{new Date(order.created_at).toLocaleString()}</p>
                   </div>
-                  <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap ${getStatusColor(order.status)}`}>
+                      {order.status}
+                    </span>
+                    {/* Action Menu for Edit/Cancel/Delete */}
+                    {['admin', 'cashier'].includes(user?.role) && order.status !== 'completed' && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setActionMenuOpen(actionMenuOpen === order.id ? null : order.id)}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <MoreVertical className="w-4 h-4 text-gray-500" />
+                        </button>
+                        {actionMenuOpen === order.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setActionMenuOpen(null)} />
+                            <div className="absolute right-0 top-8 z-20 w-36 bg-white rounded-lg shadow-xl border py-1">
+                              {order.status !== 'cancelled' && (
+                                <>
+                                  <button
+                                    onClick={() => handleEditOrder(order)}
+                                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                  >
+                                    <Edit className="w-4 h-4 text-blue-600" />
+                                    Edit Order
+                                  </button>
+                                  <button
+                                    onClick={() => { setCancelConfirmModal({ open: true, order }); setActionMenuOpen(null); }}
+                                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-orange-600"
+                                  >
+                                    <Ban className="w-4 h-4" />
+                                    Cancel Order
+                                  </button>
+                                </>
+                              )}
+                              {user?.role === 'admin' && (
+                                <button
+                                  onClick={() => { setDeleteConfirmModal({ open: true, order }); setActionMenuOpen(null); }}
+                                  className="w-full px-3 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Delete Order
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="p-3 sm:p-4 pt-0">
@@ -799,6 +950,205 @@ const OrdersPage = ({ user }) => {
                   </Button>
                 </div>
               </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Edit Order Modal */}
+        {editOrderModal.open && editOrderModal.order && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
+            <Card className="w-full max-w-2xl border-0 shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+              <CardHeader className="relative bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg p-4 sm:p-6 flex-shrink-0">
+                <button
+                  onClick={() => { setEditOrderModal({ open: false, order: null }); setEditItems([]); }}
+                  className="absolute right-3 sm:right-4 top-3 sm:top-4 text-white/80 hover:text-white p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg pr-8">
+                  <Edit className="w-5 h-5" />
+                  Edit Order #{editOrderModal.order.id.slice(0, 8)}
+                </CardTitle>
+              </CardHeader>
+              <div className="flex-1 overflow-hidden flex flex-col">
+                {/* Menu Items to Add */}
+                <div className="p-3 sm:p-4 border-b bg-gray-50">
+                  <Label className="text-sm font-medium mb-2 block">Add Items</Label>
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {menuItems.slice(0, 10).map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => handleAddEditItem(item)}
+                        className="flex-shrink-0 px-3 py-2 bg-white border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-sm"
+                      >
+                        <span className="font-medium">{item.name}</span>
+                        <span className="text-gray-500 ml-1">₹{item.price}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Current Order Items */}
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+                  <Label className="text-sm font-medium mb-2 block">Order Items</Label>
+                  {editItems.length > 0 ? (
+                    <div className="space-y-2">
+                      {editItems.map((item, index) => (
+                        <div key={index} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{item.name}</p>
+                            <p className="text-xs text-gray-500">₹{item.price} each</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (item.quantity === 1) {
+                                  handleRemoveEditItem(index);
+                                } else {
+                                  handleEditQuantityChange(index, item.quantity - 1);
+                                }
+                              }}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </Button>
+                            <span className="w-8 text-center font-bold">{item.quantity}</span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => handleEditQuantityChange(index, item.quantity + 1)}
+                              className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                            <span className="w-16 text-right font-bold">₹{(item.price * item.quantity).toFixed(0)}</span>
+                            <button
+                              onClick={() => handleRemoveEditItem(index)}
+                              className="p-1 text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No items in order</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Summary and Actions */}
+                <div className="border-t bg-white p-3 sm:p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-xs text-gray-500">{editItems.reduce((sum, item) => sum + item.quantity, 0)} items</p>
+                      <p className="text-lg font-bold text-blue-600">
+                        ₹{editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(0)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => { setEditOrderModal({ open: false, order: null }); setEditItems([]); }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleUpdateOrder}
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600"
+                        disabled={editItems.length === 0}
+                      >
+                        Update Order
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Cancel Order Confirmation Modal */}
+        {cancelConfirmModal.open && cancelConfirmModal.order && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
+            <Card className="w-full max-w-sm border-0 shadow-2xl">
+              <CardHeader className="text-center pb-2">
+                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Ban className="w-6 h-6 text-orange-600" />
+                </div>
+                <CardTitle className="text-lg">Cancel Order?</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-center text-gray-600 text-sm">
+                  Are you sure you want to cancel order <strong>#{cancelConfirmModal.order.id.slice(0, 8)}</strong>?
+                  This action cannot be undone.
+                </p>
+                <div className="p-3 bg-gray-50 rounded-lg text-sm">
+                  <p><strong>Table:</strong> {cancelConfirmModal.order.table_number}</p>
+                  <p><strong>Total:</strong> ₹{cancelConfirmModal.order.total.toFixed(0)}</p>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCancelConfirmModal({ open: false, order: null })}
+                    className="flex-1"
+                  >
+                    Keep Order
+                  </Button>
+                  <Button
+                    onClick={handleCancelOrder}
+                    className="flex-1 bg-orange-600 hover:bg-orange-700"
+                  >
+                    Cancel Order
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Delete Order Confirmation Modal */}
+        {deleteConfirmModal.open && deleteConfirmModal.order && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
+            <Card className="w-full max-w-sm border-0 shadow-2xl">
+              <CardHeader className="text-center pb-2">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <CardTitle className="text-lg text-red-600">Delete Order?</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-center text-gray-600 text-sm">
+                  Are you sure you want to <strong>permanently delete</strong> order <strong>#{deleteConfirmModal.order.id.slice(0, 8)}</strong>?
+                  This will remove all records of this order.
+                </p>
+                <div className="p-3 bg-red-50 rounded-lg text-sm border border-red-200">
+                  <p><strong>Table:</strong> {deleteConfirmModal.order.table_number}</p>
+                  <p><strong>Total:</strong> ₹{deleteConfirmModal.order.total.toFixed(0)}</p>
+                  <p><strong>Status:</strong> {deleteConfirmModal.order.status}</p>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setDeleteConfirmModal({ open: false, order: null })}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleDeleteOrder}
+                    className="flex-1 bg-red-600 hover:bg-red-700"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
+              </CardContent>
             </Card>
           </div>
         )}
