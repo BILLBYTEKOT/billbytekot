@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Grid pattern for login page */
+.bg-grid-pattern {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 30px 30px;
+}
+
+/* Animation delays */
+.delay-500 {
+    animation-delay: 500ms;
+}
+.delay-1000 {
+    animation-delay: 1000ms;
+}
+
 body {
     margin: 0;
     font-family:
