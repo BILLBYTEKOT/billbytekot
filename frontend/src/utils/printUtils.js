@@ -1,4 +1,4 @@
-// Centralized print utilities that apply global print settings
+// Centralized print utilities for thermal printer support
 import { toast } from 'sonner';
 
 // Get current print settings from localStorage or defaults
@@ -37,7 +37,6 @@ export const getPrintSettings = () => {
     };
   } catch (error) {
     console.error('Error getting print settings:', error);
-    // Return safe defaults
     return {
       paper_width: '80mm',
       font_size: 'medium',
@@ -79,113 +78,383 @@ export const getBusinessSettings = () => {
   }
 };
 
-// Centralized print function that applies global settings
-export const printDocument = (content, title = 'Print', type = 'receipt') => {
-  try {
-    const settings = getPrintSettings();
-    
-    const fontSize = settings.font_size === 'small' ? '10px' : 
-                    settings.font_size === 'large' ? '14px' : '12px';
-    
-    const kotFontSize = settings.kot_font_size === 'small' ? '12px' : 
-                       settings.kot_font_size === 'large' ? '16px' : '14px';
-    
-    const actualFontSize = type === 'kot' ? kotFontSize : fontSize;
-    
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    
-    if (!printWindow) {
-      toast.error('Unable to open print window. Please check your popup blocker settings.');
-      return false;
-    }
-    
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${title}</title>
-          <style>
-            body {
-              font-family: 'Courier New', Consolas, monospace;
-              font-size: ${actualFontSize};
-              line-height: 1.4;
-              margin: 20px;
-              background: white;
-              color: #000;
-            }
-            @media print {
-              body { 
-                margin: 0; 
-                padding: 10px; 
-                font-size: ${actualFontSize};
-              }
-              .no-print { display: none !important; }
-            }
-            .print-content {
-              white-space: pre-wrap;
-              font-family: inherit;
-            }
-            .print-actions {
-              margin-top: 20px;
-              text-align: center;
-            }
-            .print-btn {
-              background: #7c3aed;
-              color: white;
-              border: none;
-              padding: 10px 20px;
-              border-radius: 5px;
-              cursor: pointer;
-              margin: 0 5px;
-              font-size: 14px;
-              font-weight: 600;
-            }
-            .print-btn:hover {
-              background: #6d28d9;
-            }
-            .btn-close {
-              background: #6b7280;
-            }
-            .btn-close:hover {
-              background: #4b5563;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="print-content">${content}</div>
-          <div class="print-actions no-print">
-            <button class="print-btn" onclick="window.print()">🖨️ Print</button>
-            <button class="print-btn btn-close" onclick="window.close()">✕ Close</button>
-          </div>
-        </body>
-      </html>
-    `;
-    
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    
-    // Auto-print based on settings
-    if ((type === 'receipt' && settings.auto_print) || (type === 'kot' && settings.kot_auto_print)) {
-      setTimeout(() => {
-        try {
-          printWindow.focus();
-          printWindow.print();
-        } catch (printError) {
-          console.error('Auto-print failed:', printError);
-        }
-      }, 500);
-    }
-    
-    return true;
-    
-  } catch (error) {
-    console.error('Error printing document:', error);
-    toast.error('Failed to open print window. Please try again.');
+// Direct thermal print function - opens print dialog immediately
+export const printThermal = (htmlContent, paperWidth = '80mm') => {
+  const printWindow = window.open('', '_blank', 'width=400,height=600');
+  
+  if (!printWindow) {
+    toast.error('Popup blocked! Please allow popups for printing.');
     return false;
   }
+
+  const width = paperWidth === '58mm' ? '58mm' : '80mm';
+  const fontSize = paperWidth === '58mm' ? '10px' : '12px';
+  
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Print</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        @page {
+          size: ${width} auto;
+          margin: 0;
+        }
+        
+        @media print {
+          html, body {
+            width: ${width};
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+        
+        body {
+          font-family: 'Courier New', 'Lucida Console', Monaco, monospace;
+          font-size: ${fontSize};
+          line-height: 1.3;
+          width: ${width};
+          max-width: ${width};
+          margin: 0 auto;
+          padding: 5mm;
+          background: #fff;
+          color: #000;
+        }
+        
+        .receipt {
+          width: 100%;
+        }
+        
+        .center {
+          text-align: center;
+        }
+        
+        .bold {
+          font-weight: bold;
+        }
+        
+        .large {
+          font-size: 1.2em;
+        }
+        
+        .small {
+          font-size: 0.85em;
+        }
+        
+        .separator {
+          border-top: 1px dashed #000;
+          margin: 3mm 0;
+        }
+        
+        .double-line {
+          border-top: 2px solid #000;
+          margin: 3mm 0;
+        }
+        
+        .item-row {
+          display: flex;
+          justify-content: space-between;
+          margin: 1mm 0;
+        }
+        
+        .item-name {
+          flex: 1;
+          word-break: break-word;
+        }
+        
+        .item-price {
+          text-align: right;
+          white-space: nowrap;
+          margin-left: 2mm;
+        }
+        
+        .total-row {
+          display: flex;
+          justify-content: space-between;
+          font-weight: bold;
+          margin: 1mm 0;
+        }
+        
+        .grand-total {
+          font-size: 1.3em;
+          margin: 2mm 0;
+        }
+        
+        .note {
+          font-size: 0.8em;
+          color: #333;
+          margin-left: 3mm;
+        }
+        
+        .kot-item {
+          font-size: 1.1em;
+          font-weight: bold;
+          margin: 2mm 0;
+          padding: 1mm;
+          border: 1px solid #000;
+        }
+        
+        .kot-note {
+          background: #000;
+          color: #fff;
+          padding: 1mm 2mm;
+          margin: 1mm 0 2mm 3mm;
+          font-weight: bold;
+        }
+        
+        .header-logo {
+          font-size: 1.4em;
+          font-weight: bold;
+          margin-bottom: 2mm;
+        }
+        
+        .footer {
+          margin-top: 4mm;
+          font-size: 0.9em;
+        }
+        
+        .mb-1 { margin-bottom: 1mm; }
+        .mb-2 { margin-bottom: 2mm; }
+        .mt-2 { margin-top: 2mm; }
+      </style>
+    </head>
+    <body>
+      <div class="receipt">
+        ${htmlContent}
+      </div>
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+            setTimeout(function() {
+              window.close();
+            }, 500);
+          }, 200);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  
+  printWindow.document.close();
+  return true;
 };
 
-// Generate receipt content with applied settings
+// Generate receipt HTML for thermal printer
+export const generateReceiptHTML = (order, businessOverride = null) => {
+  const settings = getPrintSettings();
+  const business = businessOverride || getBusinessSettings();
+  
+  const restaurantName = business?.restaurant_name || 'Restaurant';
+  const address = business?.address || '';
+  const phone = business?.phone || '';
+  const gstin = business?.gstin || '';
+  const fssai = business?.fssai || '';
+  const tagline = business?.tagline || '';
+  const footerMsg = business?.footer_message || 'Thank you for dining with us!';
+  
+  let html = '';
+  
+  // Header
+  html += `<div class="center header-logo">${restaurantName}</div>`;
+  
+  if (settings.show_tagline && tagline) {
+    html += `<div class="center small mb-1">${tagline}</div>`;
+  }
+  
+  html += '<div class="double-line"></div>';
+  
+  // Business Info
+  if (settings.show_address && address) {
+    html += `<div class="center small">${address}</div>`;
+  }
+  if (settings.show_phone && phone) {
+    html += `<div class="center small">📞 ${phone}</div>`;
+  }
+  if (settings.show_gstin && gstin) {
+    html += `<div class="center small">GSTIN: ${gstin}</div>`;
+  }
+  if (settings.show_fssai && fssai) {
+    html += `<div class="center small">FSSAI: ${fssai}</div>`;
+  }
+  
+  html += '<div class="separator"></div>';
+  
+  // Order Info
+  html += `<div class="item-row"><span>🧾 BILL #${(order.id || '').toString().slice(0, 8)}</span></div>`;
+  
+  if (settings.show_table_number && order.table_number) {
+    html += `<div class="item-row"><span>🪑 Table ${order.table_number}</span>`;
+    if (settings.show_waiter_name && order.waiter_name) {
+      html += `<span>👤 ${order.waiter_name}</span>`;
+    }
+    html += '</div>';
+  } else if (settings.show_waiter_name && order.waiter_name) {
+    html += `<div class="item-row"><span>👤 ${order.waiter_name}</span></div>`;
+  }
+  
+  if (settings.show_customer_name && order.customer_name) {
+    html += `<div class="item-row"><span>👥 ${order.customer_name}</span></div>`;
+  }
+  
+  if (settings.show_order_time) {
+    const date = new Date(order.created_at || Date.now());
+    html += `<div class="item-row"><span>📅 ${date.toLocaleDateString()} ${date.toLocaleTimeString()}</span></div>`;
+  }
+  
+  html += '<div class="separator"></div>';
+  html += '<div class="center bold mb-2">ORDER ITEMS</div>';
+  html += '<div class="separator"></div>';
+  
+  // Items
+  (order.items || []).forEach(item => {
+    const itemTotal = (item.quantity * item.price).toFixed(2);
+    html += `
+      <div class="item-row">
+        <span class="item-name">${item.quantity}× ${item.name}</span>
+        <span class="item-price">₹${item.price.toFixed(2)}</span>
+      </div>
+      <div class="item-row">
+        <span></span>
+        <span class="item-price bold">₹${itemTotal}</span>
+      </div>
+    `;
+    
+    if (settings.show_item_notes && item.notes) {
+      html += `<div class="note">📝 ${item.notes}</div>`;
+    }
+  });
+  
+  html += '<div class="separator"></div>';
+  
+  // Totals
+  const subtotal = order.subtotal || 0;
+  const tax = order.tax || 0;
+  const total = order.total || 0;
+  
+  html += `
+    <div class="total-row">
+      <span>Subtotal</span>
+      <span>₹${subtotal.toFixed(2)}</span>
+    </div>
+    <div class="total-row small">
+      <span>Tax (5.0%)</span>
+      <span>₹${tax.toFixed(2)}</span>
+    </div>
+  `;
+  
+  html += '<div class="double-line"></div>';
+  
+  html += `
+    <div class="total-row grand-total">
+      <span>💰 TOTAL</span>
+      <span>₹${total.toFixed(2)}</span>
+    </div>
+  `;
+  
+  html += '<div class="double-line"></div>';
+  
+  // Payment method if available
+  if (order.payment_method) {
+    html += `<div class="center small mb-2">Payment: ${order.payment_method.toUpperCase()}</div>`;
+  }
+  
+  // Footer
+  html += `
+    <div class="footer center">
+      <div class="mb-1">✨ ${footerMsg} ✨</div>
+      ${gstin ? `<div class="small">GSTIN: ${gstin}</div>` : ''}
+    </div>
+  `;
+  
+  return html;
+};
+
+// Generate KOT HTML for thermal printer
+export const generateKOTHTML = (order, businessOverride = null) => {
+  const settings = getPrintSettings();
+  const business = businessOverride || getBusinessSettings();
+  
+  let html = '';
+  
+  // KOT Header
+  html += `
+    <div class="center bold large">🍳 KITCHEN ORDER TICKET 🍳</div>
+    <div class="double-line"></div>
+  `;
+  
+  // Order Info
+  html += `
+    <div class="item-row bold">
+      <span>ORDER #${(order.id || '').toString().slice(0, 8)}</span>
+    </div>
+    <div class="item-row large bold">
+      <span>🪑 TABLE: ${order.table_number || 'N/A'}</span>
+    </div>
+    <div class="item-row">
+      <span>👤 Server: ${order.waiter_name || 'N/A'}</span>
+    </div>
+  `;
+  
+  if (settings.kot_show_time) {
+    const date = new Date(order.created_at || Date.now());
+    html += `<div class="item-row"><span>⏰ ${date.toLocaleTimeString()}</span></div>`;
+  }
+  
+  if (order.customer_name) {
+    html += `<div class="item-row"><span>👥 Customer: ${order.customer_name}</span></div>`;
+  }
+  
+  html += '<div class="double-line"></div>';
+  html += '<div class="center bold large mb-2">📋 ITEMS TO PREPARE</div>';
+  html += '<div class="separator"></div>';
+  
+  // Items - Large and clear for kitchen
+  (order.items || []).forEach(item => {
+    html += `
+      <div class="kot-item">
+        ${item.quantity}× ${item.name.toUpperCase()}
+      </div>
+    `;
+    
+    if (settings.kot_highlight_notes && item.notes) {
+      html += `<div class="kot-note">⚠️ ${item.notes.toUpperCase()}</div>`;
+    }
+  });
+  
+  html += '<div class="separator"></div>';
+  
+  // Total items count
+  const totalItems = (order.items || []).reduce((sum, i) => sum + i.quantity, 0);
+  html += `
+    <div class="center bold large mt-2">
+      TOTAL ITEMS: ${totalItems}
+    </div>
+  `;
+  
+  html += '<div class="double-line"></div>';
+  
+  // Priority indicator
+  html += `
+    <div class="center bold">
+      ${order.priority === 'high' ? '🔴 HIGH PRIORITY' : '🟢 NORMAL'}
+    </div>
+  `;
+  
+  return html;
+};
+
+// Generate receipt content (text format for backward compatibility)
 export const generateReceiptContent = (order, businessOverride = null) => {
   try {
     const settings = getPrintSettings();
@@ -206,7 +475,6 @@ export const generateReceiptContent = (order, businessOverride = null) => {
 
     let receipt = '';
     
-    // Header
     receipt += doubleSep + '\n';
     receipt += centeredName + '\n';
     
@@ -217,29 +485,18 @@ export const generateReceiptContent = (order, businessOverride = null) => {
     
     receipt += doubleSep + '\n';
     
-    // Business details
     if (settings.show_address && businessSettings?.address) {
       receipt += businessSettings.address.substring(0, width) + '\n';
     }
     if (settings.show_phone && businessSettings?.phone) {
       receipt += `Phone: ${businessSettings.phone}\n`;
     }
-    if (settings.show_email && businessSettings?.email) {
-      receipt += `Email: ${businessSettings.email}\n`;
-    }
-    if (settings.show_website && businessSettings?.website) {
-      receipt += `Web: ${businessSettings.website}\n`;
-    }
     if (settings.show_gstin && businessSettings?.gstin) {
       receipt += `GSTIN: ${businessSettings.gstin}\n`;
-    }
-    if (settings.show_fssai && businessSettings?.fssai) {
-      receipt += `FSSAI: ${businessSettings.fssai}\n`;
     }
     
     receipt += sep + '\n';
     
-    // Order details
     receipt += `Bill #: ${order.id?.toString().slice(0, 8) || 'N/A'}\n`;
     if (settings.show_table_number && order.table_number) {
       receipt += `Table: ${order.table_number}\n`;
@@ -258,7 +515,6 @@ export const generateReceiptContent = (order, businessOverride = null) => {
     receipt += 'ITEMS:\n';
     receipt += sep + '\n';
     
-    // Items
     (order.items || []).forEach(item => {
       const itemLine = `${item.quantity}x ${item.name}`;
       const priceLine = `₹${(item.quantity * item.price).toFixed(2)}`;
@@ -272,7 +528,6 @@ export const generateReceiptContent = (order, businessOverride = null) => {
     
     receipt += sep + '\n';
     
-    // Totals
     const subtotal = order.subtotal || 0;
     const tax = order.tax || 0;
     const total = order.total || 0;
@@ -283,13 +538,8 @@ export const generateReceiptContent = (order, businessOverride = null) => {
     receipt += `TOTAL:${' '.repeat(width - 15)}₹${total.toFixed(2)}\n`;
     receipt += doubleSep + '\n';
     
-    // Footer
     const footer = businessSettings?.footer_message || 'Thank you for dining with us!';
     receipt += '\n' + footer.padStart((width + footer.length) / 2).padEnd(width) + '\n';
-    
-    if (settings.qr_code_enabled) {
-      receipt += '\n[QR Code for Payment/Feedback]\n';
-    }
     
     receipt += doubleSep + '\n';
     
@@ -301,11 +551,10 @@ export const generateReceiptContent = (order, businessOverride = null) => {
   }
 };
 
-// Generate KOT content with applied settings
+// Generate KOT content (text format for backward compatibility)
 export const generateKOTContent = (order, businessOverride = null) => {
   try {
     const settings = getPrintSettings();
-    const businessSettings = businessOverride || getBusinessSettings();
     
     const width = settings.paper_width === '58mm' ? 32 : 48;
     const sep = '='.repeat(width);
@@ -325,19 +574,12 @@ export const generateKOTContent = (order, businessOverride = null) => {
       kot += `TIME: ${new Date(order.created_at || Date.now()).toLocaleTimeString()}\n`;
     }
     
-    kot += `PRIORITY: ${order.priority || 'NORMAL'}\n`;
-    
     kot += '\n' + dash + '\n';
     kot += 'ITEMS TO PREPARE:\n';
     kot += dash + '\n\n';
     
-    // Items with enhanced formatting
     (order.items || []).forEach((item, idx) => {
-      if (settings.kot_font_size === 'large') {
-        kot += `>>> ${item.quantity}x ${item.name.toUpperCase()} <<<\n`;
-      } else {
-        kot += `${item.quantity}x ${item.name}\n`;
-      }
+      kot += `${item.quantity}x ${item.name.toUpperCase()}\n`;
       
       if (settings.kot_highlight_notes && item.notes) {
         kot += `    *** ${item.notes.toUpperCase()} ***\n`;
@@ -358,11 +600,12 @@ export const generateKOTContent = (order, businessOverride = null) => {
   }
 };
 
-// Print receipt with global settings
+// Main print receipt function - uses thermal HTML format
 export const printReceipt = (order, businessOverride = null) => {
   try {
-    const content = generateReceiptContent(order, businessOverride);
-    return printDocument(content, `Receipt - ${order.id?.toString().slice(0, 8) || 'Order'}`, 'receipt');
+    const settings = getPrintSettings();
+    const html = generateReceiptHTML(order, businessOverride);
+    return printThermal(html, settings.paper_width);
   } catch (error) {
     console.error('Error printing receipt:', error);
     toast.error('Failed to print receipt');
@@ -370,11 +613,12 @@ export const printReceipt = (order, businessOverride = null) => {
   }
 };
 
-// Print KOT with global settings
+// Main print KOT function - uses thermal HTML format
 export const printKOT = (order, businessOverride = null) => {
   try {
-    const content = generateKOTContent(order, businessOverride);
-    return printDocument(content, `KOT - Table ${order.table_number || 'N/A'}`, 'kot');
+    const settings = getPrintSettings();
+    const html = generateKOTHTML(order, businessOverride);
+    return printThermal(html, settings.paper_width);
   } catch (error) {
     console.error('Error printing KOT:', error);
     toast.error('Failed to print KOT');
@@ -382,7 +626,72 @@ export const printKOT = (order, businessOverride = null) => {
   }
 };
 
-// Print multiple copies if configured
+// Legacy print document function (for backward compatibility)
+export const printDocument = (content, title = 'Print', type = 'receipt') => {
+  try {
+    const settings = getPrintSettings();
+    const paperWidth = settings.paper_width || '80mm';
+    const width = paperWidth === '58mm' ? '58mm' : '80mm';
+    
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    
+    if (!printWindow) {
+      toast.error('Popup blocked! Please allow popups for printing.');
+      return false;
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>${title}</title>
+        <style>
+          @page {
+            size: ${width} auto;
+            margin: 0;
+          }
+          @media print {
+            html, body {
+              width: ${width};
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+          }
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: ${paperWidth === '58mm' ? '10px' : '12px'};
+            line-height: 1.3;
+            width: ${width};
+            margin: 0 auto;
+            padding: 5mm;
+            white-space: pre-wrap;
+          }
+        </style>
+      </head>
+      <body>${content}</body>
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+          }, 200);
+        };
+      </script>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    return true;
+    
+  } catch (error) {
+    console.error('Error printing document:', error);
+    toast.error('Failed to print');
+    return false;
+  }
+};
+
+// Print with multiple copies
 export const printWithCopies = (content, title = 'Print', type = 'receipt') => {
   try {
     const settings = getPrintSettings();
@@ -391,7 +700,7 @@ export const printWithCopies = (content, title = 'Print', type = 'receipt') => {
     for (let i = 0; i < copies; i++) {
       setTimeout(() => {
         printDocument(content, `${title} (Copy ${i + 1}/${copies})`, type);
-      }, i * 1000); // Delay between copies
+      }, i * 1500);
     }
     
     if (copies > 1) {

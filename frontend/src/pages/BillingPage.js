@@ -10,10 +10,9 @@ import { toast } from 'sonner';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Printer, CreditCard, Wallet, Smartphone, Download, MessageCircle, X,
-  Calculator, Percent, DollarSign, Gift, Users, Clock, CheckCircle,
-  AlertCircle, TrendingUp, Receipt, Zap, Star
+  Calculator, Percent, Gift, Users, Receipt, Zap
 } from 'lucide-react';
-import { printReceipt as printReceiptUtil, getPrintSettings, generateReceiptContent, printDocument } from '../utils/printUtils';
+import { printReceipt, getPrintSettings, generateReceiptHTML, printThermal } from '../utils/printUtils';
 
 const BillingPage = ({ user }) => {
   const { orderId } = useParams();
@@ -30,17 +29,10 @@ const BillingPage = ({ user }) => {
   const [discountType, setDiscountType] = useState('percentage'); // percentage or fixed
   const [tip, setTip] = useState(0);
   const [splitBill, setSplitBill] = useState(1);
-  const [customAmount, setCustomAmount] = useState('');
   const [showCalculator, setShowCalculator] = useState(false);
   const [showSplitBill, setShowSplitBill] = useState(false);
   const [showDiscount, setShowDiscount] = useState(false);
   const [showTip, setShowTip] = useState(false);
-  const [orderNotes, setOrderNotes] = useState('');
-  const [customerRating, setCustomerRating] = useState(0);
-  const [paymentHistory, setPaymentHistory] = useState([]);
-  const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [receiptContent, setReceiptContent] = useState('');
-  const [thermalPaperSize, setThermalPaperSize] = useState('80mm'); // 58mm or 80mm
 
   useEffect(() => {
     fetchOrder();
@@ -179,51 +171,16 @@ const BillingPage = ({ user }) => {
   const printThermalBill = async () => {
     if (!order) return;
     try {
-      // Get receipt from backend with theme applied
-      const theme = businessSettings?.receipt_theme || 'classic';
-      const response = await axios.post(`${API}/print/bill/${orderId}`, null, {
-        params: { theme }
-      });
-      
-      // Store receipt content for preview
-      setReceiptContent(response.data.content);
-      setShowPrintPreview(true);
-      
-      // Update thermal paper size from settings
-      const settings = getPrintSettings();
-      setThermalPaperSize(settings.paper_width || '80mm');
-      
-      toast.success('Receipt ready for printing!');
+      // Direct thermal print using the new utility
+      const success = printReceipt(order, businessSettings);
+      if (success) {
+        toast.success('Printing receipt...');
+      }
     } catch (error) {
       console.error('Failed to print bill', error);
-      // Fallback to frontend generation if backend fails
-      try {
-        const content = generateReceiptContent(order, businessSettings);
-        setReceiptContent(content);
-        setShowPrintPreview(true);
-        toast.success('Receipt ready for printing!');
-      } catch (fallbackError) {
-        toast.error('Failed to generate receipt');
-      }
+      toast.error('Failed to print receipt');
     }
   };
-
-  const handleActualPrint = () => {
-    // Use centralized print utility
-    printDocument(receiptContent, `Receipt - ${order?.id?.slice(0, 8)}`, 'receipt');
-  };
-
-  const handlePopupPrint = () => {
-    // Use centralized print utility
-    printDocument(receiptContent, `Receipt - ${order?.id?.slice(0, 8)}`, 'receipt');
-    toast.success('Receipt opened for printing');
-  };
-
-  const closePrintPreview = () => {
-    setShowPrintPreview(false);
-  };
-
-  // Old popup code completely removed - now using inline modal
 
   const downloadBillPDF = async () => {
     if (!order) return;
@@ -856,106 +813,6 @@ const BillingPage = ({ user }) => {
           </div>
         )}
       </div>
-
-      {/* Inline Print Preview Modal */}
-      {showPrintPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-auto bg-slate-800 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-300">
-            {/* Header */}
-            <div className="sticky top-0 z-10 px-6 py-5 bg-gradient-to-r from-indigo-600 to-purple-600">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Receipt className="w-6 h-6 text-white" />
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Receipt Preview</h3>
-                    <p className="text-sm text-indigo-100">Order #{order?.id?.slice(0, 8)}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={closePrintPreview}
-                  className="p-2 text-white transition-colors rounded-lg hover:bg-white/20"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              {/* Paper Size Selector */}
-              <div className="mt-4 flex items-center gap-3">
-                <span className="text-sm text-indigo-100 font-medium">Paper Size:</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setThermalPaperSize('58mm')}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                      thermalPaperSize === '58mm'
-                        ? 'bg-white text-indigo-600 shadow-lg'
-                        : 'bg-white/20 text-white hover:bg-white/30'
-                    }`}
-                  >
-                    58mm
-                  </button>
-                  <button
-                    onClick={() => setThermalPaperSize('80mm')}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                      thermalPaperSize === '80mm'
-                        ? 'bg-white text-indigo-600 shadow-lg'
-                        : 'bg-white/20 text-white hover:bg-white/30'
-                    }`}
-                  >
-                    80mm
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Receipt Content */}
-            <div className="p-6">
-              <div className="relative p-5 bg-gradient-to-b from-slate-700 to-slate-800 rounded-2xl">
-                <div 
-                  className="bg-white rounded-xl shadow-xl overflow-hidden mx-auto"
-                  style={{ 
-                    maxWidth: thermalPaperSize === '58mm' ? '220px' : '302px',
-                    width: '100%'
-                  }}
-                >
-                  <pre 
-                    className="p-4 font-mono leading-relaxed text-gray-900 whitespace-pre-wrap"
-                    style={{ 
-                      fontSize: thermalPaperSize === '58mm' ? '10px' : '12px',
-                      lineHeight: '1.3'
-                    }}
-                  >
-                    {receiptContent}
-                  </pre>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="sticky bottom-0 flex gap-3 px-6 py-5 bg-slate-800 border-t border-slate-700">
-              <button
-                onClick={handleActualPrint}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-              >
-                <Printer className="w-5 h-5" />
-                Print Receipt
-              </button>
-              <button
-                onClick={handlePopupPrint}
-                className="flex items-center justify-center gap-2 px-6 py-3 text-white font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all"
-                title="Open in new window"
-              >
-                <Download className="w-5 h-5" />
-              </button>
-              <button
-                onClick={closePrintPreview}
-                className="px-6 py-3 text-slate-300 font-semibold bg-slate-700 rounded-xl hover:bg-slate-600 transition-all"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </Layout>
   );
 };
