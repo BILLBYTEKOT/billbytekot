@@ -15,9 +15,8 @@ const Layout = ({ user, children }) => {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const handleLogout = () => {
+    // setAuthToken(null) now clears all storage mechanisms
     setAuthToken(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
     navigate('/login');
   };
 

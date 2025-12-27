@@ -57,11 +57,12 @@ const LoginPage = ({ setUser }) => {
         
         const { token, access_token, user } = response.data;
         const authToken = token || access_token;
-        setAuthToken(authToken);
         
         // Add team member flag to user data
         const userData = { ...user, isTeamMember };
-        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Use setAuthToken with user data to store in all mechanisms
+        setAuthToken(authToken, userData);
         
         setTempUser(userData);
         

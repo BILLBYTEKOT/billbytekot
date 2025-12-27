@@ -55,21 +55,148 @@ const ElectronNavigator = () => {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://restro-ai.onrender.com';
 export const API = `${BACKEND_URL}/api`;
 
-// Helper to get token from any available storage
-const getStoredToken = () => {
-  let token = localStorage.getItem('token');
+// Robust storage helper that uses multiple storage mechanisms
+const AUTH_STORAGE_KEY = 'billbytekot_auth';
+
+// Set a cookie with long expiry
+const setCookie = (name, value, days = 30) => {
+  try {
+    const expires = new Date(Date.now() + days * 864e5).toUTCString();
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+  } catch (e) {
+    console.log('Cookie storage not available');
+  }
+};
+
+// Get cookie value
+const getCookie = (name) => {
+  try {
+    const value = document.cookie.split('; ').find(row => row.startsWith(name + '='));
+    return value ? decodeURIComponent(value.split('=')[1]) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+// Delete cookie
+const deleteCookie = (name) => {
+  try {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  } catch (e) {
+    // Ignore
+  }
+};
+
+// Store auth data in multiple places for redundancy
+const storeAuthData = (token, userData) => {
+  const authData = JSON.stringify({ token, user: userData, timestamp: Date.now() });
+  
+  // Primary: localStorage
+  try {
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem(AUTH_STORAGE_KEY, authData);
+  } catch (e) {
+    console.log('localStorage not available');
+  }
+  
+  // Backup 1: sessionStorage
+  try {
+    sessionStorage.setItem('token_backup', token);
+    sessionStorage.setItem('user_backup', JSON.stringify(userData));
+  } catch (e) {
+    console.log('sessionStorage not available');
+  }
+  
+  // Backup 2: Cookie (for mobile apps that clear localStorage)
+  setCookie('auth_token', token, 30);
+  setCookie('auth_user', JSON.stringify(userData), 30);
+};
+
+// Retrieve auth data from any available source
+const getAuthData = () => {
+  let token = null;
+  let userData = null;
+  
+  // Try localStorage first
+  try {
+    token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    if (userStr) userData = JSON.parse(userStr);
+  } catch (e) {
+    console.log('localStorage read failed');
+  }
+  
+  // Try sessionStorage backup
   if (!token) {
     try {
       token = sessionStorage.getItem('token_backup');
+      const userStr = sessionStorage.getItem('user_backup');
+      if (userStr) userData = JSON.parse(userStr);
+      
+      // Restore to localStorage if found
       if (token) {
-        // Restore to localStorage
         localStorage.setItem('token', token);
+        if (userData) localStorage.setItem('user', JSON.stringify(userData));
       }
     } catch (e) {
-      // sessionStorage might not be available
+      console.log('sessionStorage read failed');
     }
   }
+  
+  // Try cookie backup (most reliable for mobile)
+  if (!token) {
+    token = getCookie('auth_token');
+    const userCookie = getCookie('auth_user');
+    if (userCookie) {
+      try {
+        userData = JSON.parse(userCookie);
+      } catch (e) {
+        // Invalid cookie data
+      }
+    }
+    
+    // Restore to localStorage if found in cookie
+    if (token) {
+      try {
+        localStorage.setItem('token', token);
+        if (userData) localStorage.setItem('user', JSON.stringify(userData));
+      } catch (e) {
+        // localStorage might not be available
+      }
+    }
+  }
+  
+  return { token, user: userData };
+};
+
+// Clear all auth data
+const clearAuthData = () => {
+  try {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  } catch (e) {}
+  
+  try {
+    sessionStorage.removeItem('token_backup');
+    sessionStorage.removeItem('user_backup');
+  } catch (e) {}
+  
+  deleteCookie('auth_token');
+  deleteCookie('auth_user');
+};
+
+// Helper to get token from any available storage
+const getStoredToken = () => {
+  const { token } = getAuthData();
   return token;
+};
+
+// Helper to get stored user
+const getStoredUser = () => {
+  const { user } = getAuthData();
+  return user;
 };
 
 // Configure axios with performance optimizations
@@ -103,22 +230,12 @@ axios.interceptors.response.use(
     // Don't auto-logout on 401 for /auth/me endpoint - let the app handle it gracefully
     const isAuthMeRequest = config?.url?.includes('/auth/me');
     
-    // Don't retry 401/403 errors (authentication issues)
+    // Handle 401/403 errors carefully
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      // Only clear token and redirect for non-auth/me requests
-      // This prevents logout loop on app startup when token might be temporarily invalid
-      if (error.response.status === 401 && !isAuthMeRequest) {
-        // Check if we have a valid cached user before clearing
-        const cachedUser = localStorage.getItem('user');
-        if (!cachedUser) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          // Only redirect if not already on login page
-          if (!window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
-          }
-        }
-      }
+      // NEVER auto-clear auth data from interceptor
+      // Let the app components handle auth state
+      // This prevents logout loops on mobile
+      console.log('Auth error:', error.response.status, 'for', config?.url);
       return Promise.reject(error);
     }
     
@@ -136,7 +253,7 @@ axios.interceptors.response.use(
       console.log(`Retrying request (${config.retry}/2)...`);
       
       // Ensure auth token is included in retry
-      const token = localStorage.getItem('token');
+      const token = getStoredToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -151,49 +268,33 @@ axios.interceptors.response.use(
   }
 );
 
-export const setAuthToken = (token) => {
+export const setAuthToken = (token, userData = null) => {
   if (token) {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    localStorage.setItem('token', token);
-    // Also store in sessionStorage as backup
-    try {
-      sessionStorage.setItem('token_backup', token);
-    } catch (e) {
-      // sessionStorage might not be available
+    
+    // Get existing user data if not provided
+    if (!userData) {
+      userData = getStoredUser();
     }
+    
+    // Store in all available storage mechanisms
+    storeAuthData(token, userData);
   } else {
     delete axios.defaults.headers.common['Authorization'];
-    localStorage.removeItem('token');
-    try {
-      sessionStorage.removeItem('token_backup');
-    } catch (e) {
-      // sessionStorage might not be available
-    }
+    clearAuthData();
   }
 };
 
 const PrivateRoute = ({ children, requireSetup = true }) => {
-  const token = getStoredToken();
-  const cachedUser = localStorage.getItem('user');
+  const { token, user } = getAuthData();
   
   // If no token at all, redirect to login
   if (!token) {
     return <Navigate to="/login" replace />;
   }
   
-  // Parse user data safely
-  let user = {};
-  if (cachedUser) {
-    try {
-      user = JSON.parse(cachedUser);
-    } catch {
-      // Invalid cached data, but we have a token so let them through
-      user = {};
-    }
-  }
-  
   // If user data exists and setup is required but not completed
-  if (requireSetup && user.role === 'admin' && user.setup_completed === false) {
+  if (requireSetup && user?.role === 'admin' && user?.setup_completed === false) {
     return <Navigate to="/setup" replace />;
   }
   
@@ -217,36 +318,23 @@ const AuthLoading = () => (
 
 function App() {
   const [user, setUser] = useState(() => {
-    // Initialize user from localStorage immediately to prevent logout flash
-    const cachedUser = localStorage.getItem('user');
-    if (cachedUser) {
-      try {
-        return JSON.parse(cachedUser);
-      } catch {
-        return null;
-      }
-    }
-    return null;
+    // Initialize user from any available storage immediately
+    const storedUser = getStoredUser();
+    return storedUser;
   });
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   useEffect(() => {
     const initAuth = async () => {
-      const token = getStoredToken();
-      const cachedUser = localStorage.getItem('user');
+      const { token, user: storedUser } = getAuthData();
       
       if (token) {
         // Set the token in axios headers
-        setAuthToken(token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
         // If we have cached user data, use it immediately
-        if (cachedUser && !user) {
-          try {
-            const parsed = JSON.parse(cachedUser);
-            setUser(parsed);
-          } catch {
-            // Invalid cached data
-          }
+        if (storedUser && !user) {
+          setUser(storedUser);
         }
         
         // Try to fetch fresh user data in background (don't block on this)
@@ -299,48 +387,47 @@ function App() {
   const fetchUser = async () => {
     try {
       const response = await axios.get(`${API}/auth/me`);
-      setUser(response.data);
-      localStorage.setItem('user', JSON.stringify(response.data));
+      const userData = response.data;
+      setUser(userData);
+      
+      // Store user data in all storage mechanisms
+      const token = getStoredToken();
+      if (token) {
+        storeAuthData(token, userData);
+      }
+      
       return true;
     } catch (e) {
       console.error('Failed to fetch user', e);
       
-      // Only clear auth on explicit 401 AND if it's not a network error
+      // Only clear auth on explicit 401 AND if token is actually expired
       if (e.response?.status === 401) {
-        // Check if token is actually invalid vs just a temporary issue
-        const token = localStorage.getItem('token');
+        const token = getStoredToken();
         if (token) {
-          // Try to decode token to check expiry (basic check)
           try {
+            // Try to decode token to check expiry
             const payload = JSON.parse(atob(token.split('.')[1]));
             const isExpired = payload.exp && (payload.exp * 1000) < Date.now();
             
             if (isExpired) {
-              // Token is actually expired, clear it
               console.log('Token expired, clearing auth');
               setAuthToken(null);
-              localStorage.removeItem('user');
               setUser(null);
               return false;
             }
           } catch (decodeError) {
-            // Can't decode token, but don't clear - might be valid
+            // Can't decode token, keep cached user
             console.log('Could not decode token, keeping cached user');
           }
         }
       }
       
       // For network errors or other issues, keep using cached user
-      const cachedUser = localStorage.getItem('user');
-      if (cachedUser) {
-        try {
-          const parsed = JSON.parse(cachedUser);
-          setUser(parsed);
-          console.log('Using cached user data due to network error');
-          return true;
-        } catch {
-          // Invalid cached data
-        }
+      const storedUser = getStoredUser();
+      if (storedUser) {
+        setUser(storedUser);
+        console.log('Using cached user data');
+        return true;
       }
       
       return false;
