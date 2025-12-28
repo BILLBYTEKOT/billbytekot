@@ -58,13 +58,74 @@ export const API = `${BACKEND_URL}/api`;
 // Robust storage helper that uses multiple storage mechanisms
 const AUTH_STORAGE_KEY = 'billbytekot_auth';
 
+// IndexedDB helper for most reliable mobile storage
+const openAuthDB = () => {
+  return new Promise((resolve, reject) => {
+    try {
+      const request = indexedDB.open('BillByteKOT_Auth', 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('auth')) {
+          db.createObjectStore('auth', { keyPath: 'id' });
+        }
+      };
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
+
+const saveToIndexedDB = async (token, userData) => {
+  try {
+    const db = await openAuthDB();
+    const tx = db.transaction('auth', 'readwrite');
+    const store = tx.objectStore('auth');
+    store.put({ id: 'session', token, user: userData, timestamp: Date.now() });
+    console.log('Saved to IndexedDB');
+  } catch (e) {
+    console.log('IndexedDB save failed:', e);
+  }
+};
+
+const getFromIndexedDB = async () => {
+  try {
+    const db = await openAuthDB();
+    const tx = db.transaction('auth', 'readonly');
+    const store = tx.objectStore('auth');
+    return new Promise((resolve) => {
+      const request = store.get('session');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    });
+  } catch (e) {
+    return null;
+  }
+};
+
+const clearIndexedDB = async () => {
+  try {
+    const db = await openAuthDB();
+    const tx = db.transaction('auth', 'readwrite');
+    const store = tx.objectStore('auth');
+    store.delete('session');
+  } catch (e) {
+    // Ignore
+  }
+};
+
 // Set a cookie with long expiry
 const setCookie = (name, value, days = 30) => {
   try {
     const expires = new Date(Date.now() + days * 864e5).toUTCString();
-    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+    // Use SameSite=Strict for better security, Secure only on HTTPS
+    const isSecure = window.location.protocol === 'https:';
+    const secureFlag = isSecure ? '; Secure' : '';
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/${secureFlag}; SameSite=Strict`;
+    console.log('Cookie set:', name);
   } catch (e) {
-    console.log('Cookie storage not available');
+    console.log('Cookie storage not available:', e);
   }
 };
 
@@ -96,6 +157,7 @@ const storeAuthData = (token, userData) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem(AUTH_STORAGE_KEY, authData);
+    console.log('Saved to localStorage');
   } catch (e) {
     console.log('localStorage not available');
   }
@@ -104,6 +166,7 @@ const storeAuthData = (token, userData) => {
   try {
     sessionStorage.setItem('token_backup', token);
     sessionStorage.setItem('user_backup', JSON.stringify(userData));
+    console.log('Saved to sessionStorage');
   } catch (e) {
     console.log('sessionStorage not available');
   }
@@ -111,9 +174,12 @@ const storeAuthData = (token, userData) => {
   // Backup 2: Cookie (for mobile apps that clear localStorage)
   setCookie('auth_token', token, 30);
   setCookie('auth_user', JSON.stringify(userData), 30);
+  
+  // Backup 3: IndexedDB (most reliable for mobile PWAs)
+  saveToIndexedDB(token, userData);
 };
 
-// Retrieve auth data from any available source
+// Retrieve auth data from any available source (sync version)
 const getAuthData = () => {
   let token = null;
   let userData = null;
@@ -123,6 +189,7 @@ const getAuthData = () => {
     token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     if (userStr) userData = JSON.parse(userStr);
+    if (token) console.log('Auth found in localStorage');
   } catch (e) {
     console.log('localStorage read failed');
   }
@@ -136,6 +203,7 @@ const getAuthData = () => {
       
       // Restore to localStorage if found
       if (token) {
+        console.log('Auth found in sessionStorage, restoring to localStorage');
         localStorage.setItem('token', token);
         if (userData) localStorage.setItem('user', JSON.stringify(userData));
       }
@@ -158,6 +226,7 @@ const getAuthData = () => {
     
     // Restore to localStorage if found in cookie
     if (token) {
+      console.log('Auth found in cookie, restoring to localStorage');
       try {
         localStorage.setItem('token', token);
         if (userData) localStorage.setItem('user', JSON.stringify(userData));
@@ -170,8 +239,36 @@ const getAuthData = () => {
   return { token, user: userData };
 };
 
+// Async version that also checks IndexedDB
+const getAuthDataAsync = async () => {
+  // First try sync sources
+  let { token, user: userData } = getAuthData();
+  
+  // If not found, try IndexedDB
+  if (!token) {
+    const idbData = await getFromIndexedDB();
+    if (idbData && idbData.token) {
+      console.log('Auth found in IndexedDB, restoring');
+      token = idbData.token;
+      userData = idbData.user;
+      
+      // Restore to other storage mechanisms
+      try {
+        localStorage.setItem('token', token);
+        if (userData) localStorage.setItem('user', JSON.stringify(userData));
+      } catch (e) {}
+      
+      setCookie('auth_token', token, 30);
+      if (userData) setCookie('auth_user', JSON.stringify(userData), 30);
+    }
+  }
+  
+  return { token, user: userData };
+};
+
 // Clear all auth data
 const clearAuthData = () => {
+  console.log('Clearing all auth data');
   try {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -185,6 +282,9 @@ const clearAuthData = () => {
   
   deleteCookie('auth_token');
   deleteCookie('auth_user');
+  
+  // Also clear IndexedDB
+  clearIndexedDB();
 };
 
 // Helper to get token from any available storage
@@ -285,11 +385,17 @@ export const setAuthToken = (token, userData = null) => {
   }
 };
 
-const PrivateRoute = ({ children, requireSetup = true }) => {
+const PrivateRoute = ({ children, requireSetup = true, isAuthChecking }) => {
+  // Show loading while auth is being checked
+  if (isAuthChecking) {
+    return <AuthLoading />;
+  }
+  
   const { token, user } = getAuthData();
   
   // If no token at all, redirect to login
   if (!token) {
+    console.log('PrivateRoute: No token, redirecting to login');
     return <Navigate to="/login" replace />;
   }
   
@@ -298,10 +404,14 @@ const PrivateRoute = ({ children, requireSetup = true }) => {
     return <Navigate to="/setup" replace />;
   }
   
+  console.log('PrivateRoute: Access granted for', user?.username);
   return children;
 };
 
-const SetupRoute = ({ children }) => {
+const SetupRoute = ({ children, isAuthChecking }) => {
+  if (isAuthChecking) {
+    return <AuthLoading />;
+  }
   const token = getStoredToken();
   return token ? children : <Navigate to="/login" replace />;
 };
@@ -316,30 +426,38 @@ const AuthLoading = () => (
   </div>
 );
 
+// Create a context to share auth checking state
+const AuthContext = { isChecking: true };
+
 function App() {
   const [user, setUser] = useState(() => {
     // Initialize user from any available storage immediately
     const storedUser = getStoredUser();
+    console.log('Initial user from storage:', storedUser ? storedUser.username : 'none');
     return storedUser;
   });
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   useEffect(() => {
     const initAuth = async () => {
-      const { token, user: storedUser } = getAuthData();
+      // Use async version to also check IndexedDB
+      const { token, user: storedUser } = await getAuthDataAsync();
+      console.log('Auth init - token exists:', !!token, 'user exists:', !!storedUser);
       
       if (token) {
         // Set the token in axios headers
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
         // If we have cached user data, use it immediately
-        if (storedUser && !user) {
+        if (storedUser) {
           setUser(storedUser);
+          console.log('Restored user from storage:', storedUser.username);
         }
         
         // Try to fetch fresh user data in background (don't block on this)
         fetchUser().catch(err => {
           console.log('Background user fetch failed, using cached data:', err.message);
+          // Keep using cached user - don't clear it
         });
       }
       
@@ -447,7 +565,7 @@ function App() {
           <Route
             path="/setup"
             element={
-              <SetupRoute>
+              <SetupRoute isAuthChecking={isAuthChecking}>
                 <BusinessSetupPage user={user} />
               </SetupRoute>
             }
@@ -455,7 +573,7 @@ function App() {
           <Route
             path="/dashboard"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <Dashboard user={user} />
               </PrivateRoute>
             }
@@ -463,7 +581,7 @@ function App() {
           <Route
             path="/menu"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <MenuPage user={user} />
               </PrivateRoute>
             }
@@ -471,7 +589,7 @@ function App() {
           <Route
             path="/orders"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <OrdersPage user={user} />
               </PrivateRoute>
             }
@@ -479,7 +597,7 @@ function App() {
           <Route
             path="/orders/display"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <OrderDisplayPage user={user} />
               </PrivateRoute>
             }
@@ -487,7 +605,7 @@ function App() {
           <Route
             path="/billing/:orderId"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <BillingPage user={user} />
               </PrivateRoute>
             }
@@ -495,7 +613,7 @@ function App() {
           <Route
             path="/tables"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <TablesPage user={user} />
               </PrivateRoute>
             }
@@ -503,7 +621,7 @@ function App() {
           <Route
             path="/kitchen"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <KitchenPage user={user} />
               </PrivateRoute>
             }
@@ -511,7 +629,7 @@ function App() {
           <Route
             path="/inventory"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <InventoryPage user={user} />
               </PrivateRoute>
             }
@@ -519,7 +637,7 @@ function App() {
           <Route
             path="/reports"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <ReportsPage user={user} />
               </PrivateRoute>
             }
@@ -527,7 +645,7 @@ function App() {
           <Route
             path="/settings"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <SettingsPage user={user} />
               </PrivateRoute>
             }
@@ -535,7 +653,7 @@ function App() {
           <Route
             path="/subscription"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <SubscriptionPage user={user} />
               </PrivateRoute>
             }
@@ -543,7 +661,7 @@ function App() {
           <Route
             path="/staff"
             element={
-              <PrivateRoute>
+              <PrivateRoute isAuthChecking={isAuthChecking}>
                 <StaffManagementPage user={user} />
               </PrivateRoute>
             }
@@ -561,7 +679,7 @@ function App() {
           <Route path="/blog/:slug" element={<BlogPostPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
-          <Route path="/help" element={<PrivateRoute><HelpPage user={user} /></PrivateRoute>} />
+          <Route path="/help" element={<PrivateRoute isAuthChecking={isAuthChecking}><HelpPage user={user} /></PrivateRoute>} />
           <Route path="/super-admin-panel-secret" element={<SuperAdminPage />} />
           {/* 404 Not Found Route - Must be last */}
           <Route path="*" element={<NotFound />} />
