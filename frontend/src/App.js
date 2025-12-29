@@ -416,6 +416,45 @@ const SetupRoute = ({ children, isAuthChecking }) => {
   return token ? children : <Navigate to="/login" replace />;
 };
 
+// Route for home page - redirects to dashboard if logged in
+const HomeRoute = ({ isAuthChecking }) => {
+  // Wait for auth check to complete (includes IndexedDB)
+  if (isAuthChecking) {
+    console.log('HomeRoute: Still checking auth...');
+    return <AuthLoading />;
+  }
+  
+  // Check all storage sources
+  const { token, user } = getAuthData();
+  console.log('HomeRoute: Auth check complete - token:', !!token, 'user:', user?.username);
+  
+  if (token) {
+    console.log('HomeRoute: User logged in, redirecting to dashboard');
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  console.log('HomeRoute: No token, showing landing page');
+  return <LandingPage />;
+};
+
+// Route for login page - redirects to dashboard if already logged in
+const LoginRoute = ({ setUser, isAuthChecking }) => {
+  // Wait for auth check to complete (includes IndexedDB)
+  if (isAuthChecking) {
+    return <AuthLoading />;
+  }
+  
+  // Check all storage sources
+  const { token } = getAuthData();
+  
+  if (token) {
+    console.log('LoginRoute: User already logged in, redirecting to dashboard');
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return <LoginPage setUser={setUser} />;
+};
+
 // Loading component for auth check
 const AuthLoading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -557,8 +596,8 @@ function App() {
       <BrowserRouter>
         <ElectronNavigator />
         <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage setUser={setUser} />} />
+          <Route path="/" element={<HomeRoute isAuthChecking={isAuthChecking} />} />
+          <Route path="/login" element={<LoginRoute setUser={setUser} isAuthChecking={isAuthChecking} />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage setUser={setUser} />} />
