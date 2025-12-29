@@ -882,11 +882,9 @@ async def send_password_reset_otp_email(email: str, otp: str, username: str = "U
     
     # Try to use email_service if configured
     try:
-        from email_service import send_via_smtp, send_via_sendgrid, send_via_mailgun, send_via_ses, send_via_resend
+        from email_service import send_via_smtp, send_via_sendgrid, send_via_mailgun, send_via_ses
         
-        if EMAIL_PROVIDER == "resend":
-            return await send_via_resend(email, subject, html_body, text_body)
-        elif EMAIL_PROVIDER == "smtp":
+        if EMAIL_PROVIDER == "smtp":
             return await send_via_smtp(email, subject, html_body, text_body)
         elif EMAIL_PROVIDER == "sendgrid":
             return await send_via_sendgrid(email, subject, html_body, text_body)
@@ -894,9 +892,6 @@ async def send_password_reset_otp_email(email: str, otp: str, username: str = "U
             return await send_via_mailgun(email, subject, html_body, text_body)
         elif EMAIL_PROVIDER == "ses":
             return await send_via_ses(email, subject, html_body, text_body)
-        else:
-            # Fallback to Resend
-            return await send_via_resend(email, subject, html_body, text_body)
     except Exception as e:
         print(f"Email service error: {e}")
         # Fallback to console
@@ -1794,20 +1789,13 @@ async def forgot_password(request: ForgotPasswordRequest):
         "verified": False
     }
     
-    # Send OTP email and wait for result
-    try:
-        email_result = await send_password_reset_otp_email(request.email, otp, user.get("username", "User"))
-        print(f"Email result for {request.email}: {email_result}")
-    except Exception as e:
-        print(f"Email sending error: {e}")
-        email_result = {"success": False, "message": str(e)}
+    # Send OTP email asynchronously (non-blocking)
+    asyncio.create_task(send_password_reset_otp_email(request.email, otp, user.get("username", "User")))
     
-    # Always return success to not reveal if email exists, but include OTP in debug mode
     return {
-        "message": "If an account exists with this email, you will receive an OTP shortly.",
+        "message": "OTP sent to your email. Please check your inbox.",
         "success": True,
-        "otp": otp,  # Always return OTP for now until email is fixed
-        "email_sent": email_result.get("success", False) if email_result else False
+        "otp": otp if os.getenv("DEBUG_MODE", "false").lower() == "true" else None  # Only in debug mode
     }
 
 
