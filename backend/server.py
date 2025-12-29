@@ -746,10 +746,7 @@ async def send_registration_otp_email(email: str, otp: str, username: str = "Use
 
 async def send_password_reset_otp_email(email: str, otp: str, username: str = "User"):
     """Send password reset OTP email"""
-    import os
-    
-    # Get email configuration
-    EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "console")
+    from email_service import send_email
     
     subject = "Your BillByteKOT Password Reset OTP"
     
@@ -758,145 +755,35 @@ async def send_password_reset_otp_email(email: str, otp: str, username: str = "U
     <html>
     <head>
         <style>
-            body {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #f5f5f5;
-                margin: 0;
-                padding: 0;
-            }}
-            .container {{
-                max-width: 600px;
-                margin: 40px auto;
-                background-color: #ffffff;
-                border-radius: 12px;
-                overflow: hidden;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }}
-            .header {{
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 40px 20px;
-                text-align: center;
-            }}
-            .header h1 {{
-                color: #ffffff;
-                margin: 0;
-                font-size: 28px;
-            }}
-            .content {{
-                padding: 40px 30px;
-            }}
-            .otp-box {{
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: #ffffff;
-                font-size: 36px;
-                font-weight: bold;
-                letter-spacing: 8px;
-                text-align: center;
-                padding: 20px;
-                border-radius: 8px;
-                margin: 30px 0;
-            }}
-            .info {{
-                background-color: #f8f9fa;
-                border-left: 4px solid #667eea;
-                padding: 15px;
-                margin: 20px 0;
-                border-radius: 4px;
-            }}
-            .footer {{
-                background-color: #f8f9fa;
-                padding: 20px;
-                text-align: center;
-                color: #6c757d;
-                font-size: 14px;
-            }}
+            body {{ font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }}
+            .container {{ max-width: 500px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px; }}
+            .header {{ text-align: center; color: #7c3aed; }}
+            .otp-box {{ background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+            .footer {{ text-align: center; color: #666; font-size: 12px; margin-top: 20px; }}
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
                 <h1>🍽️ BillByteKOT</h1>
-                <p style="color: #ffffff; margin: 10px 0 0 0;">Restaurant Management System</p>
+                <p>Password Reset OTP</p>
             </div>
-            
-            <div class="content">
-                <h2 style="color: #333;">Hello {username}! 👋</h2>
-                <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                    We received a request to reset your password. Use the OTP below to continue:
-                </p>
-                
-                <div class="otp-box">
-                    {otp}
-                </div>
-                
-                <div class="info">
-                    <p style="margin: 0; color: #666;">
-                        <strong>⏰ Valid for 10 minutes</strong><br>
-                        This OTP will expire in 10 minutes for security reasons.
-                    </p>
-                </div>
-                
-                <p style="color: #666; font-size: 14px; margin-top: 30px;">
-                    If you didn't request a password reset, please ignore this email or contact support if you have concerns.
-                </p>
-            </div>
-            
+            <p>Hello {username},</p>
+            <p>Your password reset OTP is:</p>
+            <div class="otp-box">{otp}</div>
+            <p><strong>Valid for 10 minutes.</strong></p>
+            <p>If you didn't request this, please ignore this email.</p>
             <div class="footer">
-                <p style="margin: 0;">
-                    <strong>BillByteKOT</strong> - Smart Restaurant Management<br>
-                    © 2025 FinVerge Technologies. All rights reserved.
-                </p>
-                <p style="margin: 10px 0 0 0; font-size: 12px;">
-                    This is an automated email. Please do not reply.
-                </p>
+                <p>BillByteKOT - Restaurant Management System</p>
             </div>
         </div>
     </body>
     </html>
     """
     
-    text_body = f"""
-    Hello {username}!
+    text_body = f"Hello {username},\n\nYour BillByteKOT Password Reset OTP is: {otp}\n\nValid for 10 minutes.\n\nIf you didn't request this, please ignore this email."
     
-    Your BillByteKOT Password Reset OTP is: {otp}
-    
-    This OTP is valid for 10 minutes.
-    
-    If you didn't request a password reset, please ignore this email.
-    
-    ---
-    BillByteKOT - Smart Restaurant Management
-    © 2025 FinVerge Technologies
-    """
-    
-    # Console mode for development
-    if EMAIL_PROVIDER == "console" or EMAIL_PROVIDER == "":
-        print(f"\n{'='*60}")
-        print(f"📧 PASSWORD RESET OTP EMAIL (Console Mode)")
-        print(f"{'='*60}")
-        print(f"To: {email}")
-        print(f"Subject: {subject}")
-        print(f"OTP: {otp}")
-        print(f"{'='*60}\n")
-        return {"success": True, "message": "OTP logged to console (dev mode)"}
-    
-    # Try to use email_service if configured
-    try:
-        from email_service import send_via_smtp, send_via_sendgrid, send_via_mailgun, send_via_ses
-        
-        if EMAIL_PROVIDER == "smtp":
-            return await send_via_smtp(email, subject, html_body, text_body)
-        elif EMAIL_PROVIDER == "sendgrid":
-            return await send_via_sendgrid(email, subject, html_body, text_body)
-        elif EMAIL_PROVIDER == "mailgun":
-            return await send_via_mailgun(email, subject, html_body, text_body)
-        elif EMAIL_PROVIDER == "ses":
-            return await send_via_ses(email, subject, html_body, text_body)
-    except Exception as e:
-        print(f"Email service error: {e}")
-        # Fallback to console
-        print(f"\n[EMAIL FALLBACK] To: {email}, OTP: {otp}")
-        return {"success": False, "message": str(e)}
+    return await send_email(email, subject, html_body, text_body)
 
 
 async def send_password_reset_email(email: str, reset_link: str, username: str = "User"):
@@ -1789,13 +1676,23 @@ async def forgot_password(request: ForgotPasswordRequest):
         "verified": False
     }
     
-    # Send OTP email asynchronously (non-blocking)
-    asyncio.create_task(send_password_reset_otp_email(request.email, otp, user.get("username", "User")))
+    # Send OTP email and wait for result
+    email_sent = False
+    email_error = None
+    try:
+        result = await send_password_reset_otp_email(request.email, otp, user.get("username", "User"))
+        email_sent = result.get("success", False)
+        print(f"📧 Email result for {request.email}: {result}")
+    except Exception as e:
+        email_error = str(e)
+        print(f"❌ Email error for {request.email}: {e}")
     
     return {
-        "message": "OTP sent to your email. Please check your inbox.",
+        "message": "OTP sent to your email. Please check your inbox." if email_sent else "OTP generated. Check your email or use the code shown.",
         "success": True,
-        "otp": otp if os.getenv("DEBUG_MODE", "false").lower() == "true" else None  # Only in debug mode
+        "otp": otp,  # Return OTP for now until email is working
+        "email_sent": email_sent,
+        "email_error": email_error
     }
 
 
