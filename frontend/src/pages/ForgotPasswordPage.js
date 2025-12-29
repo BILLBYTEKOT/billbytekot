@@ -29,27 +29,11 @@ const ForgotPasswordPage = () => {
       
       if (response.data.success) {
         setOtpSent(true);
-        
-        // Show OTP if returned (for testing)
-        if (response.data.otp) {
-          toast.success(`Your OTP: ${response.data.otp}`, { duration: 15000 });
-        } else {
-          toast.success('OTP sent to your email!');
-        }
-        
-        // Show email status
-        if (response.data.email_error) {
-          toast.warning(`Email issue: ${response.data.email_error}`, { duration: 10000 });
-        }
+        toast.success('OTP sent to your email!');
         
         setTimeout(() => {
-          navigate('/reset-password', { 
-            state: { 
-              email: email.trim(),
-              otp: response.data.otp
-            } 
-          });
-        }, 2000);
+          navigate('/reset-password', { state: { email: email.trim() } });
+        }, 1500);
       }
     } catch (error) {
       const message = error.response?.data?.detail || 'Failed to send OTP. Please try again.';

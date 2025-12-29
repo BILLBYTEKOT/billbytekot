@@ -28,14 +28,6 @@ const ResetPasswordPage = () => {
     }
   }, [step]);
 
-  // Auto-fill OTP if passed from forgot password page
-  useEffect(() => {
-    if (location.state?.otp) {
-      const otpDigits = location.state.otp.split('');
-      setOtp(otpDigits);
-    }
-  }, [location.state?.otp]);
-
   const handleOtpChange = (index, value) => {
     if (value.length > 1) {
       const digits = value.replace(/\D/g, '').slice(0, 6).split('');
