@@ -38,7 +38,7 @@ async def send_via_resend(email: str, subject: str, html_body: str, text_body: s
         url = "https://api.resend.com/emails"
         
         payload = {
-            "from": "BillByteKOT <onboarding@resend.dev>",
+            "from": "BillByteKOT <noreply@billbytekot.in>",
             "to": [email],
             "subject": subject,
             "html": html_body,
@@ -115,20 +115,29 @@ async def send_via_smtp(email: str, subject: str, html_body: str, text_body: str
 
 
 async def send_email(email: str, subject: str, html_body: str, text_body: str) -> dict:
-    """Send email using configured provider"""
+    """Send email using configured provider with fallback"""
     config = get_config()
     provider = config["provider"].lower()
     
     print(f"📧 Email provider: {provider}")
     
+    # Try primary provider first
     try:
         if provider == "resend":
             return await send_via_resend(email, subject, html_body, text_body)
         elif provider == "smtp":
             return await send_via_smtp(email, subject, html_body, text_body)
         else:
-            # Default to Resend
             return await send_via_resend(email, subject, html_body, text_body)
     except Exception as e:
-        print(f"❌ Email failed: {e}")
+        print(f"❌ Primary email failed ({provider}): {e}")
+        
+        # Fallback to SMTP if Resend fails
+        if provider == "resend" and config["smtp_user"] and config["smtp_password"]:
+            print("📧 Trying SMTP fallback...")
+            try:
+                return await send_via_smtp(email, subject, html_body, text_body)
+            except Exception as smtp_error:
+                print(f"❌ SMTP fallback also failed: {smtp_error}")
+        
         return {"success": False, "message": str(e)}
