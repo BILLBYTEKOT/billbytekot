@@ -4382,6 +4382,7 @@ async def get_whatsapp_settings(current_user: dict = Depends(get_current_user)):
         "whatsapp_notify_on_ready": business.get("whatsapp_notify_on_ready", True),
         "whatsapp_notify_on_completed": business.get("whatsapp_notify_on_completed", True),
         "customer_self_order_enabled": business.get("customer_self_order_enabled", False),
+        "menu_display_enabled": business.get("menu_display_enabled", False),
         "frontend_url": business.get("frontend_url", "")
     }
 
@@ -4396,6 +4397,7 @@ class WhatsAppSettings(BaseModel):
     whatsapp_notify_on_ready: bool = True
     whatsapp_notify_on_completed: bool = True
     customer_self_order_enabled: bool = False
+    menu_display_enabled: bool = False
     frontend_url: Optional[str] = None
 
 
@@ -4419,6 +4421,7 @@ async def update_whatsapp_settings(
     business["whatsapp_notify_on_ready"] = settings.whatsapp_notify_on_ready
     business["whatsapp_notify_on_completed"] = settings.whatsapp_notify_on_completed
     business["customer_self_order_enabled"] = settings.customer_self_order_enabled
+    business["menu_display_enabled"] = settings.menu_display_enabled
     
     if settings.whatsapp_business_number:
         business["whatsapp_business_number"] = settings.whatsapp_business_number
