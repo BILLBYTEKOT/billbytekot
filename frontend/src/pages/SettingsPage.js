@@ -1313,15 +1313,15 @@ const SettingsPage = ({ user }) => {
           <CardHeader>
             <CardTitle>Account Information</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="min-w-0">
                 <p className="text-sm text-gray-500">Admin Email</p>
-                <p className="font-medium">{user?.email}</p>
+                <p className="font-medium truncate" title={user?.email}>{user?.email}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm text-gray-500">Username</p>
-                <p className="font-medium">{user?.username}</p>
+                <p className="font-medium truncate" title={user?.username}>{user?.username}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Role</p>

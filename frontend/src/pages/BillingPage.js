@@ -371,23 +371,23 @@ const BillingPage = ({ user }) => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
+              <div className="min-w-0">
                 <p className="text-gray-500">Table Number</p>
                 <p className="font-medium">{order.table_number}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-gray-500">Waiter</p>
-                <p className="font-medium">{order.waiter_name}</p>
+                <p className="font-medium truncate" title={order.waiter_name}>{order.waiter_name}</p>
               </div>
               {order.customer_name && (
-                <div>
+                <div className="min-w-0">
                   <p className="text-gray-500">Customer</p>
-                  <p className="font-medium">{order.customer_name}</p>
+                  <p className="font-medium truncate" title={order.customer_name}>{order.customer_name}</p>
                 </div>
               )}
-              <div>
+              <div className="min-w-0">
                 <p className="text-gray-500">Date & Time</p>
-                <p className="font-medium">{new Date(order.created_at).toLocaleString()}</p>
+                <p className="font-medium text-xs sm:text-sm">{new Date(order.created_at).toLocaleString()}</p>
               </div>
             </div>
 
