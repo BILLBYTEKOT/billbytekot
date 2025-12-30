@@ -726,22 +726,18 @@ async def send_registration_otp_email(email: str, otp: str, username: str = "Use
         print(f"{'='*60}\n")
         return {"success": True, "message": "OTP logged to console (dev mode)"}
     
-    # Try to use email_service if configured
+    # Use email_service for all providers (including resend)
     try:
-        from email_service import send_via_smtp, send_via_sendgrid, send_via_mailgun, send_via_ses
+        from email_service import send_email
         
-        if EMAIL_PROVIDER == "smtp":
-            return await send_via_smtp(email, subject, html_body, text_body)
-        elif EMAIL_PROVIDER == "sendgrid":
-            return await send_via_sendgrid(email, subject, html_body, text_body)
-        elif EMAIL_PROVIDER == "mailgun":
-            return await send_via_mailgun(email, subject, html_body, text_body)
-        elif EMAIL_PROVIDER == "ses":
-            return await send_via_ses(email, subject, html_body, text_body)
+        # Log OTP for debugging
+        print(f"🔐 REGISTRATION OTP for {email}: {otp}")
+        
+        result = await send_email(email, subject, html_body, text_body)
+        return result
     except Exception as e:
         print(f"Email service error: {e}")
-        # Fallback to console
-        print(f"\n[EMAIL FALLBACK] To: {email}, OTP: {otp}")
+        print(f"🔐 REGISTRATION OTP for {email}: {otp}")
         return {"success": False, "message": str(e)}
 
 
