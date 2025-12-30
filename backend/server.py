@@ -235,6 +235,7 @@ CURRENCY_SYMBOLS = {
     "CNY": "¥",
     "AUD": "A$",
     "CAD": "C$",
+    "PKR": "₨",
 }
 
 
