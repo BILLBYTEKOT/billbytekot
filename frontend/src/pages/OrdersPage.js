@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Eye, Printer, CreditCard, MessageCircle, X, Receipt, Minus, Search, Edit, Trash2, Ban, MoreVertical, AlertTriangle, ArrowLeft, ShoppingCart } from 'lucide-react';
+import { Plus, Eye, Printer, CreditCard, MessageCircle, X, Receipt, Minus, Search, Edit, Trash2, Ban, MoreVertical, AlertTriangle, ArrowLeft, ShoppingCart, Clock, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TrialBanner from '../components/TrialBanner';
 import { printKOT as printKOTUtil, printReceipt as printReceiptUtil } from '../utils/printUtils';
@@ -36,54 +36,75 @@ const OrdersPage = ({ user }) => {
   const [deleteConfirmModal, setDeleteConfirmModal] = useState({ open: false, order: null });
   const [cancelConfirmModal, setCancelConfirmModal] = useState({ open: false, order: null });
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
-  // New state for 2-step order flow
-  const [orderStep, setOrderStep] = useState(1); // 1 = customer details, 2 = menu selection
+  // State for 2-step order flow
   const [showMenuPage, setShowMenuPage] = useState(false);
+  // Tab state for Active Orders vs Today's Bills
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'history'
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   // Get unique categories from menu items
   const categories = ['all', ...new Set(menuItems.map(item => item.category).filter(Boolean))];
 
   useEffect(() => {
-    fetchOrders();
-    fetchTables();
-    fetchMenuItems();
-    fetchBusinessSettings();
+    loadInitialData();
   }, []);
+
+  const loadInitialData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchOrders(),
+        fetchTables(),
+        fetchMenuItems(),
+        fetchBusinessSettings()
+      ]);
+    } catch (error) {
+      console.error('Failed to load initial data', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchBusinessSettings = async () => {
     try {
       const response = await axios.get(`${API}/business/settings`);
-      setBusinessSettings(response.data.business_settings);
+      setBusinessSettings(response.data.business_settings || {});
     } catch (error) {
       console.error('Failed to fetch business settings', error);
+      setBusinessSettings({});
     }
   };
 
   const fetchOrders = async () => {
     try {
       const response = await axios.get(`${API}/orders`);
-      setOrders(response.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+      const ordersData = Array.isArray(response.data) ? response.data : [];
+      setOrders(ordersData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
     } catch (error) {
-      toast.error('Failed to fetch orders');
+      console.error('Failed to fetch orders', error);
+      setOrders([]);
     }
   };
 
   const fetchTables = async () => {
     try {
       const response = await axios.get(`${API}/tables`);
-      setTables(response.data);
+      setTables(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      toast.error('Failed to fetch tables');
+      console.error('Failed to fetch tables', error);
+      setTables([]);
     }
   };
 
   const fetchMenuItems = async () => {
     try {
       const response = await axios.get(`${API}/menu`);
-      setMenuItems(response.data.filter(item => item.available));
+      const items = Array.isArray(response.data) ? response.data : [];
+      setMenuItems(items.filter(item => item.available));
     } catch (error) {
-      toast.error('Failed to fetch menu');
+      console.error('Failed to fetch menu', error);
+      setMenuItems([]);
     }
   };
 
@@ -115,81 +136,46 @@ const OrdersPage = ({ user }) => {
     setSelectedItems(updated);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (selectedItems.length === 0) {
-      toast.error('Please add at least one item');
-      return;
-    }
-    
-    // Check if table is required (KOT mode enabled)
-    if (businessSettings?.kot_mode_enabled !== false && !formData.table_id) {
-      toast.error('Please select a table');
-      return;
-    }
-    
-    try {
-      const selectedTable = formData.table_id ? tables.find(t => t.id === formData.table_id) : null;
-      const response = await axios.post(`${API}/orders`, {
-        table_id: formData.table_id || null,
-        table_number: selectedTable?.table_number || 0,
-        items: selectedItems,
-        customer_name: formData.customer_name,
-        customer_phone: formData.customer_phone,
-        frontend_origin: window.location.origin  // Auto-pass current URL for tracking links
-      });
-      toast.success('Order created!');
-      
-      // If WhatsApp link is returned, offer to send notification
-      if (response.data.whatsapp_link) {
-        const sendNow = window.confirm('Send order confirmation to customer via WhatsApp?');
-        if (sendNow) {
-          window.open(response.data.whatsapp_link, '_blank');
-        }
-      }
-      
-      setDialogOpen(false);
-      setShowMenuPage(false);
-      fetchOrders();
-      fetchTables();
-      resetForm();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create order');
-    }
-  };
-
-  // New function for submitting from full-screen menu page
+  // Submit order from full-screen menu page
   const handleSubmitOrder = async () => {
     if (selectedItems.length === 0) {
       toast.error('Please add at least one item');
       return;
     }
-    
+
+    setLoading(true);
     try {
       const selectedTable = formData.table_id ? tables.find(t => t.id === formData.table_id) : null;
       const response = await axios.post(`${API}/orders`, {
         table_id: formData.table_id || null,
         table_number: selectedTable?.table_number || 0,
         items: selectedItems,
-        customer_name: formData.customer_name,
-        customer_phone: formData.customer_phone,
+        customer_name: formData.customer_name || '',
+        customer_phone: formData.customer_phone || '',
         frontend_origin: window.location.origin
       });
-      toast.success('Order created!');
       
-      if (response.data.whatsapp_link) {
-        const sendNow = window.confirm('Send order confirmation to customer via WhatsApp?');
-        if (sendNow) {
-          window.open(response.data.whatsapp_link, '_blank');
-        }
-      }
-      
+      toast.success('Order created successfully!');
       setShowMenuPage(false);
-      fetchOrders();
-      fetchTables();
       resetForm();
+      
+      // Refresh data
+      await Promise.all([fetchOrders(), fetchTables()]);
+      
+      // Offer WhatsApp notification
+      if (response.data?.whatsapp_link && formData.customer_phone) {
+        setTimeout(() => {
+          if (window.confirm('Send order confirmation via WhatsApp?')) {
+            window.open(response.data.whatsapp_link, '_blank');
+          }
+        }, 300);
+      }
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create order');
+      console.error('Order creation failed:', error);
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to create order';
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -198,50 +184,36 @@ const OrdersPage = ({ user }) => {
     setSelectedItems([]);
     setMenuSearch('');
     setActiveCategory('all');
-    setOrderStep(1);
   };
 
   const handleStatusChange = async (orderId, status) => {
     try {
-      // Pass frontend_origin for tracking link generation
       const response = await axios.put(`${API}/orders/${orderId}/status?status=${status}&frontend_origin=${encodeURIComponent(window.location.origin)}`);
-      toast.success('Order status updated!');
+      toast.success('Status updated!');
       
-      // If WhatsApp link is returned, offer to send notification
-      if (response.data.whatsapp_link && response.data.customer_phone) {
-        const sendNow = window.confirm(`Send "${status}" update to customer via WhatsApp?`);
-        if (sendNow) {
-          window.open(response.data.whatsapp_link, '_blank');
-        }
+      if (response.data?.whatsapp_link && response.data?.customer_phone) {
+        setTimeout(() => {
+          if (window.confirm(`Send "${status}" update via WhatsApp?`)) {
+            window.open(response.data.whatsapp_link, '_blank');
+          }
+        }, 300);
       }
       
-      fetchOrders();
-      fetchTables();
+      await Promise.all([fetchOrders(), fetchTables()]);
     } catch (error) {
-      toast.error('Failed to update status');
+      console.error('Status update failed:', error);
+      toast.error(error.response?.data?.detail || 'Failed to update status');
     }
   };
 
-  const handlePrintKOT = async (order) => {
+  const handlePrintKOT = (order) => {
     try {
-      // Use centralized print utility with global settings
       printKOTUtil(order, businessSettings);
-      toast.success('KOT ready to print');
+      toast.success('KOT sent to printer');
     } catch (error) {
-      console.error('Failed to print KOT:', error);
+      console.error('Print KOT failed:', error);
       toast.error('Failed to print KOT');
     }
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      preparing: 'bg-blue-100 text-blue-700',
-      ready: 'bg-green-100 text-green-700',
-      completed: 'bg-gray-100 text-gray-700',
-      cancelled: 'bg-red-100 text-red-700'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-700';
   };
 
   const handleWhatsappShare = async () => {
@@ -253,42 +225,42 @@ const OrdersPage = ({ user }) => {
     try {
       const response = await axios.post(`${API}/whatsapp/send-receipt/${whatsappModal.orderId}`, {
         phone_number: whatsappPhone,
-        customer_name: whatsappModal.customerName
+        customer_name: whatsappModal.customerName || ''
       });
       
-      window.open(response.data.whatsapp_link, '_blank');
-      toast.success('Opening WhatsApp...');
+      if (response.data?.whatsapp_link) {
+        window.open(response.data.whatsapp_link, '_blank');
+        toast.success('Opening WhatsApp...');
+      }
       setWhatsappModal({ open: false, orderId: null, customerName: '' });
       setWhatsappPhone('');
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to generate WhatsApp link');
+      console.error('WhatsApp share failed:', error);
+      toast.error(error.response?.data?.detail || 'Failed to share');
     }
   };
 
-  // View order details
   const handleViewOrder = (order) => {
     setViewOrderModal({ open: true, order });
+    setActionMenuOpen(null);
   };
 
-  // Print receipt for completed order
-  const handlePrintReceipt = async (order) => {
+  const handlePrintReceipt = (order) => {
     setPrintLoading(true);
     try {
-      // Use centralized print utility with global settings
       printReceiptUtil(order, businessSettings);
-      toast.success('Receipt ready for printing!');
+      toast.success('Receipt sent to printer');
     } catch (error) {
-      console.error('Failed to print receipt:', error);
+      console.error('Print receipt failed:', error);
       toast.error('Failed to print receipt');
     } finally {
       setPrintLoading(false);
     }
+    setActionMenuOpen(null);
   };
 
-  // Edit order - open modal with order items
   const handleEditOrder = (order) => {
-    // Convert order items to editable format
-    const items = order.items.map(item => ({
+    const items = (order.items || []).map(item => ({
       menu_item_id: item.menu_item_id || item.id,
       name: item.name,
       price: item.price,
@@ -319,16 +291,16 @@ const OrdersPage = ({ user }) => {
         total
       });
 
-      toast.success('Order updated successfully!');
+      toast.success('Order updated!');
       setEditOrderModal({ open: false, order: null });
       setEditItems([]);
-      fetchOrders();
+      await fetchOrders();
     } catch (error) {
+      console.error('Update order failed:', error);
       toast.error(error.response?.data?.detail || 'Failed to update order');
     }
   };
 
-  // Add item to edit order
   const handleAddEditItem = (menuItem) => {
     const existingIndex = editItems.findIndex(item => item.menu_item_id === menuItem.id);
     if (existingIndex !== -1) {
@@ -346,12 +318,10 @@ const OrdersPage = ({ user }) => {
     }
   };
 
-  // Remove item from edit order
   const handleRemoveEditItem = (index) => {
     setEditItems(editItems.filter((_, i) => i !== index));
   };
 
-  // Change quantity in edit order
   const handleEditQuantityChange = (index, quantity) => {
     if (quantity < 1) return;
     const updated = [...editItems];
@@ -359,31 +329,34 @@ const OrdersPage = ({ user }) => {
     setEditItems(updated);
   };
 
-  // Cancel order
   const handleCancelOrder = async () => {
+    if (!cancelConfirmModal.order?.id) return;
     try {
       await axios.put(`${API}/orders/${cancelConfirmModal.order.id}/cancel`);
       toast.success('Order cancelled');
       setCancelConfirmModal({ open: false, order: null });
-      fetchOrders();
-      fetchTables();
+      await Promise.all([fetchOrders(), fetchTables()]);
     } catch (error) {
+      console.error('Cancel order failed:', error);
       toast.error(error.response?.data?.detail || 'Failed to cancel order');
     }
   };
 
-  // Delete order
   const handleDeleteOrder = async () => {
+    if (!deleteConfirmModal.order?.id) return;
     try {
       await axios.delete(`${API}/orders/${deleteConfirmModal.order.id}`);
       toast.success('Order deleted');
       setDeleteConfirmModal({ open: false, order: null });
-      fetchOrders();
-      fetchTables();
+      await Promise.all([fetchOrders(), fetchTables()]);
     } catch (error) {
+      console.error('Delete order failed:', error);
       toast.error(error.response?.data?.detail || 'Failed to delete order');
     }
   };
+
+  // Get available tables for selection
+  const availableTables = tables.filter(t => t.status === 'available');
 
   return (
     <Layout user={user}>
@@ -396,7 +369,7 @@ const OrdersPage = ({ user }) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => { setShowMenuPage(false); setOrderStep(1); }}
+                    onClick={() => { setShowMenuPage(false); resetForm(); }}
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                   >
                     <ArrowLeft className="w-5 h-5" />
@@ -569,9 +542,10 @@ const OrdersPage = ({ user }) => {
                     </div>
                     <Button 
                       onClick={handleSubmitOrder}
-                      className="bg-gradient-to-r from-violet-600 to-purple-600 h-14 px-8 text-lg font-semibold shadow-lg"
+                      disabled={loading || selectedItems.length === 0}
+                      className="bg-gradient-to-r from-violet-600 to-purple-600 h-14 px-8 text-lg font-semibold shadow-lg disabled:opacity-50"
                     >
-                      Create Order
+                      {loading ? 'Creating...' : 'Create Order'}
                     </Button>
                   </div>
                 </div>
@@ -593,7 +567,7 @@ const OrdersPage = ({ user }) => {
             <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Manage restaurant orders</p>
           </div>
           {['admin', 'waiter', 'cashier'].includes(user?.role) && (
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { resetForm(); setMenuSearch(''); setActiveCategory('all'); setOrderStep(1); } }}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button className="bg-gradient-to-r from-violet-600 to-purple-600 text-sm sm:text-base" data-testid="create-order-button">
                   <Plus className="w-4 h-4 mr-1 sm:mr-2" />
@@ -603,10 +577,10 @@ const OrdersPage = ({ user }) => {
               </DialogTrigger>
               <DialogContent className="max-w-md w-[95vw] p-0" data-testid="order-dialog">
                 <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-t-lg">
-                  <DialogTitle className="text-lg sm:text-xl">New Order - Customer Details</DialogTitle>
+                  <DialogTitle className="text-lg sm:text-xl">New Order</DialogTitle>
                 </DialogHeader>
                 
-                {/* Step 1: Customer Details */}
+                {/* Customer Details Form */}
                 <div className="p-4 sm:p-6 space-y-4">
                   {/* Table Selection */}
                   {businessSettings?.kot_mode_enabled !== false && (
@@ -619,10 +593,13 @@ const OrdersPage = ({ user }) => {
                         data-testid="order-table-select"
                       >
                         <option value="">Choose a table...</option>
-                        {tables.filter(t => t.status === 'available').map(table => (
+                        {availableTables.map(table => (
                           <option key={table.id} value={table.id}>Table {table.table_number} (Seats {table.capacity})</option>
                         ))}
                       </select>
+                      {availableTables.length === 0 && (
+                        <p className="text-xs text-orange-600 mt-1">No tables available. All tables are occupied.</p>
+                      )}
                     </div>
                   )}
                   
@@ -678,74 +655,106 @@ const OrdersPage = ({ user }) => {
           )}
         </div>
 
-        {/* Filter to show only live orders (not completed or cancelled) */}
-        <div className="grid gap-3 sm:gap-4">
-          {orders.filter(order => !['completed', 'cancelled'].includes(order.status)).length === 0 && (
-            <Card className="p-8 text-center border-2 border-dashed border-gray-200">
-              <div className="text-4xl mb-3">🍽️</div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-1">No Active Orders</h3>
-              <p className="text-gray-500 text-sm">All tables are clear. Create a new order to get started!</p>
-              <p className="text-xs text-gray-400 mt-3">Completed & cancelled orders are in Reports → Bill History</p>
-            </Card>
-          )}
-          {orders.filter(order => !['completed', 'cancelled'].includes(order.status)).map((order) => {
-            const statusConfig = {
-              pending: { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-700', icon: '⏳' },
-              preparing: { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700', icon: '👨‍🍳' },
-              ready: { bg: 'bg-emerald-50', border: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-700', icon: '✅' },
-              completed: { bg: 'bg-gray-50', border: 'border-gray-200', badge: 'bg-gray-100 text-gray-600', icon: '🎉' },
-              cancelled: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-600', icon: '❌' }
-            };
-            const config = statusConfig[order.status] || statusConfig.pending;
-            
-            return (
-              <Card key={order.id} className={`border-2 ${config.border} ${config.bg} shadow-sm hover:shadow-md transition-all overflow-hidden`} data-testid={`order-card-${order.id}`}>
-                {/* Status Bar */}
-                <div className={`h-1 ${order.status === 'preparing' ? 'bg-gradient-to-r from-blue-400 to-blue-600 animate-pulse' : order.status === 'ready' ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : order.status === 'pending' ? 'bg-gradient-to-r from-amber-400 to-amber-600' : 'bg-gray-300'}`} />
-                
-                <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg">{config.icon}</span>
-                        <CardTitle className="text-base sm:text-lg font-bold">Order #{order.id.slice(0, 8)}</CardTitle>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-600">
-                        <span className="flex items-center gap-1">
-                          <span className="w-5 h-5 bg-violet-100 rounded-full flex items-center justify-center text-[10px]">🍽️</span>
-                          Table {order.table_number}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-[10px]">👤</span>
-                          {order.waiter_name}
-                        </span>
-                      </div>
-                      {order.customer_name && (
-                        <p className="text-xs sm:text-sm text-gray-500 mt-1 flex items-center gap-1">
-                          <span className="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center text-[10px]">📱</span>
-                          {order.customer_name}
-                          {order.customer_phone && <span className="text-gray-400">• {order.customer_phone}</span>}
+        {/* Tabs for Active Orders and Today's Bills */}
+        <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded-xl">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
+              activeTab === 'active'
+                ? 'bg-white text-violet-700 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            Active Orders
+            <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'active' ? 'bg-violet-100 text-violet-700' : 'bg-gray-200'}`}>
+              {orders.filter(o => !['completed', 'cancelled'].includes(o.status)).length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
+              activeTab === 'history'
+                ? 'bg-white text-violet-700 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Today's Bills
+            <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'history' ? 'bg-violet-100 text-violet-700' : 'bg-gray-200'}`}>
+              {orders.filter(o => ['completed', 'cancelled'].includes(o.status)).length}
+            </span>
+          </button>
+        </div>
+
+        {/* Active Orders Tab */}
+        {activeTab === 'active' && (
+          <div className="grid gap-3 sm:gap-4">
+            {orders.filter(order => !['completed', 'cancelled'].includes(order.status)).length === 0 && (
+              <Card className="p-8 text-center border-2 border-dashed border-gray-200">
+                <div className="text-4xl mb-3">🍽️</div>
+                <h3 className="text-lg font-semibold text-gray-700 mb-1">No Active Orders</h3>
+                <p className="text-gray-500 text-sm">All tables are clear. Create a new order to get started!</p>
+              </Card>
+            )}
+            {orders.filter(order => !['completed', 'cancelled'].includes(order.status)).map((order) => {
+              const statusConfig = {
+                pending: { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-700', icon: '⏳' },
+                preparing: { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700', icon: '👨‍🍳' },
+                ready: { bg: 'bg-emerald-50', border: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-700', icon: '✅' },
+                completed: { bg: 'bg-gray-50', border: 'border-gray-200', badge: 'bg-gray-100 text-gray-600', icon: '🎉' },
+                cancelled: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-600', icon: '❌' }
+              };
+              const config = statusConfig[order.status] || statusConfig.pending;
+              
+              return (
+                <Card key={order.id} className={`border-2 ${config.border} ${config.bg} shadow-sm hover:shadow-md transition-all overflow-hidden`} data-testid={`order-card-${order.id}`}>
+                  {/* Status Bar */}
+                  <div className={`h-1 ${order.status === 'preparing' ? 'bg-gradient-to-r from-blue-400 to-blue-600 animate-pulse' : order.status === 'ready' ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : order.status === 'pending' ? 'bg-gradient-to-r from-amber-400 to-amber-600' : 'bg-gray-300'}`} />
+                  
+                  <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">{config.icon}</span>
+                          <CardTitle className="text-base sm:text-lg font-bold">Order #{order.id.slice(0, 8)}</CardTitle>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-600">
+                          <span className="flex items-center gap-1">
+                            <span className="w-5 h-5 bg-violet-100 rounded-full flex items-center justify-center text-[10px]">🍽️</span>
+                            Table {order.table_number}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-[10px]">👤</span>
+                            {order.waiter_name}
+                          </span>
+                        </div>
+                        {order.customer_name && (
+                          <p className="text-xs sm:text-sm text-gray-500 mt-1 flex items-center gap-1">
+                            <span className="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center text-[10px]">📱</span>
+                            {order.customer_name}
+                            {order.customer_phone && <span className="text-gray-400">• {order.customer_phone}</span>}
+                          </p>
+                        )}
+                        <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
+                          {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}, {new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                         </p>
-                      )}
-                      <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
-                        {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}, {new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${config.badge} shadow-sm`}>
-                        {order.status}
-                      </span>
-                      {/* Action Menu for Edit/Cancel/Delete */}
-                      {['admin', 'cashier'].includes(user?.role) && order.status !== 'completed' && (
-                        <div className="relative">
-                          <button
-                            onClick={() => setActionMenuOpen(actionMenuOpen === order.id ? null : order.id)}
-                            className="p-1.5 rounded-lg hover:bg-white/80 transition-colors"
-                          >
-                            <MoreVertical className="w-4 h-4 text-gray-500" />
-                          </button>
-                          {actionMenuOpen === order.id && (
-                            <>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${config.badge} shadow-sm`}>
+                          {order.status}
+                        </span>
+                        {/* Action Menu for Edit/Cancel/Delete */}
+                        {['admin', 'cashier'].includes(user?.role) && order.status !== 'completed' && (
+                          <div className="relative">
+                            <button
+                              onClick={() => setActionMenuOpen(actionMenuOpen === order.id ? null : order.id)}
+                              className="p-1.5 rounded-lg hover:bg-white/80 transition-colors"
+                            >
+                              <MoreVertical className="w-4 h-4 text-gray-500" />
+                            </button>
+                            {actionMenuOpen === order.id && (
+                              <>
                               <div className="fixed inset-0 z-10" onClick={() => setActionMenuOpen(null)} />
                               <div className="absolute right-0 top-8 z-20 w-40 bg-white rounded-xl shadow-xl border py-1.5">
                                 {order.status !== 'cancelled' && (
@@ -899,13 +908,185 @@ const OrdersPage = ({ user }) => {
               </Card>
             );
           })}
-
-          {orders.length === 0 && (
-            <div className="text-center py-8 sm:py-12">
-              <p className="text-gray-500 text-sm sm:text-base">No orders found</p>
-            </div>
-          )}
         </div>
+        )}
+
+        {/* Today's Bills Tab (Completed & Cancelled) */}
+        {activeTab === 'history' && (
+          <div className="grid gap-3 sm:gap-4">
+            {orders.filter(order => ['completed', 'cancelled'].includes(order.status)).length === 0 && (
+              <Card className="p-8 text-center border-2 border-dashed border-gray-200">
+                <div className="text-4xl mb-3">📋</div>
+                <h3 className="text-lg font-semibold text-gray-700 mb-1">No Bills Today</h3>
+                <p className="text-gray-500 text-sm">Completed and cancelled orders will appear here</p>
+              </Card>
+            )}
+            {orders.filter(order => ['completed', 'cancelled'].includes(order.status)).map((order) => {
+              const statusConfig = {
+                completed: { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-700', icon: '✅' },
+                cancelled: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-600', icon: '❌' }
+              };
+              const config = statusConfig[order.status] || statusConfig.completed;
+              
+              return (
+                <Card key={order.id} className={`border-2 ${config.border} ${config.bg} shadow-sm hover:shadow-md transition-all overflow-hidden`}>
+                  <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">{config.icon}</span>
+                          <CardTitle className="text-base sm:text-lg font-bold">Bill #{order.id.slice(0, 8)}</CardTitle>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-600">
+                          <span className="flex items-center gap-1">
+                            <span className="w-5 h-5 bg-violet-100 rounded-full flex items-center justify-center text-[10px]">🍽️</span>
+                            Table {order.table_number}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-[10px]">👤</span>
+                            {order.waiter_name}
+                          </span>
+                        </div>
+                        {order.customer_name && (
+                          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                            {order.customer_name}
+                            {order.customer_phone && <span className="text-gray-400"> • {order.customer_phone}</span>}
+                          </p>
+                        )}
+                        <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
+                          {new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                          {order.payment_method && <span className="ml-2">• Paid via {order.payment_method}</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${config.badge} shadow-sm`}>
+                          {order.status}
+                        </span>
+                        {/* Action Menu for completed/cancelled orders */}
+                        {['admin', 'cashier'].includes(user?.role) && (
+                          <div className="relative">
+                            <button
+                              onClick={() => setActionMenuOpen(actionMenuOpen === order.id ? null : order.id)}
+                              className="p-1.5 rounded-lg hover:bg-white/80 transition-colors"
+                            >
+                              <MoreVertical className="w-4 h-4 text-gray-500" />
+                            </button>
+                            {actionMenuOpen === order.id && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setActionMenuOpen(null)} />
+                                <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-xl shadow-xl border py-1.5">
+                                  <button
+                                    onClick={() => handleViewOrder(order)}
+                                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                                  >
+                                    <Eye className="w-4 h-4 text-gray-600" />
+                                    <span>View Details</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handlePrintReceipt(order)}
+                                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                                  >
+                                    <Receipt className="w-4 h-4 text-gray-600" />
+                                    <span>Print Receipt</span>
+                                  </button>
+                                  {order.status === 'completed' && (
+                                    <button
+                                      onClick={() => handleEditOrder(order)}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                                    >
+                                      <Edit className="w-4 h-4 text-blue-600" />
+                                      <span>Edit Bill</span>
+                                    </button>
+                                  )}
+                                  {order.status === 'completed' && (
+                                    <button
+                                      onClick={() => { setCancelConfirmModal({ open: true, order }); setActionMenuOpen(null); }}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600 transition-colors"
+                                    >
+                                      <Ban className="w-4 h-4" />
+                                      <span>Cancel Bill</span>
+                                    </button>
+                                  )}
+                                  {user?.role === 'admin' && (
+                                    <button
+                                      onClick={() => { setDeleteConfirmModal({ open: true, order }); setActionMenuOpen(null); }}
+                                      className="w-full px-3 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      <span>Delete Bill</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-4 pt-0">
+                    <div className="space-y-3">
+                      {/* Items - Compact view */}
+                      <div className="bg-white/60 rounded-xl p-2.5 sm:p-3 space-y-1.5 max-h-24 overflow-y-auto">
+                        {order.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-xs sm:text-sm">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="w-5 h-5 bg-violet-100 text-violet-700 rounded flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                {item.quantity}
+                              </span>
+                              <span className="truncate">{item.name}</span>
+                            </div>
+                            <span className="font-medium text-gray-700 ml-2 flex-shrink-0">₹{(item.price * item.quantity).toFixed(0)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Total */}
+                      <div className="flex justify-between items-center pt-2 border-t border-dashed">
+                        <span className="text-sm text-gray-600">Total</span>
+                        <span className="text-xl font-bold text-violet-600">₹{order.total.toFixed(0)}</span>
+                      </div>
+                      
+                      {/* Quick Actions */}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewOrder(order)}
+                          className="flex-1 text-xs h-9"
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handlePrintReceipt(order)}
+                          className="flex-1 text-xs h-9"
+                        >
+                          <Receipt className="w-3.5 h-3.5 mr-1" />
+                          Print
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setWhatsappModal({ open: true, orderId: order.id, customerName: order.customer_name || '' });
+                            setWhatsappPhone(order.customer_phone || '');
+                          }}
+                          className="flex-1 text-xs h-9"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 mr-1" />
+                          Share
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         {/* WhatsApp Modal */}
         {whatsappModal.open && (
