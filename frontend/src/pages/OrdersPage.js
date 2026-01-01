@@ -31,7 +31,16 @@ const OrdersPage = ({ user }) => {
   const [printLoading, setPrintLoading] = useState(false);
   const [menuSearch, setMenuSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
-  const [editOrderModal, setEditOrderModal] = useState({ open: false, order: null });
+  const [editOrderModal, setEditOrderModal] = useState({ 
+    open: false, 
+    order: null,
+    customer_name: '',
+    customer_phone: '',
+    payment_method: 'cash',
+    is_credit: false,
+    payment_received: 0,
+    balance_amount: 0
+  });
   const [editItems, setEditItems] = useState([]);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState({ open: false, order: null });
   const [cancelConfirmModal, setCancelConfirmModal] = useState({ open: false, order: null });
@@ -287,7 +296,9 @@ const OrdersPage = ({ user }) => {
       customer_name: order.customer_name || '',
       customer_phone: order.customer_phone || '',
       payment_method: order.payment_method || 'cash',
-      is_credit: order.is_credit || false
+      is_credit: order.is_credit || false,
+      payment_received: order.payment_received || 0,
+      balance_amount: order.balance_amount || 0
     });
     setActionMenuOpen(null);
   };
@@ -299,10 +310,21 @@ const OrdersPage = ({ user }) => {
       return;
     }
 
+    // Validate customer name is required for credit bills
+    if (editOrderModal.is_credit && !editOrderModal.customer_name?.trim()) {
+      toast.error('Customer name is required for credit bills');
+      return;
+    }
+
     try {
       const subtotal = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const tax = subtotal * 0.05;
       const total = subtotal + tax;
+
+      // Calculate balance amount
+      const paymentReceived = parseFloat(editOrderModal.payment_received) || 0;
+      const balanceAmount = Math.max(0, total - paymentReceived);
+      const isCredit = editOrderModal.is_credit || balanceAmount > 0;
 
       await axios.put(`${API}/orders/${editOrderModal.order.id}`, {
         items: editItems,
@@ -312,11 +334,22 @@ const OrdersPage = ({ user }) => {
         customer_name: editOrderModal.customer_name || '',
         customer_phone: editOrderModal.customer_phone || '',
         payment_method: editOrderModal.payment_method || 'cash',
-        is_credit: editOrderModal.is_credit || false
+        is_credit: isCredit,
+        payment_received: paymentReceived,
+        balance_amount: balanceAmount
       });
 
       toast.success('Order updated!');
-      setEditOrderModal({ open: false, order: null, customer_name: '', customer_phone: '', payment_method: 'cash', is_credit: false });
+      setEditOrderModal({ 
+        open: false, 
+        order: null, 
+        customer_name: '', 
+        customer_phone: '', 
+        payment_method: 'cash', 
+        is_credit: false,
+        payment_received: 0,
+        balance_amount: 0
+      });
       setEditItems([]);
       await fetchOrders();
     } catch (error) {
@@ -382,11 +415,20 @@ const OrdersPage = ({ user }) => {
   // Mark order as credit (unpaid)
   const handleMarkAsCredit = async (order) => {
     if (!order?.id) return;
+    
+    // Check if customer name exists
+    if (!order.customer_name?.trim()) {
+      toast.error('Customer name is required for credit bills. Please edit the order first.');
+      setActionMenuOpen(null);
+      return;
+    }
+    
     try {
       await axios.put(`${API}/orders/${order.id}`, {
-        ...order,
         is_credit: true,
-        payment_method: 'credit'
+        payment_method: 'credit',
+        payment_received: 0,
+        balance_amount: order.total
       });
       toast.success('Marked as credit bill');
       setActionMenuOpen(null);
@@ -402,9 +444,10 @@ const OrdersPage = ({ user }) => {
     if (!order?.id) return;
     try {
       await axios.put(`${API}/orders/${order.id}`, {
-        ...order,
         is_credit: false,
-        payment_method: 'cash'
+        payment_method: 'cash',
+        payment_received: order.total,
+        balance_amount: 0
       });
       toast.success('Marked as paid');
       setActionMenuOpen(null);
@@ -1134,6 +1177,14 @@ const OrdersPage = ({ user }) => {
                         <span className="text-xl font-bold text-violet-600">₹{order.total.toFixed(0)}</span>
                       </div>
                       
+                      {/* Credit Bill Balance Info */}
+                      {order.is_credit && (
+                        <div className="flex justify-between items-center text-sm text-orange-600 font-medium">
+                          <span>Balance Due</span>
+                          <span>₹{(order.balance_amount || order.total).toFixed(0)}</span>
+                        </div>
+                      )}
+                      
                       {/* Quick Actions */}
                       <div className="flex gap-2">
                         <Button
@@ -1309,9 +1360,17 @@ const OrdersPage = ({ user }) => {
                     </div>
                   )}
                   {viewOrderModal.order?.is_credit && (
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className="text-orange-600 font-medium">⚠️ Credit Bill (Unpaid)</span>
-                    </div>
+                    <>
+                      <div className="flex justify-between text-xs sm:text-sm text-green-600">
+                        <span>Amount Received:</span>
+                        <span className="font-medium">₹{(viewOrderModal.order.payment_received || 0).toFixed(0)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs sm:text-sm text-orange-600 font-medium">
+                        <span>⚠️ Balance Due:</span>
+                        <span>₹{(viewOrderModal.order.balance_amount || 0).toFixed(0)}</span>
+                      </div>
+                      <div className="text-xs text-orange-600 font-medium mt-1">⚠️ Credit Bill (Unpaid)</div>
+                    </>
                   )}
                 </div>
 
@@ -1359,7 +1418,7 @@ const OrdersPage = ({ user }) => {
             <Card className="w-full max-w-2xl border-0 shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
               <CardHeader className="relative bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg p-4 sm:p-6 flex-shrink-0">
                 <button
-                  onClick={() => { setEditOrderModal({ open: false, order: null, customer_name: '', customer_phone: '', payment_method: 'cash', is_credit: false }); setEditItems([]); }}
+                  onClick={() => { setEditOrderModal({ open: false, order: null, customer_name: '', customer_phone: '', payment_method: 'cash', is_credit: false, payment_received: 0, balance_amount: 0 }); setEditItems([]); }}
                   className="absolute right-3 sm:right-4 top-3 sm:top-4 text-white/80 hover:text-white p-1"
                 >
                   <X className="w-5 h-5" />
@@ -1375,16 +1434,19 @@ const OrdersPage = ({ user }) => {
                   <Label className="text-sm font-medium mb-2 block text-blue-800">Customer Details</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-gray-600">Customer Name</Label>
+                      <Label className="text-xs text-gray-600">
+                        Customer Name {editOrderModal.is_credit && <span className="text-red-500">*</span>}
+                      </Label>
                       <Input
                         value={editOrderModal.customer_name || ''}
                         onChange={(e) => setEditOrderModal({ ...editOrderModal, customer_name: e.target.value })}
                         placeholder="Customer name"
-                        className="mt-1 h-10"
+                        className={`mt-1 h-10 ${editOrderModal.is_credit && !editOrderModal.customer_name?.trim() ? 'border-red-500' : ''}`}
+                        required={editOrderModal.is_credit}
                       />
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-600">Phone Number</Label>
+                      <Label className="text-xs text-gray-600">Phone Number (Optional)</Label>
                       <Input
                         value={editOrderModal.customer_phone || ''}
                         onChange={(e) => setEditOrderModal({ ...editOrderModal, customer_phone: e.target.value })}
@@ -1398,7 +1460,7 @@ const OrdersPage = ({ user }) => {
                 {/* Payment Method Section */}
                 <div className="p-3 sm:p-4 border-b bg-green-50">
                   <Label className="text-sm font-medium mb-2 block text-green-800">Payment</Label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mb-3">
                     {['cash', 'card', 'upi', 'credit'].map((method) => (
                       <button
                         key={method}
@@ -1422,8 +1484,44 @@ const OrdersPage = ({ user }) => {
                       </button>
                     ))}
                   </div>
-                  {editOrderModal.is_credit && (
-                    <p className="text-xs text-orange-600 mt-2">⚠️ This bill will be marked as unpaid (credit)</p>
+                  
+                  {/* Payment Received & Balance for Credit Bills */}
+                  {(editOrderModal.is_credit || editOrderModal.payment_method === 'credit') && (
+                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-3">
+                      <p className="text-xs text-orange-700 font-medium">💰 Credit Bill Payment Details</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-gray-600">Amount Received</Label>
+                          <Input
+                            type="number"
+                            value={editOrderModal.payment_received || 0}
+                            onChange={(e) => {
+                              const received = parseFloat(e.target.value) || 0;
+                              const total = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05;
+                              setEditOrderModal({ 
+                                ...editOrderModal, 
+                                payment_received: received,
+                                balance_amount: Math.max(0, total - received)
+                              });
+                            }}
+                            placeholder="0"
+                            className="mt-1 h-10"
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-600">Balance Amount</Label>
+                          <div className="mt-1 h-10 px-3 flex items-center bg-orange-100 border border-orange-300 rounded-md font-bold text-orange-800">
+                            ₹{(editOrderModal.balance_amount || (editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05 - (editOrderModal.payment_received || 0))).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-orange-600">⚠️ Customer name is required for credit bills</p>
+                    </div>
+                  )}
+                  
+                  {editOrderModal.is_credit && !editOrderModal.customer_name?.trim() && (
+                    <p className="text-xs text-red-600 mt-2 font-medium">❌ Please enter customer name above</p>
                   )}
                 </div>
 
@@ -1510,7 +1608,7 @@ const OrdersPage = ({ user }) => {
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => { setEditOrderModal({ open: false, order: null, customer_name: '', customer_phone: '', payment_method: 'cash', is_credit: false }); setEditItems([]); }}
+                        onClick={() => { setEditOrderModal({ open: false, order: null, customer_name: '', customer_phone: '', payment_method: 'cash', is_credit: false, payment_received: 0, balance_amount: 0 }); setEditItems([]); }}
                       >
                         Cancel
                       </Button>

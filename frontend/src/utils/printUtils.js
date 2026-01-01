@@ -263,6 +263,7 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
   const tagline = business?.tagline || '';
   const footerMsg = business?.footer_message || 'Thank you for dining with us!';
   const logoUrl = business?.logo_url || '';
+  const upiId = business?.upi_id || '';
   
   let html = '';
   
@@ -346,6 +347,9 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
   const subtotal = order.subtotal || 0;
   const tax = order.tax || 0;
   const total = order.total || 0;
+  const paymentReceived = order.payment_received || 0;
+  const balanceAmount = order.balance_amount || 0;
+  const isCredit = order.is_credit || false;
   
   html += `
     <div class="total-row">
@@ -367,11 +371,47 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
     </div>
   `;
   
+  // Credit bill payment details
+  if (isCredit || balanceAmount > 0) {
+    html += '<div class="separator"></div>';
+    html += `
+      <div class="total-row" style="color: green;">
+        <span>✅ Received</span>
+        <span>₹${paymentReceived.toFixed(2)}</span>
+      </div>
+      <div class="total-row" style="color: #d97706; font-weight: bold;">
+        <span>⚠️ BALANCE DUE</span>
+        <span>₹${balanceAmount.toFixed(2)}</span>
+      </div>
+    `;
+    
+    // UPI QR Code for balance payment
+    if (upiId && balanceAmount > 0 && settings.qr_code_enabled) {
+      const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(restaurantName)}&am=${balanceAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Balance Payment - Bill #' + (order.id || '').toString().slice(0, 8))}`;
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`;
+      
+      html += `
+        <div class="separator"></div>
+        <div class="center bold mb-1">📱 Scan to Pay Balance</div>
+        <div class="center mb-1">
+          <img src="${qrApiUrl}" alt="UPI QR" style="width: 120px; height: 120px;" onerror="this.style.display='none'" />
+        </div>
+        <div class="center small">UPI: ${upiId}</div>
+      `;
+    }
+  }
+  
   html += '<div class="double-line"></div>';
   
   // Payment method if available
   if (order.payment_method) {
-    html += `<div class="center small mb-2">Payment: ${order.payment_method.toUpperCase()}</div>`;
+    const methodDisplay = order.payment_method === 'credit' ? 'CREDIT (UNPAID)' : order.payment_method.toUpperCase();
+    html += `<div class="center small mb-2">Payment: ${methodDisplay}</div>`;
+  }
+  
+  // Credit warning
+  if (isCredit) {
+    html += `<div class="center bold" style="color: #d97706; padding: 5px; border: 1px dashed #d97706; margin: 5px 0;">⚠️ CREDIT BILL - BALANCE PENDING</div>`;
   }
   
   // Footer

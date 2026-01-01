@@ -322,6 +322,8 @@ class BusinessSettings(BaseModel):
     # Customer Self-Order Settings
     customer_self_order_enabled: bool = False
     frontend_url: Optional[str] = None  # For generating QR codes
+    # UPI Payment Settings
+    upi_id: Optional[str] = None  # UPI ID for QR code payments
 
 
 class User(BaseModel):
