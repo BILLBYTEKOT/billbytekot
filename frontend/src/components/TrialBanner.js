@@ -30,7 +30,7 @@ const TrialBanner = ({ user }) => {
             className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600"
           >
             <Gift className="w-4 h-4 mr-2" />
-            Get ₹9/Year Deal
+            Get ₹599/Year Deal
           </Button>
         </CardContent>
       </Card>
@@ -49,7 +49,7 @@ const TrialBanner = ({ user }) => {
             <div>
               <p className="font-bold">⚠️ Trial Ending Soon!</p>
               <p className="text-sm text-orange-100">
-                Only {trial_days_left} {trial_days_left === 1 ? 'day' : 'days'} left • Early Adopter: ₹9/year (99% OFF)!
+                Only {trial_days_left} {trial_days_left === 1 ? 'day' : 'days'} left • New Year Special: ₹599/year (40% OFF)!
               </p>
             </div>
           </div>
@@ -59,7 +59,7 @@ const TrialBanner = ({ user }) => {
             className="bg-white text-orange-600 hover:bg-orange-50"
           >
             <Gift className="w-4 h-4 mr-2" />
-            Get ₹9/Year Deal
+            Get ₹599/Year Deal
           </Button>
         </CardContent>
       </Card>
@@ -77,7 +77,7 @@ const TrialBanner = ({ user }) => {
           <div>
             <p className="font-bold">🎁 Free Trial Active!</p>
             <p className="text-sm text-green-100">
-              {trial_days_left} {trial_days_left === 1 ? 'day' : 'days'} remaining • Early Adopter: ₹9/year!
+              {trial_days_left} {trial_days_left === 1 ? 'day' : 'days'} remaining • New Year Special: ₹599/year!
             </p>
           </div>
         </div>
@@ -87,7 +87,7 @@ const TrialBanner = ({ user }) => {
           className="bg-white text-green-600 hover:bg-green-50"
         >
           <Gift className="w-4 h-4 mr-2" />
-          Upgrade - ₹9/Year
+          Upgrade - ₹599/Year
         </Button>
       </CardContent>
     </Card>

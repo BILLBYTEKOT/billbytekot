@@ -1629,8 +1629,9 @@ async def register_direct(user_data: UserCreate):
 
 @api_router.post("/auth/login")
 async def login(credentials: UserLogin):
-    # Normalize username for case-insensitive lookup
-    username_lower = credentials.username.lower().strip()
+    # Normalize username for case-insensitive lookup - strip ALL whitespace including tabs
+    username_clean = credentials.username.strip()
+    username_lower = username_clean.lower()
     
     # Try to find user by lowercase username first (new records)
     user = await db.users.find_one({"username_lower": username_lower}, {"_id": 0})
@@ -1638,33 +1639,33 @@ async def login(credentials: UserLogin):
     # Fallback: try case-insensitive regex for older records without username_lower field
     if not user:
         user = await db.users.find_one(
-            {"username": {"$regex": f"^{credentials.username}$", "$options": "i"}}, 
+            {"username": {"$regex": f"^{username_clean}$", "$options": "i"}}, 
             {"_id": 0}
         )
     
     # Also try to find by email (users might login with email)
     if not user:
         user = await db.users.find_one(
-            {"email": {"$regex": f"^{credentials.username}$", "$options": "i"}}, 
+            {"email": {"$regex": f"^{username_clean}$", "$options": "i"}}, 
             {"_id": 0}
         )
     
     if not user:
-        print(f"❌ Login failed: User not found for {credentials.username}")
+        print(f"❌ Login failed: User not found for {username_clean}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Verify password
     try:
         password_valid = verify_password(credentials.password, user["password"])
     except Exception as e:
-        print(f"❌ Password verification error for {credentials.username}: {str(e)}")
+        print(f"❌ Password verification error for {username_clean}: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     if not password_valid:
-        print(f"❌ Login failed: Invalid password for {credentials.username}")
+        print(f"❌ Login failed: Invalid password for {username_clean}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    print(f"✅ Login successful for {credentials.username}")
+    print(f"✅ Login successful for {username_clean}")
 
     token = create_access_token({"user_id": user["id"], "role": user["role"]})
     return {
@@ -1758,33 +1759,43 @@ class ResetPasswordRequest(BaseModel):
 @api_router.post("/auth/forgot-password")
 async def forgot_password(request: ForgotPasswordRequest):
     """Verify account exists and send OTP for password reset"""
-    # Find user by email
-    user = await db.users.find_one({"email": request.email}, {"_id": 0})
+    # Clean email - strip whitespace including tabs
+    email_clean = request.email.strip().lower()
+    
+    # Find user by email (case-insensitive)
+    user = await db.users.find_one(
+        {"email": {"$regex": f"^{email_clean}$", "$options": "i"}}, 
+        {"_id": 0}
+    )
     if not user:
         raise HTTPException(status_code=404, detail="No account found with this email address")
+    
+    # Use the actual email from database for consistency
+    user_email = user.get("email", email_clean)
     
     # Generate 6-digit OTP
     otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)  # OTP valid for 10 minutes
     
-    # Store OTP
-    reset_tokens[request.email] = {
+    # Store OTP using lowercase email as key for consistency
+    reset_tokens[email_clean] = {
         "otp": otp,
         "expires": expires_at,
-        "verified": False
+        "verified": False,
+        "user_email": user_email  # Store actual email from DB
     }
     
     # Log OTP for debugging (check Render logs)
-    print(f"🔐 PASSWORD RESET OTP for {request.email}: {otp}")
+    print(f"🔐 PASSWORD RESET OTP for {user_email}: {otp}")
     
     # Send OTP email
     try:
-        result = await send_password_reset_otp_email(request.email, otp, user.get("username", "User"))
+        result = await send_password_reset_otp_email(user_email, otp, user.get("username", "User"))
         email_sent = result.get("success", False)
-        print(f"📧 Email result for {request.email}: {result}")
+        print(f"📧 Email result for {user_email}: {result}")
     except Exception as e:
         email_sent = False
-        print(f"❌ Email error for {request.email}: {e}")
+        print(f"❌ Email error for {user_email}: {e}")
     
     if not email_sent:
         print(f"⚠️ Email failed but OTP logged above. Check Render logs for OTP: {otp}")
@@ -1798,15 +1809,18 @@ async def forgot_password(request: ForgotPasswordRequest):
 @api_router.post("/auth/verify-reset-otp")
 async def verify_reset_otp(request: VerifyOTPRequest):
     """Verify OTP for password reset"""
+    # Clean email - strip whitespace including tabs
+    email_clean = request.email.strip().lower()
+    
     # Get OTP data
-    otp_data = reset_tokens.get(request.email)
+    otp_data = reset_tokens.get(email_clean)
     if not otp_data:
         raise HTTPException(status_code=400, detail="No OTP found. Please request a new one.")
     
     # Check if OTP expired
     if datetime.now(timezone.utc) > otp_data["expires"]:
         # Remove expired OTP
-        del reset_tokens[request.email]
+        del reset_tokens[email_clean]
         raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
     
     # Verify OTP
@@ -1814,7 +1828,7 @@ async def verify_reset_otp(request: VerifyOTPRequest):
         raise HTTPException(status_code=400, detail="Invalid OTP. Please check and try again.")
     
     # Mark OTP as verified
-    reset_tokens[request.email]["verified"] = True
+    reset_tokens[email_clean]["verified"] = True
     
     return {
         "message": "OTP verified successfully. You can now reset your password.",
@@ -1825,15 +1839,18 @@ async def verify_reset_otp(request: VerifyOTPRequest):
 @api_router.post("/auth/reset-password")
 async def reset_password(request: ResetPasswordRequest):
     """Reset user password using verified OTP"""
+    # Clean email - strip whitespace including tabs
+    email_clean = request.email.strip().lower()
+    
     # Get OTP data
-    otp_data = reset_tokens.get(request.email)
+    otp_data = reset_tokens.get(email_clean)
     if not otp_data:
         raise HTTPException(status_code=400, detail="No OTP found. Please request a new one.")
     
     # Check if OTP expired
     if datetime.now(timezone.utc) > otp_data["expires"]:
         # Remove expired OTP
-        del reset_tokens[request.email]
+        del reset_tokens[email_clean]
         raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
     
     # Verify OTP again
@@ -1844,25 +1861,34 @@ async def reset_password(request: ResetPasswordRequest):
     if not otp_data.get("verified", False):
         raise HTTPException(status_code=400, detail="Please verify OTP first.")
     
-    # Find user
-    user = await db.users.find_one({"email": request.email}, {"_id": 0})
+    # Get the actual user email from OTP data or find user
+    user_email = otp_data.get("user_email", email_clean)
+    
+    # Find user (case-insensitive)
+    user = await db.users.find_one(
+        {"email": {"$regex": f"^{email_clean}$", "$options": "i"}}, 
+        {"_id": 0}
+    )
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Use actual email from database for update
+    actual_email = user.get("email")
+    
     # Update password
     hashed_password = hash_password(request.new_password)
-    print(f"🔐 Resetting password for {request.email}")
+    print(f"🔐 Resetting password for {actual_email}")
     print(f"🔐 New password hash: {hashed_password[:20]}...")
     
     await db.users.update_one(
-        {"email": request.email},
+        {"email": actual_email},
         {"$set": {"password": hashed_password}}
     )
     
-    print(f"✅ Password reset successful for {request.email}")
+    print(f"✅ Password reset successful for {actual_email}")
     
     # Remove used OTP
-    del reset_tokens[request.email]
+    del reset_tokens[email_clean]
     
     return {
         "message": "Password reset successful. You can now login with your new password.",
@@ -2340,26 +2366,26 @@ async def get_razorpay_settings(current_user: dict = Depends(get_current_user)):
 
 
 # Subscription - ₹999/year with 7-day free trial
-# EARLY ADOPTER CAMPAIGN: ₹9/year till Dec 31, 2025
+# NEW YEAR CAMPAIGN: ₹599/year (40% OFF) till Jan 31, 2026
 SUBSCRIPTION_PRICE_PAISE = 99900  # ₹999 in paise (regular price)
-EARLY_ADOPTER_PRICE_PAISE = 900  # ₹9 in paise (early adopter price)
-EARLY_ADOPTER_END_DATE = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+NEW_YEAR_PRICE_PAISE = 59900  # ₹599 in paise (New Year price - 40% off)
+NEW_YEAR_END_DATE = datetime(2026, 1, 31, 23, 59, 59, tzinfo=timezone.utc)
 TRIAL_DAYS = 7
 SUBSCRIPTION_DAYS = 365
 
 # Campaign configuration (can be updated via admin panel)
 ACTIVE_CAMPAIGNS = {
-    "EARLY_ADOPTER_2025": {
-        "name": "Early Adopter Special",
-        "description": "Get BillByteKOT for just ₹9/year - 99% OFF!",
-        "price_paise": 900,  # ₹9
+    "NEW_YEAR_2026": {
+        "name": "New Year Special",
+        "description": "Get BillByteKOT for just ₹599/year - 40% OFF!",
+        "price_paise": 59900,  # ₹599
         "original_price_paise": 99900,  # ₹999
-        "discount_percent": 99,
-        "start_date": "2025-01-01T00:00:00+00:00",
-        "end_date": "2025-12-31T23:59:59+00:00",
+        "discount_percent": 40,
+        "start_date": "2026-01-01T00:00:00+00:00",
+        "end_date": "2026-01-31T23:59:59+00:00",
         "active": True,
-        "badge": "🔥 99% OFF",
-        "max_users": 1000,  # First 1000 users
+        "badge": "🎉 40% OFF",
+        "max_users": 5000,
         "current_users": 0
     }
 }
@@ -2368,18 +2394,18 @@ def get_current_subscription_price():
     """Get current subscription price based on active campaigns"""
     now = datetime.now(timezone.utc)
     
-    # Check if early adopter campaign is active
-    if now <= EARLY_ADOPTER_END_DATE:
+    # Check if New Year campaign is active
+    if now <= NEW_YEAR_END_DATE:
         return {
-            "price_paise": EARLY_ADOPTER_PRICE_PAISE,
+            "price_paise": NEW_YEAR_PRICE_PAISE,
             "original_price_paise": SUBSCRIPTION_PRICE_PAISE,
-            "price_display": "₹9",
+            "price_display": "₹599",
             "original_price_display": "₹999",
-            "discount_percent": 99,
-            "campaign_name": "Early Adopter Special",
+            "discount_percent": 40,
+            "campaign_name": "New Year Special",
             "campaign_active": True,
-            "campaign_ends": EARLY_ADOPTER_END_DATE.isoformat(),
-            "badge": "🔥 99% OFF - Till Dec 31"
+            "campaign_ends": NEW_YEAR_END_DATE.isoformat(),
+            "badge": "🎉 40% OFF - New Year Special"
         }
     
     # Regular pricing
@@ -2394,16 +2420,6 @@ def get_current_subscription_price():
         "campaign_ends": None,
         "badge": None
     }
-
-# Coupon codes for discounts
-COUPON_CODES = {
-    "LAUNCH50": {"discount_percent": 50, "description": "50% Launch Discount", "active": True},
-    "WELCOME25": {"discount_percent": 25, "description": "25% Welcome Discount", "active": True},
-    "SAVE100": {"discount_amount": 10000, "description": "₹100 Off", "active": True},  # 10000 paise = ₹100
-    "EARLYBIRD": {"discount_percent": 30, "description": "30% Early Bird Discount", "active": True},
-    "FIRSTYEAR": {"discount_percent": 40, "description": "40% First Year Discount", "active": True},
-    "TEST1RS": {"discount_amount": 99800, "description": "₹1 Testing Coupon (Dev Only)", "active": True},  # Reduces to ₹1 (100 paise)
-}
 
 
 @api_router.get("/subscription/status")

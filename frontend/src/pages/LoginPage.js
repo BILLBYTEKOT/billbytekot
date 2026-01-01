@@ -63,14 +63,14 @@ const LoginPage = ({ setUser }) => {
         
         try {
           response = await axios.post(`${API}/auth/login`, {
-            username: formData.username,
+            username: formData.username.trim(),
             password: formData.password
           });
         } catch (userLoginError) {
           if (userLoginError.response?.status === 401) {
             try {
               response = await axios.post(`${API}/team/login`, {
-                username: formData.username,
+                username: formData.username.trim(),
                 password: formData.password
               });
               isTeamMember = true;
@@ -98,8 +98,8 @@ const LoginPage = ({ setUser }) => {
       } else {
         // Step 1: Request OTP for registration
         await axios.post(`${API}/auth/register-request`, {
-          username: formData.username,
-          email: formData.email,
+          username: formData.username.trim(),
+          email: formData.email.trim(),
           password: formData.password,
           role: 'admin'
         });
@@ -123,7 +123,7 @@ const LoginPage = ({ setUser }) => {
     setOtpLoading(true);
     try {
       await axios.post(`${API}/auth/verify-registration`, {
-        email: formData.email,
+        email: formData.email.trim(),
         otp: otp
       });
       
@@ -144,8 +144,8 @@ const LoginPage = ({ setUser }) => {
     try {
       // Register directly without OTP verification
       await axios.post(`${API}/auth/register`, {
-        username: formData.username,
-        email: formData.email,
+        username: formData.username.trim(),
+        email: formData.email.trim(),
         password: formData.password,
         role: 'admin'
       });
@@ -166,8 +166,8 @@ const LoginPage = ({ setUser }) => {
     setOtpLoading(true);
     try {
       await axios.post(`${API}/auth/register-request`, {
-        username: formData.username,
-        email: formData.email,
+        username: formData.username.trim(),
+        email: formData.email.trim(),
         password: formData.password,
         role: 'admin'
       });

@@ -312,13 +312,13 @@ const DesktopDownloadSection = () => {
   );
 };
 
-// Early Adopter Section Component with working countdown
-const EarlyAdopterSection = ({ navigate }) => {
+// New Year Special Section Component with working countdown
+const NewYearSpecialSection = ({ navigate }) => {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   
   useEffect(() => {
     const calculateTimeLeft = () => {
-      const endDate = new Date('2025-12-31T23:59:59');
+      const endDate = new Date('2026-01-31T23:59:59');
       const now = new Date();
       const difference = endDate - now;
       
@@ -338,7 +338,7 @@ const EarlyAdopterSection = ({ navigate }) => {
   }, []);
 
   return (
-    <section id="early-adopter" className="py-16 bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 relative overflow-hidden">
+    <section id="new-year-offer" className="py-16 bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 relative overflow-hidden">
       {/* Animated background particles */}
       <div className="absolute inset-0">
         {[...Array(30)].map((_, i) => (
@@ -361,18 +361,18 @@ const EarlyAdopterSection = ({ navigate }) => {
             {/* Left Content */}
             <div className="text-white space-y-6">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur rounded-full animate-bounce">
-                <span className="text-2xl">🔥</span>
-                <span className="font-bold">LIMITED TIME OFFER</span>
-                <span className="text-2xl">🔥</span>
+                <span className="text-2xl">🎉</span>
+                <span className="font-bold">NEW YEAR SPECIAL</span>
+                <span className="text-2xl">🎉</span>
               </div>
               
               <h2 className="text-4xl md:text-5xl font-black leading-tight" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
-                Early Adopter
+                New Year 2026
                 <span className="block text-yellow-200">Special Deal!</span>
               </h2>
               
               <p className="text-xl text-white/90">
-                Be among the first 1000 restaurants to join BillByteKOT and get our premium plan at an unbelievable price!
+                Start 2026 with the best restaurant management system at an amazing price!
               </p>
               
               <div className="flex items-center gap-4 flex-wrap">
@@ -382,14 +382,14 @@ const EarlyAdopterSection = ({ navigate }) => {
                 </div>
                 <ArrowRight className="w-8 h-8 text-yellow-200 animate-pulse hidden sm:block" />
                 <div className="text-center bg-white/20 backdrop-blur rounded-xl p-4">
-                  <div className="text-sm text-yellow-200 font-bold">Early Adopter Price</div>
-                  <div className="text-5xl font-black text-white">₹9</div>
+                  <div className="text-sm text-yellow-200 font-bold">New Year Price</div>
+                  <div className="text-5xl font-black text-white">₹599</div>
                   <div className="text-sm text-white/80">per year</div>
                 </div>
               </div>
               
               <div className="flex flex-wrap gap-2 sm:gap-3">
-                {["Unlimited Bills", "All Features", "Priority Support", "Lifetime Badge"].map((item, i) => (
+                {["Unlimited Bills", "All Features", "Priority Support", "40% OFF"].map((item, i) => (
                   <div key={i} className="flex items-center gap-2 bg-white/10 backdrop-blur px-3 py-2 rounded-full">
                     <CheckCircle className="w-4 h-4 text-yellow-200" />
                     <span className="text-sm font-medium">{item}</span>
@@ -403,12 +403,12 @@ const EarlyAdopterSection = ({ navigate }) => {
                 onClick={() => navigate("/login")}
               >
                 <Gift className="w-5 h-5 mr-2" />
-                Claim ₹9/Year Deal Now
+                Get ₹599/Year Deal Now
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
               
               <p className="text-sm text-white/70">
-                ⏰ Offer valid till December 31, 2025 • No hidden charges • Cancel anytime
+                ⏰ Offer valid till January 31, 2026 • No hidden charges • Cancel anytime
               </p>
             </div>
             
@@ -447,7 +447,7 @@ const EarlyAdopterSection = ({ navigate }) => {
                     </div>
                   </div>
                   <p className="text-center text-sm text-white/80 mt-4">
-                    🎯 Only for first 1000 early adopters!
+                    🎯 Limited time New Year offer!
                   </p>
                 </CardContent>
               </Card>
@@ -457,7 +457,7 @@ const EarlyAdopterSection = ({ navigate }) => {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Gift className="w-5 h-5 text-red-500" />
-                    What You Get for ₹9/Year
+                    What You Get for ₹599/Year
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 sm:space-y-3">
@@ -467,7 +467,7 @@ const EarlyAdopterSection = ({ navigate }) => {
                     { icon: "📱", text: "WhatsApp Integration" },
                     { icon: "🤖", text: "AI-Powered Analytics" },
                     { icon: "👥", text: "Multi-Staff Management" },
-                    { icon: "🏆", text: "Lifetime Early Adopter Badge" },
+                    { icon: "🎉", text: "New Year Special Badge" },
                     { icon: "📞", text: "Priority 24/7 Support" },
                     { icon: "🔄", text: "Free Updates Forever" }
                   ].map((item, i) => (
@@ -486,14 +486,14 @@ const EarlyAdopterSection = ({ navigate }) => {
   );
 };
 
-// Early Adopter Campaign Banner Component
-const EarlyAdopterBanner = () => {
+// New Year Campaign Banner Component
+const NewYearBanner = () => {
   const navigate = useNavigate();
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   
   useEffect(() => {
     const calculateTimeLeft = () => {
-      const endDate = new Date('2025-12-31T23:59:59');
+      const endDate = new Date('2026-01-31T23:59:59');
       const now = new Date();
       const difference = endDate - now;
       
@@ -534,9 +534,9 @@ const EarlyAdopterBanner = () => {
         <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 text-center">
           {/* Fire emoji with animation */}
           <div className="flex items-center gap-2 animate-bounce">
-            <span className="text-2xl">🔥</span>
-            <span className="font-bold text-lg md:text-xl tracking-wide">EARLY ADOPTER OFFER</span>
-            <span className="text-2xl">🔥</span>
+            <span className="text-2xl">🎉</span>
+            <span className="font-bold text-lg md:text-xl tracking-wide">NEW YEAR SPECIAL</span>
+            <span className="text-2xl">🎉</span>
           </div>
           
           {/* Price highlight */}
@@ -544,10 +544,10 @@ const EarlyAdopterBanner = () => {
             <span className="text-sm md:text-base line-through opacity-70">₹999/year</span>
             <div className="relative">
               <span className="text-2xl md:text-3xl font-black animate-pulse-glow px-3 py-1 bg-white/20 rounded-lg">
-                ₹9/year
+                ₹599/year
               </span>
               <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold px-2 py-0.5 rounded-full animate-bounce">
-                99% OFF
+                40% OFF
               </span>
             </div>
           </div>
@@ -742,11 +742,11 @@ const LandingPage = () => {
       popular: false,
     },
     {
-      name: "Early Adopter",
-      price: "₹9",
+      name: "New Year Special",
+      price: "₹599",
       period: "per year",
       originalPrice: "₹999",
-      badge: "99% OFF - Till Dec 31",
+      badge: "40% OFF - Till Jan 31",
       features: [
         "Unlimited bills forever",
         "All premium features",
@@ -759,9 +759,9 @@ const LandingPage = () => {
         "Multi-currency",
         "6 thermal printer themes",
         "WhatsApp integration",
-        "Lifetime early adopter badge",
+        "New Year special badge",
       ],
-      cta: "🔥 Grab ₹9/Year Deal",
+      cta: "🎉 Get ₹599/Year Deal",
       popular: true,
     },
   ];
@@ -777,8 +777,8 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-white" data-testid="landing-page">
-      {/* Early Adopter Campaign Banner */}
-      <EarlyAdopterBanner />
+      {/* New Year Campaign Banner */}
+      <NewYearBanner />
       
       {/* Lead Capture Popup */}
       <LeadCapturePopup />
@@ -954,7 +954,7 @@ const LandingPage = () => {
 
             <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-2xl mx-auto font-light animate-fade-in-up delay-200">
               AI-powered POS system trusted by 500+ restaurants. 
-              <span className="font-semibold text-red-600"> Early Adopter Special: ₹9/year (99% OFF)!</span>
+              <span className="font-semibold text-red-600"> New Year Special: ₹599/year (40% OFF)!</span>
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fade-in-up delay-400">
@@ -964,7 +964,7 @@ const LandingPage = () => {
                 onClick={handleGetStarted}
               >
                 <Gift className="w-5 h-5 mr-2" />
-                Get ₹9/Year Deal
+                Get ₹599/Year Deal
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
               <Button
@@ -1044,8 +1044,8 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Early Adopter Special Offer Section */}
-      <EarlyAdopterSection navigate={navigate} />
+      {/* New Year Special Offer Section */}
+      <NewYearSpecialSection navigate={navigate} />
 
       {/* SEO Content Section - Main Homepage Content */}
       <section className="py-16 bg-white">
@@ -1293,7 +1293,7 @@ const LandingPage = () => {
                 <CardContent className="pt-6">
                   <ul className="space-y-4">
                     {[
-                      "₹9/year - Early Adopter Special (99% OFF)",
+                      "₹599/year - New Year Special (40% OFF)",
                       "7-day free trial, no credit card",
                       "Cloud-based - Access anywhere",
                       "Automatic updates included",
@@ -1775,7 +1775,7 @@ const LandingPage = () => {
             {[
               {
                 q: "How does the free trial work?",
-                a: "You get 7 days of full access to all premium features, completely free. No credit card required. After the trial, upgrade to Premium for just ₹9/year with our Early Adopter Special (99% OFF till Dec 31, 2025)!",
+                a: "You get 7 days of full access to all premium features, completely free. No credit card required. After the trial, upgrade to Premium for just ₹599/year with our New Year Special (40% OFF till Jan 31, 2026)!",
               },
               {
                 q: "Can I use my own Razorpay account?",
@@ -1799,7 +1799,7 @@ const LandingPage = () => {
               },
               {
                 q: "What's included in the Premium plan?",
-                a: "Unlimited bills, 6 thermal print formats, advanced AI analytics, priority 24/7 support, multi-currency, WhatsApp integration, and all future features. Early Adopter Special: Just ₹9/year (99% OFF) till Dec 31, 2025!",
+                a: "Unlimited bills, 6 thermal print formats, advanced AI analytics, priority 24/7 support, multi-currency, WhatsApp integration, and all future features. New Year Special: Just ₹599/year (40% OFF) till Jan 31, 2026!",
               },
             ].map((faq, index) => (
               <Card key={index} className="border-0 shadow-lg">
@@ -1863,8 +1863,8 @@ const LandingPage = () => {
                       <Shield className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-gray-900">Lifetime Early Adopter Badge</h4>
-                      <p className="text-gray-600 text-sm">Special recognition in the app forever</p>
+                      <h4 className="font-semibold text-gray-900">New Year Special Badge</h4>
+                      <p className="text-gray-600 text-sm">Special recognition in the app</p>
                     </div>
                   </div>
                 </div>
