@@ -9,12 +9,15 @@ import { toast } from 'sonner';
 import { 
   Users, Ticket, TrendingUp, Shield, 
   CheckCircle, Clock, XCircle, UserPlus, Calendar, CreditCard,
-  Mail, FileText, Upload, RefreshCw
+  Mail, FileText, Upload, RefreshCw, Lock
 } from 'lucide-react';
 
 const SuperAdminPage = () => {
   const [authenticated, setAuthenticated] = useState(false);
   const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [userType, setUserType] = useState(null); // 'super-admin' or 'team'
+  const [teamUser, setTeamUser] = useState(null);
+  const [teamToken, setTeamToken] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [users, setUsers] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -36,45 +39,81 @@ const SuperAdminPage = () => {
   const [paymentProofUrl, setPaymentProofUrl] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [sendInvoice, setSendInvoice] = useState(true);
-  const [teamToken, setTeamToken] = useState(null);
-  const [teamUser, setTeamUser] = useState(null);
-  const [loginMode, setLoginMode] = useState('super-admin'); // 'super-admin' or 'team'
   const [newLead, setNewLead] = useState({ name: '', email: '', phone: '', businessName: '', notes: '' });
   const [newTeamMember, setNewTeamMember] = useState({ 
     username: '', email: '', password: '', role: 'sales', 
     permissions: [], full_name: '', phone: '' 
   });
 
+  // Check if team member has specific permission
+  const hasPermission = (permission) => {
+    if (userType === 'super-admin') return true;
+    if (!teamUser) return false;
+    return teamUser.permissions?.includes(permission) || false;
+  };
+
+  // Get available tabs based on user type and permissions
+  const getAvailableTabs = () => {
+    if (userType === 'super-admin') {
+      return ['dashboard', 'users', 'leads', 'team', 'tickets', 'analytics'];
+    }
+    
+    const tabs = [];
+    if (hasPermission('analytics')) tabs.push('dashboard');
+    if (hasPermission('users')) tabs.push('users');
+    if (hasPermission('leads')) tabs.push('leads');
+    if (hasPermission('tickets')) tabs.push('tickets');
+    
+    return tabs.length > 0 ? tabs : ['tickets']; // Default to tickets if no permissions
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
+    
     try {
-      if (loginMode === 'super-admin') {
-        // Super Admin login
-        const response = await axios.get(`${API}/super-admin/dashboard`, {
-          params: credentials
-        });
-        setDashboard(response.data);
-        setAuthenticated(true);
-        toast.success('Super Admin access granted');
-        fetchAllData();
-      } else {
-        // Team member login
-        const response = await axios.post(`${API}/team/login`, {
+      // First try super admin login
+      const response = await axios.get(`${API}/super-admin/dashboard`, {
+        params: credentials
+      });
+      setDashboard(response.data);
+      setUserType('super-admin');
+      setAuthenticated(true);
+      toast.success('Super Admin access granted');
+      fetchAllData();
+    } catch (superAdminError) {
+      // If super admin fails, try team member login
+      try {
+        const teamResponse = await axios.post(`${API}/team/login`, {
           username: credentials.username,
           password: credentials.password
         });
-        setTeamToken(response.data.token);
-        setTeamUser(response.data.user);
+        
+        setTeamToken(teamResponse.data.token);
+        setTeamUser(teamResponse.data.user);
+        setUserType('team');
         setAuthenticated(true);
-        toast.success(`Welcome ${response.data.user.full_name || response.data.user.username}!`);
-        fetchAllDataAsTeam(response.data.token);
+        
+        const availableTabs = getAvailableTabsForUser(teamResponse.data.user);
+        setActiveTab(availableTabs[0] || 'tickets');
+        
+        toast.success(`Welcome ${teamResponse.data.user.full_name || teamResponse.data.user.username}!`);
+        fetchTeamData(teamResponse.data.token, teamResponse.data.user);
+      } catch (teamError) {
+        toast.error('Invalid credentials');
       }
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
+  };
+
+  const getAvailableTabsForUser = (user) => {
+    const tabs = [];
+    if (user.permissions?.includes('analytics')) tabs.push('dashboard');
+    if (user.permissions?.includes('users')) tabs.push('users');
+    if (user.permissions?.includes('leads')) tabs.push('leads');
+    if (user.permissions?.includes('tickets')) tabs.push('tickets');
+    return tabs.length > 0 ? tabs : ['tickets'];
   };
 
   const fetchAllData = async () => {
@@ -115,14 +154,32 @@ const SuperAdminPage = () => {
     }
   };
 
-  const fetchAllDataAsTeam = async (token) => {
-    // Team members have limited access based on permissions
+  const fetchTeamData = async (token, user) => {
+    const headers = { Authorization: `Bearer ${token}` };
+    
     try {
-      // For now, team members can view tickets if they have permission
-      const ticketsRes = await axios.get(`${API}/support/tickets`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setTickets(ticketsRes.data.tickets || []);
+      // Fetch tickets if has permission
+      if (user.permissions?.includes('tickets')) {
+        try {
+          const ticketsRes = await axios.get(`${API}/support/tickets`, { headers });
+          setTickets(ticketsRes.data.tickets || []);
+        } catch (e) {
+          console.error('Failed to fetch tickets', e);
+        }
+      }
+      
+      // Fetch leads if has permission (need to add team endpoint)
+      if (user.permissions?.includes('leads')) {
+        try {
+          const leadsRes = await axios.get(`${API}/super-admin/leads`, {
+            params: credentials
+          });
+          setLeads(leadsRes.data.leads || []);
+          setLeadsStats(leadsRes.data.stats);
+        } catch (e) {
+          console.error('Failed to fetch leads', e);
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch team data', error);
     }
@@ -384,37 +441,9 @@ const SuperAdminPage = () => {
           <CardHeader>
             <div className="flex items-center gap-2 justify-center">
               <Shield className="w-8 h-8 text-purple-400" />
-              <CardTitle className="text-2xl text-white">Admin Panel Access</CardTitle>
+              <CardTitle className="text-2xl text-white">Super Admin Panel</CardTitle>
             </div>
-            
-            {/* Login Mode Toggle */}
-            <div className="flex gap-2 mt-4">
-              <button
-                type="button"
-                onClick={() => setLoginMode('super-admin')}
-                className={`flex-1 py-2 px-3 rounded text-sm font-medium transition ${
-                  loginMode === 'super-admin' 
-                    ? 'bg-purple-600 text-white' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                Super Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoginMode('team')}
-                className={`flex-1 py-2 px-3 rounded text-sm font-medium transition ${
-                  loginMode === 'team' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                Team Member
-              </button>
-            </div>
-            <p className="text-center text-gray-400 text-sm mt-2">
-              {loginMode === 'super-admin' ? 'Site Owner Only' : 'Sales/Support Team Login'}
-            </p>
+            <p className="text-center text-gray-400 text-sm">Site Owner & Team Access</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -425,6 +454,7 @@ const SuperAdminPage = () => {
                   value={credentials.username}
                   onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
                   className="bg-gray-800 border-gray-700 text-white"
+                  placeholder="Enter username"
                   required
                 />
               </div>
@@ -435,15 +465,16 @@ const SuperAdminPage = () => {
                   value={credentials.password}
                   onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
                   className="bg-gray-800 border-gray-700 text-white"
+                  placeholder="Enter password"
                   required
                 />
               </div>
               <Button 
                 type="submit" 
-                className={`w-full ${loginMode === 'super-admin' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                className="w-full bg-purple-600 hover:bg-purple-700"
                 disabled={loading}
               >
-                {loading ? 'Authenticating...' : loginMode === 'super-admin' ? 'Access Super Admin' : 'Team Login'}
+                {loading ? 'Authenticating...' : 'Login'}
               </Button>
             </form>
           </CardContent>
@@ -460,21 +491,47 @@ const SuperAdminPage = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
               <Shield className="w-8 h-8 text-purple-600" />
-              Super Admin Panel
+              {userType === 'super-admin' ? 'Super Admin Panel' : 'Team Panel'}
             </h1>
-            <p className="text-gray-600">Site Owner Dashboard</p>
+            <p className="text-gray-600">
+              {userType === 'super-admin' ? (
+                'Site Owner Dashboard'
+              ) : (
+                <span className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded text-xs ${
+                    teamUser?.role === 'sales' ? 'bg-blue-100 text-blue-800' :
+                    teamUser?.role === 'support' ? 'bg-green-100 text-green-800' :
+                    'bg-purple-100 text-purple-800'
+                  }`}>
+                    {teamUser?.role?.toUpperCase()}
+                  </span>
+                  {teamUser?.full_name || teamUser?.username}
+                  {teamUser?.permissions?.length > 0 && (
+                    <span className="text-xs text-gray-500">
+                      ({teamUser.permissions.join(', ')})
+                    </span>
+                  )}
+                </span>
+              )}
+            </p>
           </div>
           <Button 
-            onClick={() => setAuthenticated(false)}
+            onClick={() => {
+              setAuthenticated(false);
+              setUserType(null);
+              setTeamUser(null);
+              setTeamToken(null);
+              setCredentials({ username: '', password: '' });
+            }}
             variant="outline"
           >
             Logout
           </Button>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs - Show based on permissions */}
         <div className="mb-6 flex gap-2 border-b overflow-x-auto">
-          {['dashboard', 'users', 'leads', 'team', 'tickets', 'analytics'].map(tab => (
+          {getAvailableTabs().map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -490,62 +547,71 @@ const SuperAdminPage = () => {
         </div>
 
         {/* Dashboard Tab */}
-        {activeTab === 'dashboard' && dashboard && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="w-4 h-4 text-gray-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{dashboard.overview.total_users}</div>
-                <p className="text-xs text-gray-600">
-                  {dashboard.overview.active_subscriptions} active subscriptions
-                </p>
-              </CardContent>
-            </Card>
+        {activeTab === 'dashboard' && hasPermission('analytics') && (
+          dashboard ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                  <Users className="w-4 h-4 text-gray-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{dashboard.overview.total_users}</div>
+                  <p className="text-xs text-gray-600">
+                    {dashboard.overview.active_subscriptions} active subscriptions
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
-                <Ticket className="w-4 h-4 text-gray-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{dashboard.overview.open_tickets}</div>
-                <p className="text-xs text-gray-600">
-                  {dashboard.overview.pending_tickets} pending
-                </p>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
+                  <Ticket className="w-4 h-4 text-gray-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{dashboard.overview.open_tickets}</div>
+                  <p className="text-xs text-gray-600">
+                    {dashboard.overview.pending_tickets} pending
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Orders (30d)</CardTitle>
-                <TrendingUp className="w-4 h-4 text-gray-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{dashboard.overview.total_orders_30d}</div>
-                <p className="text-xs text-gray-600">Last 30 days</p>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Orders (30d)</CardTitle>
+                  <TrendingUp className="w-4 h-4 text-gray-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{dashboard.overview.total_orders_30d}</div>
+                  <p className="text-xs text-gray-600">Last 30 days</p>
+                </CardContent>
+              </Card>
 
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Leads</CardTitle>
+                  <UserPlus className="w-4 h-4 text-gray-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{dashboard.overview.total_leads || 0}</div>
+                  <p className="text-xs text-gray-600">
+                    {dashboard.overview.new_leads || 0} new
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Leads</CardTitle>
-                <UserPlus className="w-4 h-4 text-gray-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{dashboard.overview.total_leads || 0}</div>
-                <p className="text-xs text-gray-600">
-                  {dashboard.overview.new_leads || 0} new
-                </p>
+              <CardContent className="py-8 text-center text-gray-500">
+                <Lock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>Dashboard data not available for your access level</p>
               </CardContent>
             </Card>
-          </div>
+          )
         )}
 
         {/* Users Tab */}
-        {activeTab === 'users' && (
+        {activeTab === 'users' && hasPermission('users') && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -687,7 +753,7 @@ const SuperAdminPage = () => {
         )}
 
         {/* Leads Tab */}
-        {activeTab === 'leads' && (
+        {activeTab === 'leads' && hasPermission('leads') && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -776,7 +842,7 @@ const SuperAdminPage = () => {
         )}
 
         {/* Tickets Tab */}
-        {activeTab === 'tickets' && (
+        {activeTab === 'tickets' && hasPermission('tickets') && (
           <Card>
             <CardHeader>
               <CardTitle>Support Tickets</CardTitle>
@@ -906,14 +972,22 @@ const SuperAdminPage = () => {
                               return;
                             }
                             try {
-                              await axios.post(
-                                `${API}/super-admin/tickets/${ticket.id}/reply`,
-                                { message, update_status: 'pending' },
-                                { params: credentials }
-                              );
+                              if (userType === 'super-admin') {
+                                await axios.post(
+                                  `${API}/super-admin/tickets/${ticket.id}/reply`,
+                                  { message, update_status: 'pending' },
+                                  { params: credentials }
+                                );
+                              } else {
+                                await axios.post(
+                                  `${API}/support/ticket/${ticket.id}/reply`,
+                                  { message, update_status: 'pending' },
+                                  { headers: { Authorization: `Bearer ${teamToken}` } }
+                                );
+                              }
                               toast.success('Reply sent successfully! Email sent to customer.');
                               textarea.value = '';
-                              fetchAllData();
+                              userType === 'super-admin' ? fetchAllData() : fetchTeamData(teamToken, teamUser);
                             } catch (error) {
                               toast.error(error.response?.data?.detail || 'Failed to send reply');
                             }
@@ -933,14 +1007,22 @@ const SuperAdminPage = () => {
                               return;
                             }
                             try {
-                              await axios.post(
-                                `${API}/super-admin/tickets/${ticket.id}/reply`,
-                                { message, update_status: 'resolved' },
-                                { params: credentials }
-                              );
+                              if (userType === 'super-admin') {
+                                await axios.post(
+                                  `${API}/super-admin/tickets/${ticket.id}/reply`,
+                                  { message, update_status: 'resolved' },
+                                  { params: credentials }
+                                );
+                              } else {
+                                await axios.post(
+                                  `${API}/support/ticket/${ticket.id}/reply`,
+                                  { message, update_status: 'resolved' },
+                                  { headers: { Authorization: `Bearer ${teamToken}` } }
+                                );
+                              }
                               toast.success('Reply sent & ticket resolved!');
                               textarea.value = '';
-                              fetchAllData();
+                              userType === 'super-admin' ? fetchAllData() : fetchTeamData(teamToken, teamUser);
                             } catch (error) {
                               toast.error(error.response?.data?.detail || 'Failed to send reply');
                             }
@@ -971,8 +1053,8 @@ const SuperAdminPage = () => {
           </Card>
         )}
 
-        {/* Team Tab */}
-        {activeTab === 'team' && (
+        {/* Team Tab - Super Admin Only */}
+        {activeTab === 'team' && userType === 'super-admin' && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -1056,8 +1138,8 @@ const SuperAdminPage = () => {
           </Card>
         )}
 
-        {/* Analytics Tab */}
-        {activeTab === 'analytics' && analytics && (
+        {/* Analytics Tab - Super Admin Only */}
+        {activeTab === 'analytics' && userType === 'super-admin' && analytics && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader>

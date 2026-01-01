@@ -182,15 +182,7 @@ const LoginPage = ({ setUser }) => {
   const completeLogin = (user) => {
     setUser(user);
     toast.success(`Welcome back, ${user.username}! 🚀`);
-    
-    // Team members go to super admin panel
-    if (user.isTeamMember || user.type === 'team') {
-      navigate('/super-admin');
-    } else if (user.role === 'admin' && !user.setup_completed) {
-      navigate('/setup');
-    } else {
-      navigate('/dashboard');
-    }
+    navigate(user.role === 'admin' && !user.setup_completed ? '/setup' : '/dashboard');
   };
 
   const handleOnboardingComplete = async () => {
