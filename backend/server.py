@@ -6,6 +6,9 @@ import ssl
 import uuid
 import httpx
 import asyncio
+import sqlite3
+import tempfile
+import io
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -13,8 +16,8 @@ from typing import Any, Dict, List, Optional
 import jwt
 import razorpay
 from dotenv import load_dotenv
-from fastapi import APIRouter, Body, Depends, FastAPI, File, HTTPException, UploadFile, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Body, Depends, FastAPI, File, HTTPException, UploadFile, status, Query
+from fastapi.responses import Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
@@ -1112,11 +1115,26 @@ async def check_subscription(user: dict):
     - Trial: 7 days from account creation + any extension days
     - After trial: Must have active paid subscription
     - No bill count limit during trial
-    - Staff users inherit subscription from their organization admin
+    - Staff users: Check their own subscription first, then fall back to admin's
     """
     
-    # For staff users, check the organization admin's subscription
+    # For staff users, check their own subscription first
     if user.get("role") in ["waiter", "cashier", "kitchen", "staff"]:
+        # First check if staff has their own active subscription
+        if user.get("subscription_active"):
+            expires_at = user.get("subscription_expires_at")
+            if expires_at:
+                if isinstance(expires_at, str):
+                    try:
+                        expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                    except:
+                        expires_at = None
+                
+                if expires_at and expires_at >= datetime.now(timezone.utc):
+                    # Staff has their own active subscription
+                    return True
+        
+        # Staff doesn't have own subscription, check organization admin's subscription
         org_id = user.get("organization_id")
         if org_id:
             # Find the admin of this organization
@@ -1125,11 +1143,11 @@ async def check_subscription(user: dict):
                 {"_id": 0, "subscription_active": 1, "subscription_expires_at": 1, "created_at": 1, "trial_extension_days": 1}
             )
             if admin_user:
-                # Use admin's subscription status
+                # Use admin's subscription status for trial/subscription check
                 user = admin_user
             else:
-                # If no admin found, allow access (shouldn't happen normally)
-                return True
+                # If no admin found, block access
+                return False
     
     # Check if user has active paid subscription
     if user.get("subscription_active"):
@@ -7094,6 +7112,673 @@ async def delete_user_admin(user_id: str, username: str, password: str):
     
     return {"message": "User and all data deleted successfully", "user_id": user_id}
 
+
+@api_router.get("/super-admin/users/{user_id}/full-data")
+async def get_user_full_data(user_id: str, username: str, password: str):
+    """Get complete user data including all business data - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Get user
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get all staff members
+    staff = await db.users.find(
+        {"organization_id": user_id},
+        {"_id": 0, "password": 0}
+    ).to_list(100)
+    
+    # Get all orders
+    orders = await db.orders.find(
+        {"organization_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(10000)
+    
+    # Get menu items
+    menu_items = await db.menu_items.find(
+        {"organization_id": user_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Get tables
+    tables = await db.tables.find(
+        {"organization_id": user_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Get inventory
+    inventory = await db.inventory.find(
+        {"organization_id": user_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Get payments
+    payments = await db.payments.find(
+        {"organization_id": user_id},
+        {"_id": 0}
+    ).to_list(10000)
+    
+    # Calculate stats
+    total_revenue = sum(o.get("total", 0) for o in orders if o.get("status") == "completed")
+    total_orders = len([o for o in orders if o.get("status") == "completed"])
+    credit_orders = len([o for o in orders if o.get("is_credit")])
+    pending_credit = sum(o.get("balance_amount", 0) for o in orders if o.get("is_credit"))
+    
+    return {
+        "user": user,
+        "staff": staff,
+        "staff_count": len(staff),
+        "orders": orders,
+        "orders_count": len(orders),
+        "menu_items": menu_items,
+        "menu_count": len(menu_items),
+        "tables": tables,
+        "tables_count": len(tables),
+        "inventory": inventory,
+        "inventory_count": len(inventory),
+        "payments": payments,
+        "payments_count": len(payments),
+        "stats": {
+            "total_revenue": total_revenue,
+            "total_orders": total_orders,
+            "credit_orders": credit_orders,
+            "pending_credit": pending_credit,
+            "avg_order_value": total_revenue / total_orders if total_orders > 0 else 0
+        },
+        "exported_at": datetime.now(timezone.utc).isoformat()
+    }
+
+
+def serialize_for_sqlite(obj):
+    """Convert MongoDB document to SQLite-compatible format"""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return json.dumps(obj)
+    elif isinstance(obj, list):
+        return json.dumps(obj)
+    return obj
+
+
+def create_sqlite_backup(user_data: dict, staff: list, orders: list, menu_items: list, 
+                         tables: list, inventory: list, payments: list) -> bytes:
+    """Create SQLite database backup file"""
+    # Create in-memory database
+    conn = sqlite3.connect(':memory:')
+    cursor = conn.cursor()
+    
+    # Create tables
+    cursor.execute('''
+        CREATE TABLE users (
+            id TEXT PRIMARY KEY,
+            username TEXT,
+            email TEXT,
+            role TEXT,
+            phone TEXT,
+            organization_id TEXT,
+            subscription_active INTEGER,
+            subscription_expires_at TEXT,
+            trial_extension_days INTEGER,
+            bill_count INTEGER,
+            setup_completed INTEGER,
+            onboarding_completed INTEGER,
+            business_settings TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE orders (
+            id TEXT PRIMARY KEY,
+            invoice_number INTEGER,
+            table_id TEXT,
+            table_number INTEGER,
+            items TEXT,
+            subtotal REAL,
+            tax REAL,
+            discount REAL,
+            total REAL,
+            status TEXT,
+            waiter_id TEXT,
+            waiter_name TEXT,
+            customer_name TEXT,
+            customer_phone TEXT,
+            order_type TEXT,
+            organization_id TEXT,
+            payment_method TEXT,
+            is_credit INTEGER,
+            payment_received REAL,
+            balance_amount REAL,
+            cash_amount REAL,
+            card_amount REAL,
+            upi_amount REAL,
+            credit_amount REAL,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE menu_items (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            category TEXT,
+            price REAL,
+            description TEXT,
+            image_url TEXT,
+            available INTEGER,
+            ingredients TEXT,
+            preparation_time INTEGER,
+            organization_id TEXT,
+            created_at TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE tables (
+            id TEXT PRIMARY KEY,
+            table_number INTEGER,
+            capacity INTEGER,
+            status TEXT,
+            current_order_id TEXT,
+            organization_id TEXT,
+            created_at TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE inventory (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            category TEXT,
+            quantity REAL,
+            unit TEXT,
+            min_stock REAL,
+            cost_per_unit REAL,
+            supplier TEXT,
+            organization_id TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE payments (
+            id TEXT PRIMARY KEY,
+            order_id TEXT,
+            amount REAL,
+            payment_method TEXT,
+            razorpay_order_id TEXT,
+            razorpay_payment_id TEXT,
+            status TEXT,
+            organization_id TEXT,
+            created_at TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE backup_info (
+            id INTEGER PRIMARY KEY,
+            user_id TEXT,
+            username TEXT,
+            exported_at TEXT,
+            version TEXT
+        )
+    ''')
+    
+    # Insert user data
+    cursor.execute('''
+        INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        user_data.get('id'), user_data.get('username'), user_data.get('email'),
+        user_data.get('role'), user_data.get('phone'), user_data.get('organization_id'),
+        1 if user_data.get('subscription_active') else 0,
+        user_data.get('subscription_expires_at'),
+        user_data.get('trial_extension_days', 0),
+        user_data.get('bill_count', 0),
+        1 if user_data.get('setup_completed') else 0,
+        1 if user_data.get('onboarding_completed') else 0,
+        json.dumps(user_data.get('business_settings', {})),
+        str(user_data.get('created_at', '')),
+        str(user_data.get('updated_at', ''))
+    ))
+    
+    # Insert staff
+    for s in staff:
+        cursor.execute('''
+            INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            s.get('id'), s.get('username'), s.get('email'),
+            s.get('role'), s.get('phone'), s.get('organization_id'),
+            1 if s.get('subscription_active') else 0,
+            s.get('subscription_expires_at'),
+            s.get('trial_extension_days', 0),
+            s.get('bill_count', 0),
+            1 if s.get('setup_completed') else 0,
+            1 if s.get('onboarding_completed') else 0,
+            json.dumps(s.get('business_settings', {})),
+            str(s.get('created_at', '')),
+            str(s.get('updated_at', ''))
+        ))
+    
+    # Insert orders
+    for o in orders:
+        cursor.execute('''
+            INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            o.get('id'), o.get('invoice_number'), o.get('table_id'), o.get('table_number'),
+            json.dumps(o.get('items', [])), o.get('subtotal', 0), o.get('tax', 0),
+            o.get('discount', 0), o.get('total', 0), o.get('status'),
+            o.get('waiter_id'), o.get('waiter_name'), o.get('customer_name'),
+            o.get('customer_phone'), o.get('order_type'), o.get('organization_id'),
+            o.get('payment_method'), 1 if o.get('is_credit') else 0,
+            o.get('payment_received', 0), o.get('balance_amount', 0),
+            o.get('cash_amount', 0), o.get('card_amount', 0),
+            o.get('upi_amount', 0), o.get('credit_amount', 0),
+            str(o.get('created_at', '')), str(o.get('updated_at', ''))
+        ))
+    
+    # Insert menu items
+    for m in menu_items:
+        cursor.execute('''
+            INSERT INTO menu_items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            m.get('id'), m.get('name'), m.get('category'), m.get('price'),
+            m.get('description'), m.get('image_url'),
+            1 if m.get('available', True) else 0,
+            json.dumps(m.get('ingredients', [])), m.get('preparation_time'),
+            m.get('organization_id'), str(m.get('created_at', ''))
+        ))
+    
+    # Insert tables
+    for t in tables:
+        cursor.execute('''
+            INSERT INTO tables VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            t.get('id'), t.get('table_number'), t.get('capacity'),
+            t.get('status'), t.get('current_order_id'),
+            t.get('organization_id'), str(t.get('created_at', ''))
+        ))
+    
+    # Insert inventory
+    for i in inventory:
+        cursor.execute('''
+            INSERT INTO inventory VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            i.get('id'), i.get('name'), i.get('category'), i.get('quantity'),
+            i.get('unit'), i.get('min_stock'), i.get('cost_per_unit'),
+            i.get('supplier'), i.get('organization_id'),
+            str(i.get('created_at', '')), str(i.get('updated_at', ''))
+        ))
+    
+    # Insert payments
+    for p in payments:
+        cursor.execute('''
+            INSERT INTO payments VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            p.get('id'), p.get('order_id'), p.get('amount'),
+            p.get('payment_method'), p.get('razorpay_order_id'),
+            p.get('razorpay_payment_id'), p.get('status'),
+            p.get('organization_id'), str(p.get('created_at', ''))
+        ))
+    
+    # Insert backup info
+    cursor.execute('''
+        INSERT INTO backup_info VALUES (?, ?, ?, ?, ?)
+    ''', (
+        1, user_data.get('id'), user_data.get('username'),
+        datetime.now(timezone.utc).isoformat(), '1.0'
+    ))
+    
+    conn.commit()
+    
+    # Export to bytes
+    buffer = io.BytesIO()
+    for line in conn.iterdump():
+        buffer.write(f'{line}\n'.encode('utf-8'))
+    
+    # Also create actual binary SQLite file
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+    temp_conn = sqlite3.connect(temp_file.name)
+    conn.backup(temp_conn)
+    temp_conn.close()
+    conn.close()
+    
+    with open(temp_file.name, 'rb') as f:
+        db_bytes = f.read()
+    
+    os.unlink(temp_file.name)
+    return db_bytes
+
+
+@api_router.get("/super-admin/users/{user_id}/export-db")
+async def export_user_database(user_id: str, username: str, password: str):
+    """Export user data as SQLite database file - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Get user
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get all data
+    staff = await db.users.find({"organization_id": user_id}, {"_id": 0, "password": 0}).to_list(100)
+    orders = await db.orders.find({"organization_id": user_id}, {"_id": 0}).to_list(50000)
+    menu_items = await db.menu_items.find({"organization_id": user_id}, {"_id": 0}).to_list(1000)
+    tables = await db.tables.find({"organization_id": user_id}, {"_id": 0}).to_list(100)
+    inventory = await db.inventory.find({"organization_id": user_id}, {"_id": 0}).to_list(1000)
+    payments = await db.payments.find({"organization_id": user_id}, {"_id": 0}).to_list(50000)
+    
+    # Create SQLite backup
+    db_bytes = create_sqlite_backup(user, staff, orders, menu_items, tables, inventory, payments)
+    
+    filename = f"{user.get('username', 'user')}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    
+    return StreamingResponse(
+        io.BytesIO(db_bytes),
+        media_type="application/x-sqlite3",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@api_router.post("/super-admin/users/{user_id}/import-db")
+async def import_user_database(
+    user_id: str,
+    username: str = Query(...),
+    password: str = Query(...),
+    file: UploadFile = File(...),
+    replace_existing: bool = Query(default=False, description="Replace existing data or merge")
+):
+    """Import user data from SQLite database file - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Verify user exists
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Read uploaded file
+    content = await file.read()
+    
+    # Save to temp file and open with sqlite3
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+    temp_file.write(content)
+    temp_file.close()
+    
+    try:
+        conn = sqlite3.connect(temp_file.name)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Verify backup info
+        cursor.execute("SELECT * FROM backup_info LIMIT 1")
+        backup_info = cursor.fetchone()
+        if not backup_info:
+            raise HTTPException(status_code=400, detail="Invalid backup file - no backup info found")
+        
+        imported_counts = {
+            "users": 0,
+            "orders": 0,
+            "menu_items": 0,
+            "tables": 0,
+            "inventory": 0,
+            "payments": 0
+        }
+        
+        # If replace_existing, delete existing data first
+        if replace_existing:
+            await db.orders.delete_many({"organization_id": user_id})
+            await db.menu_items.delete_many({"organization_id": user_id})
+            await db.tables.delete_many({"organization_id": user_id})
+            await db.inventory.delete_many({"organization_id": user_id})
+            await db.payments.delete_many({"organization_id": user_id})
+            # Delete staff but not the main user
+            await db.users.delete_many({"organization_id": user_id})
+        
+        # Import users (staff)
+        cursor.execute("SELECT * FROM users WHERE organization_id IS NOT NULL AND organization_id != ''")
+        for row in cursor.fetchall():
+            staff_data = dict(row)
+            staff_data['organization_id'] = user_id  # Ensure correct org_id
+            staff_data['subscription_active'] = bool(staff_data.get('subscription_active'))
+            staff_data['setup_completed'] = bool(staff_data.get('setup_completed'))
+            staff_data['onboarding_completed'] = bool(staff_data.get('onboarding_completed'))
+            if staff_data.get('business_settings'):
+                try:
+                    staff_data['business_settings'] = json.loads(staff_data['business_settings'])
+                except:
+                    staff_data['business_settings'] = {}
+            
+            # Upsert staff
+            await db.users.update_one(
+                {"id": staff_data['id']},
+                {"$set": staff_data},
+                upsert=True
+            )
+            imported_counts["users"] += 1
+        
+        # Import orders
+        cursor.execute("SELECT * FROM orders")
+        for row in cursor.fetchall():
+            order_data = dict(row)
+            order_data['organization_id'] = user_id
+            order_data['is_credit'] = bool(order_data.get('is_credit'))
+            if order_data.get('items'):
+                try:
+                    order_data['items'] = json.loads(order_data['items'])
+                except:
+                    order_data['items'] = []
+            
+            await db.orders.update_one(
+                {"id": order_data['id']},
+                {"$set": order_data},
+                upsert=True
+            )
+            imported_counts["orders"] += 1
+        
+        # Import menu items
+        cursor.execute("SELECT * FROM menu_items")
+        for row in cursor.fetchall():
+            menu_data = dict(row)
+            menu_data['organization_id'] = user_id
+            menu_data['available'] = bool(menu_data.get('available', 1))
+            if menu_data.get('ingredients'):
+                try:
+                    menu_data['ingredients'] = json.loads(menu_data['ingredients'])
+                except:
+                    menu_data['ingredients'] = []
+            
+            await db.menu_items.update_one(
+                {"id": menu_data['id']},
+                {"$set": menu_data},
+                upsert=True
+            )
+            imported_counts["menu_items"] += 1
+        
+        # Import tables
+        cursor.execute("SELECT * FROM tables")
+        for row in cursor.fetchall():
+            table_data = dict(row)
+            table_data['organization_id'] = user_id
+            
+            await db.tables.update_one(
+                {"id": table_data['id']},
+                {"$set": table_data},
+                upsert=True
+            )
+            imported_counts["tables"] += 1
+        
+        # Import inventory
+        cursor.execute("SELECT * FROM inventory")
+        for row in cursor.fetchall():
+            inv_data = dict(row)
+            inv_data['organization_id'] = user_id
+            
+            await db.inventory.update_one(
+                {"id": inv_data['id']},
+                {"$set": inv_data},
+                upsert=True
+            )
+            imported_counts["inventory"] += 1
+        
+        # Import payments
+        cursor.execute("SELECT * FROM payments")
+        for row in cursor.fetchall():
+            payment_data = dict(row)
+            payment_data['organization_id'] = user_id
+            
+            await db.payments.update_one(
+                {"id": payment_data['id']},
+                {"$set": payment_data},
+                upsert=True
+            )
+            imported_counts["payments"] += 1
+        
+        conn.close()
+        
+        return {
+            "message": "Database imported successfully",
+            "user_id": user_id,
+            "imported": imported_counts,
+            "mode": "replace" if replace_existing else "merge"
+        }
+        
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=400, detail=f"Invalid SQLite database: {str(e)}")
+    finally:
+        os.unlink(temp_file.name)
+
+
+@api_router.get("/super-admin/users/{user_id}/business-details")
+async def get_user_business_details(user_id: str, username: str, password: str):
+    """Get detailed business information for a user - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Get user
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get staff members
+    staff = await db.users.find(
+        {"organization_id": user_id},
+        {"_id": 0, "id": 1, "username": 1, "email": 1, "role": 1, "phone": 1, "created_at": 1, "subscription_active": 1}
+    ).to_list(100)
+    
+    # Get order stats
+    orders_pipeline = [
+        {"$match": {"organization_id": user_id}},
+        {"$group": {
+            "_id": None,
+            "total_orders": {"$sum": 1},
+            "completed_orders": {"$sum": {"$cond": [{"$eq": ["$status", "completed"]}, 1, 0]}},
+            "total_revenue": {"$sum": {"$cond": [{"$eq": ["$status", "completed"]}, "$total", 0]}},
+            "credit_orders": {"$sum": {"$cond": ["$is_credit", 1, 0]}},
+            "pending_credit": {"$sum": {"$cond": ["$is_credit", "$balance_amount", 0]}}
+        }}
+    ]
+    order_stats = await db.orders.aggregate(orders_pipeline).to_list(1)
+    order_stats = order_stats[0] if order_stats else {}
+    
+    # Get recent orders (last 10)
+    recent_orders = await db.orders.find(
+        {"organization_id": user_id},
+        {"_id": 0, "id": 1, "total": 1, "status": 1, "customer_name": 1, "created_at": 1, "is_credit": 1}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    # Get menu count
+    menu_count = await db.menu_items.count_documents({"organization_id": user_id})
+    
+    # Get tables count
+    tables_count = await db.tables.count_documents({"organization_id": user_id})
+    
+    # Get inventory count
+    inventory_count = await db.inventory.count_documents({"organization_id": user_id})
+    
+    # Calculate trial/subscription info
+    created_at = user.get("created_at")
+    trial_days = 7 + user.get("trial_extension_days", 0)
+    if isinstance(created_at, str):
+        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    
+    trial_end = created_at + timedelta(days=trial_days) if created_at else None
+    is_trial_active = trial_end and trial_end > datetime.now(timezone.utc) if trial_end else False
+    days_remaining = (trial_end - datetime.now(timezone.utc)).days if trial_end and is_trial_active else 0
+    
+    return {
+        "user": {
+            "id": user.get("id"),
+            "username": user.get("username"),
+            "email": user.get("email"),
+            "phone": user.get("phone"),
+            "role": user.get("role"),
+            "created_at": user.get("created_at"),
+            "subscription_active": user.get("subscription_active", False),
+            "subscription_expires_at": user.get("subscription_expires_at"),
+            "trial_extension_days": user.get("trial_extension_days", 0),
+            "is_trial_active": is_trial_active,
+            "trial_days_remaining": days_remaining,
+            "setup_completed": user.get("setup_completed", False),
+            "onboarding_completed": user.get("onboarding_completed", False)
+        },
+        "business_settings": user.get("business_settings", {}),
+        "staff": staff,
+        "staff_count": len(staff),
+        "stats": {
+            "total_orders": order_stats.get("total_orders", 0),
+            "completed_orders": order_stats.get("completed_orders", 0),
+            "total_revenue": order_stats.get("total_revenue", 0),
+            "credit_orders": order_stats.get("credit_orders", 0),
+            "pending_credit": order_stats.get("pending_credit", 0),
+            "menu_items": menu_count,
+            "tables": tables_count,
+            "inventory_items": inventory_count
+        },
+        "recent_orders": recent_orders
+    }
+
+
+@api_router.put("/super-admin/staff/{staff_id}/subscription")
+async def update_staff_subscription(
+    staff_id: str,
+    subscription_active: bool,
+    username: str,
+    password: str
+):
+    """Update staff member subscription status - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Verify it's a staff member
+    staff = await db.users.find_one({"id": staff_id})
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff not found")
+    
+    if staff.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Use user subscription endpoint for admins")
+    
+    # Update staff subscription
+    await db.users.update_one(
+        {"id": staff_id},
+        {"$set": {
+            "subscription_active": subscription_active,
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    return {
+        "message": f"Staff subscription {'activated' if subscription_active else 'deactivated'}",
+        "staff_id": staff_id,
+        "subscription_active": subscription_active
+    }
+
+
 @api_router.get("/super-admin/tickets")
 async def get_all_tickets_admin(
     username: str,
@@ -7532,6 +8217,185 @@ app.include_router(api_router)
 # Include super admin routes and set database
 set_super_admin_db(db)
 app.include_router(super_admin_router)
+
+
+# ============ APP VERSION MANAGEMENT (Super Admin Only) ============
+
+class AppVersionCreate(BaseModel):
+    platform: str  # 'android' or 'windows'
+    version: str  # e.g., '1.0.0'
+    version_code: int  # e.g., 1
+    download_url: str  # Direct download URL
+    release_notes: Optional[str] = ""
+    min_supported_version: Optional[str] = None
+    is_mandatory: bool = False
+    file_size: Optional[str] = None  # e.g., '25 MB'
+
+class AppVersionUpdate(BaseModel):
+    version: Optional[str] = None
+    version_code: Optional[int] = None
+    download_url: Optional[str] = None
+    release_notes: Optional[str] = None
+    min_supported_version: Optional[str] = None
+    is_mandatory: Optional[bool] = None
+    is_active: Optional[bool] = None
+    file_size: Optional[str] = None
+
+@api_router.get("/super-admin/app-versions")
+async def get_app_versions(username: str, password: str):
+    """Get all app versions - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    versions = await db.app_versions.find().sort("created_at", -1).to_list(100)
+    for v in versions:
+        v.pop("_id", None)
+    
+    return {"versions": versions}
+
+@api_router.post("/super-admin/app-versions")
+async def create_app_version(
+    version_data: AppVersionCreate,
+    username: str,
+    password: str
+):
+    """Create new app version - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Deactivate previous versions of same platform
+    await db.app_versions.update_many(
+        {"platform": version_data.platform, "is_active": True},
+        {"$set": {"is_active": False}}
+    )
+    
+    new_version = {
+        "id": str(uuid.uuid4()),
+        "platform": version_data.platform,
+        "version": version_data.version,
+        "version_code": version_data.version_code,
+        "download_url": version_data.download_url,
+        "release_notes": version_data.release_notes or "",
+        "min_supported_version": version_data.min_supported_version,
+        "is_mandatory": version_data.is_mandatory,
+        "is_active": True,
+        "file_size": version_data.file_size,
+        "download_count": 0,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc)
+    }
+    
+    await db.app_versions.insert_one(new_version)
+    new_version.pop("_id", None)
+    
+    return {"message": f"{version_data.platform.title()} app version {version_data.version} created", "version": new_version}
+
+@api_router.put("/super-admin/app-versions/{version_id}")
+async def update_app_version(
+    version_id: str,
+    update_data: AppVersionUpdate,
+    username: str,
+    password: str
+):
+    """Update app version - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+    update_dict["updated_at"] = datetime.now(timezone.utc)
+    
+    # If activating this version, deactivate others of same platform
+    if update_data.is_active:
+        version = await db.app_versions.find_one({"id": version_id})
+        if version:
+            await db.app_versions.update_many(
+                {"platform": version["platform"], "is_active": True, "id": {"$ne": version_id}},
+                {"$set": {"is_active": False}}
+            )
+    
+    result = await db.app_versions.update_one(
+        {"id": version_id},
+        {"$set": update_dict}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Version not found")
+    
+    return {"message": "App version updated successfully"}
+
+@api_router.delete("/super-admin/app-versions/{version_id}")
+async def delete_app_version(version_id: str, username: str, password: str):
+    """Delete app version - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    result = await db.app_versions.delete_one({"id": version_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Version not found")
+    
+    return {"message": "App version deleted successfully"}
+
+# Public endpoints for app downloads (no auth required)
+@api_router.get("/app/latest/{platform}")
+async def get_latest_app_version(platform: str):
+    """Get latest active app version for platform (android/windows) - Public"""
+    if platform not in ["android", "windows"]:
+        raise HTTPException(status_code=400, detail="Invalid platform. Use 'android' or 'windows'")
+    
+    version = await db.app_versions.find_one(
+        {"platform": platform, "is_active": True},
+        sort=[("version_code", -1)]
+    )
+    
+    if not version:
+        raise HTTPException(status_code=404, detail=f"No {platform} app version available")
+    
+    version.pop("_id", None)
+    
+    # Increment download count
+    await db.app_versions.update_one(
+        {"id": version["id"]},
+        {"$inc": {"download_count": 1}}
+    )
+    
+    return version
+
+@api_router.get("/app/check-update/{platform}/{current_version}")
+async def check_app_update(platform: str, current_version: str):
+    """Check if app update is available - Public"""
+    if platform not in ["android", "windows"]:
+        raise HTTPException(status_code=400, detail="Invalid platform")
+    
+    latest = await db.app_versions.find_one(
+        {"platform": platform, "is_active": True},
+        sort=[("version_code", -1)]
+    )
+    
+    if not latest:
+        return {"update_available": False}
+    
+    latest.pop("_id", None)
+    
+    # Simple version comparison (assumes semantic versioning)
+    def version_tuple(v):
+        return tuple(map(int, v.split('.')))
+    
+    try:
+        current = version_tuple(current_version)
+        latest_v = version_tuple(latest["version"])
+        update_available = latest_v > current
+    except:
+        update_available = latest["version"] != current_version
+    
+    return {
+        "update_available": update_available,
+        "latest_version": latest["version"],
+        "is_mandatory": latest.get("is_mandatory", False),
+        "download_url": latest["download_url"] if update_available else None,
+        "release_notes": latest.get("release_notes", "") if update_available else None,
+        "file_size": latest.get("file_size")
+    }
 
 
 # Serve Windows app download

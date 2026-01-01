@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, MessageCircle, Megaphone, Plus, Trash2, Calendar, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, MessageCircle, Megaphone, Plus, Trash2, Calendar, Eye, EyeOff, Sparkles, Upload, Image, X } from 'lucide-react';
 import PrintCustomization from '../components/PrintCustomization';
 import WhatsAppDesktop from '../components/WhatsAppDesktop';
 import ValidationAlert from '../components/ValidationAlert';
@@ -55,6 +55,7 @@ const SettingsPage = ({ user }) => {
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [razorpayConfigured, setRazorpayConfigured] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
+  const [logoUploading, setLogoUploading] = useState(false);
   
   // Campaign Management State
   const [campaigns, setCampaigns] = useState([]);
@@ -310,6 +311,54 @@ const SettingsPage = ({ user }) => {
     } finally {
       setWhatsappLoading(false);
     }
+  };
+
+  // Logo upload handler - converts to base64 data URL
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a valid image (PNG, JPG, WEBP, or GIF)');
+      return;
+    }
+
+    // Validate file size (max 500KB for base64 storage)
+    if (file.size > 500 * 1024) {
+      toast.error('Image size should be less than 500KB');
+      return;
+    }
+
+    setLogoUploading(true);
+    try {
+      // Read file as base64
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result;
+        if (base64) {
+          setBusinessSettings({ ...businessSettings, logo_url: base64 });
+          toast.success('Logo uploaded! Click Save to apply.');
+        }
+        setLogoUploading(false);
+      };
+      reader.onerror = () => {
+        toast.error('Failed to read image file');
+        setLogoUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Logo upload error:', error);
+      toast.error('Failed to upload logo');
+      setLogoUploading(false);
+    }
+  };
+
+  // Remove logo
+  const handleRemoveLogo = () => {
+    setBusinessSettings({ ...businessSettings, logo_url: '' });
+    toast.success('Logo removed! Click Save to apply.');
   };
 
   const handleSaveBusinessSettings = async () => {
@@ -1153,30 +1202,91 @@ const SettingsPage = ({ user }) => {
 
               {/* Logo URL for Bills */}
               <div className="md:col-span-2">
-                <Label>Restaurant Logo URL (for Bills)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={businessSettings.logo_url || ''}
-                    onChange={(e) => setBusinessSettings({ ...businessSettings, logo_url: e.target.value })}
-                    placeholder="https://example.com/your-logo.png"
-                    className="flex-1"
-                  />
+                <Label>Restaurant Logo (for Bills)</Label>
+                <div className="mt-2 space-y-3">
+                  {/* Logo Preview */}
                   {businessSettings.logo_url && (
-                    <div className="w-12 h-12 border rounded-lg overflow-hidden flex-shrink-0">
-                      <img 
-                        src={businessSettings.logo_url} 
-                        alt="Logo preview" 
-                        className="w-full h-full object-contain"
-                        onError={(e) => e.target.style.display = 'none'}
-                      />
+                    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg overflow-hidden flex items-center justify-center bg-white">
+                        <img 
+                          src={businessSettings.logo_url} 
+                          alt="Logo preview" 
+                          className="max-w-full max-h-full object-contain"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = '<span class="text-xs text-red-500">Invalid image</span>';
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-700">Current Logo</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {businessSettings.logo_url.startsWith('data:') ? 'Uploaded image' : 'External URL'}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRemoveLogo}
+                          className="mt-2 text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
                     </div>
                   )}
+                  
+                  {/* Upload Options */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {/* File Upload Button */}
+                    <div className="flex-1">
+                      <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-violet-300 rounded-lg cursor-pointer hover:bg-violet-50 hover:border-violet-400 transition-all">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                          onChange={handleLogoUpload}
+                          className="hidden"
+                          disabled={logoUploading}
+                        />
+                        {logoUploading ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm text-violet-600">Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-5 h-5 text-violet-600" />
+                            <span className="text-sm text-violet-600 font-medium">Upload Logo</span>
+                          </>
+                        )}
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1 text-center">PNG, JPG, WEBP (max 500KB)</p>
+                    </div>
+                    
+                    {/* OR Divider */}
+                    <div className="flex items-center justify-center">
+                      <span className="text-xs text-gray-400 px-2">OR</span>
+                    </div>
+                    
+                    {/* URL Input */}
+                    <div className="flex-1">
+                      <Input
+                        value={businessSettings.logo_url?.startsWith('data:') ? '' : (businessSettings.logo_url || '')}
+                        onChange={(e) => setBusinessSettings({ ...businessSettings, logo_url: e.target.value })}
+                        placeholder="https://example.com/logo.png"
+                        className="h-[50px]"
+                      />
+                      <p className="text-xs text-gray-500 mt-1 text-center">Enter direct image URL</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-gray-500">
+                    💡 Tip: For best results, use a square logo (200x200px). You can also host your logo on 
+                    <a href="https://imgur.com" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline ml-1">Imgur</a> or 
+                    <a href="https://imgbb.com" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline ml-1">ImgBB</a> for free.
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Enter a direct URL to your logo image (PNG, JPG). Recommended size: 200x200px. 
-                  You can upload your logo to <a href="https://imgur.com" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">Imgur</a> or 
-                  <a href="https://imgbb.com" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline ml-1">ImgBB</a> for free hosting.
-                </p>
               </div>
 
               <div className="md:col-span-2">

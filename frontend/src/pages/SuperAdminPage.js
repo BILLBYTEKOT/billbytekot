@@ -9,7 +9,9 @@ import { toast } from 'sonner';
 import { 
   Users, Ticket, TrendingUp, Shield, 
   CheckCircle, Clock, XCircle, UserPlus, Calendar, CreditCard,
-  Mail, FileText, Upload, RefreshCw, Lock, Download, Eye, X
+  Mail, FileText, Upload, RefreshCw, Lock, Download, Eye, X,
+  Smartphone, Monitor, Package, Plus, Trash2, Edit, ExternalLink,
+  Database, HardDrive
 } from 'lucide-react';
 
 const SuperAdminPage = () => {
@@ -46,6 +48,31 @@ const SuperAdminPage = () => {
     username: '', email: '', password: '', role: 'sales', 
     permissions: [], full_name: '', phone: '' 
   });
+  const [appVersions, setAppVersions] = useState([]);
+  const [showAppVersionModal, setShowAppVersionModal] = useState(false);
+  const [editingVersion, setEditingVersion] = useState(null);
+  const [newAppVersion, setNewAppVersion] = useState({
+    platform: 'android',
+    version: '',
+    version_code: 1,
+    download_url: '',
+    release_notes: '',
+    min_supported_version: '',
+    is_mandatory: false,
+    file_size: ''
+  });
+  const [showBusinessDetails, setShowBusinessDetails] = useState(false);
+  const [businessDetails, setBusinessDetails] = useState(null);
+  const [businessDetailsLoading, setBusinessDetailsLoading] = useState(false);
+  const [exportingData, setExportingData] = useState(null);
+  const [exportingDb, setExportingDb] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importUserId, setImportUserId] = useState(null);
+  const [importUsername, setImportUsername] = useState('');
+  const [importFile, setImportFile] = useState(null);
+  const [importReplaceMode, setImportReplaceMode] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importFileRef = useRef(null);
   const invoiceRef = useRef(null);
 
   // Generate invoice number with format: BBK/2025-26/INV/0001
@@ -249,7 +276,7 @@ const SuperAdminPage = () => {
   // Get available tabs based on user type and permissions
   const getAvailableTabs = () => {
     if (userType === 'super-admin') {
-      return ['dashboard', 'users', 'leads', 'team', 'tickets', 'analytics'];
+      return ['dashboard', 'users', 'leads', 'team', 'tickets', 'analytics', 'app-versions'];
     }
     
     const tabs = [];
@@ -343,6 +370,12 @@ const SuperAdminPage = () => {
         params: { ...credentials, days: 30 }
       });
       setAnalytics(analyticsRes.data);
+
+      // Fetch app versions
+      const appVersionsRes = await axios.get(`${API}/super-admin/app-versions`, {
+        params: credentials
+      });
+      setAppVersions(appVersionsRes.data.versions || []);
     } catch (error) {
       console.error('Failed to fetch data', error);
     }
@@ -628,6 +661,266 @@ const SuperAdminPage = () => {
     }
   };
 
+  // App Version Management Functions
+  const createAppVersion = async () => {
+    if (!newAppVersion.version || !newAppVersion.download_url) {
+      toast.error('Please fill version and download URL');
+      return;
+    }
+
+    try {
+      await axios.post(
+        `${API}/super-admin/app-versions`,
+        newAppVersion,
+        { params: credentials }
+      );
+      toast.success(`${newAppVersion.platform.toUpperCase()} app version created`);
+      setShowAppVersionModal(false);
+      setNewAppVersion({
+        platform: 'android',
+        version: '',
+        version_code: 1,
+        download_url: '',
+        release_notes: '',
+        min_supported_version: '',
+        is_mandatory: false,
+        file_size: ''
+      });
+      fetchAllData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to create app version');
+    }
+  };
+
+  const updateAppVersion = async () => {
+    if (!editingVersion) return;
+
+    try {
+      await axios.put(
+        `${API}/super-admin/app-versions/${editingVersion.id}`,
+        newAppVersion,
+        { params: credentials }
+      );
+      toast.success('App version updated');
+      setShowAppVersionModal(false);
+      setEditingVersion(null);
+      setNewAppVersion({
+        platform: 'android',
+        version: '',
+        version_code: 1,
+        download_url: '',
+        release_notes: '',
+        min_supported_version: '',
+        is_mandatory: false,
+        file_size: ''
+      });
+      fetchAllData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update app version');
+    }
+  };
+
+  const deleteAppVersion = async (versionId) => {
+    if (!window.confirm('Are you sure you want to delete this app version?')) return;
+    
+    try {
+      await axios.delete(`${API}/super-admin/app-versions/${versionId}`, {
+        params: credentials
+      });
+      toast.success('App version deleted');
+      fetchAllData();
+    } catch (error) {
+      toast.error('Failed to delete app version');
+    }
+  };
+
+  const toggleAppVersionActive = async (version) => {
+    try {
+      await axios.put(
+        `${API}/super-admin/app-versions/${version.id}`,
+        { is_active: !version.is_active },
+        { params: credentials }
+      );
+      toast.success(`Version ${version.is_active ? 'deactivated' : 'activated'}`);
+      fetchAllData();
+    } catch (error) {
+      toast.error('Failed to update version status');
+    }
+  };
+
+  const openEditVersion = (version) => {
+    setEditingVersion(version);
+    setNewAppVersion({
+      platform: version.platform,
+      version: version.version,
+      version_code: version.version_code,
+      download_url: version.download_url,
+      release_notes: version.release_notes || '',
+      min_supported_version: version.min_supported_version || '',
+      is_mandatory: version.is_mandatory || false,
+      file_size: version.file_size || ''
+    });
+    setShowAppVersionModal(true);
+  };
+
+  // View Business Details
+  const viewBusinessDetails = async (userId) => {
+    setBusinessDetailsLoading(true);
+    try {
+      const response = await axios.get(`${API}/super-admin/users/${userId}/business-details`, {
+        params: credentials
+      });
+      setBusinessDetails(response.data);
+      setShowBusinessDetails(true);
+    } catch (error) {
+      toast.error('Failed to load business details');
+      console.error(error);
+    } finally {
+      setBusinessDetailsLoading(false);
+    }
+  };
+
+  // Export User Full Data
+  const exportUserData = async (userId, username) => {
+    setExportingData(userId);
+    try {
+      const response = await axios.get(`${API}/super-admin/users/${userId}/full-data`, {
+        params: credentials
+      });
+      
+      // Create and download JSON file
+      const dataStr = JSON.stringify(response.data, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${username}_business_data_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Data exported for ${username}`);
+    } catch (error) {
+      toast.error('Failed to export data');
+      console.error(error);
+    } finally {
+      setExportingData(null);
+    }
+  };
+
+  // Update Staff Subscription
+  const updateStaffSubscription = async (staffId, subscriptionActive) => {
+    try {
+      await axios.put(
+        `${API}/super-admin/staff/${staffId}/subscription`,
+        {},
+        { params: { ...credentials, subscription_active: subscriptionActive } }
+      );
+      toast.success(`Staff subscription ${subscriptionActive ? 'activated' : 'deactivated'}`);
+      // Refresh business details if open
+      if (businessDetails) {
+        viewBusinessDetails(businessDetails.user.id);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update staff subscription');
+    }
+  };
+
+  // Export User Database (SQLite .db file)
+  const exportUserDatabase = async (userId, username) => {
+    setExportingDb(userId);
+    try {
+      const response = await axios.get(`${API}/super-admin/users/${userId}/export-db`, {
+        params: credentials,
+        responseType: 'blob'
+      });
+      
+      // Create and download .db file
+      const blob = new Blob([response.data], { type: 'application/x-sqlite3' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${username}_backup_${new Date().toISOString().split('T')[0]}.db`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`SQLite database exported for ${username}`);
+    } catch (error) {
+      toast.error('Failed to export database');
+      console.error(error);
+    } finally {
+      setExportingDb(null);
+    }
+  };
+
+  // Open Import Modal
+  const openImportModal = (userId, username) => {
+    setImportUserId(userId);
+    setImportUsername(username);
+    setImportFile(null);
+    setImportReplaceMode(false);
+    setShowImportModal(true);
+  };
+
+  // Handle Import File Selection
+  const handleImportFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.name.endsWith('.db')) {
+        toast.error('Please select a .db (SQLite) file');
+        return;
+      }
+      setImportFile(file);
+    }
+  };
+
+  // Import User Database
+  const importUserDatabase = async () => {
+    if (!importFile || !importUserId) {
+      toast.error('Please select a database file');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+
+      const response = await axios.post(
+        `${API}/super-admin/users/${importUserId}/import-db`,
+        formData,
+        {
+          params: { ...credentials, replace_existing: importReplaceMode },
+          headers: { 'Content-Type': 'multipart/form-data' }
+        }
+      );
+
+      const imported = response.data.imported;
+      toast.success(
+        `Database imported! Users: ${imported.users}, Orders: ${imported.orders}, Menu: ${imported.menu_items}, Tables: ${imported.tables}, Inventory: ${imported.inventory}, Payments: ${imported.payments}`
+      );
+      
+      setShowImportModal(false);
+      setImportFile(null);
+      setImportUserId(null);
+      setImportUsername('');
+      
+      // Refresh data
+      fetchAllData();
+      if (businessDetails && businessDetails.user?.id === importUserId) {
+        viewBusinessDetails(importUserId);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to import database');
+      console.error(error);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
@@ -869,6 +1162,57 @@ const SuperAdminPage = () => {
                         <td className="p-2">{user.bill_count || 0}</td>
                         <td className="p-2">
                           <div className="flex flex-wrap gap-1">
+                            {/* View Business Details */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => viewBusinessDetails(user.id)}
+                              className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                              title="View Business Details"
+                              disabled={businessDetailsLoading}
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              Details
+                            </Button>
+                            
+                            {/* Export Data (JSON) */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => exportUserData(user.id, user.username)}
+                              className="text-xs text-teal-600 border-teal-200 hover:bg-teal-50"
+                              title="Export All Business Data (JSON)"
+                              disabled={exportingData === user.id}
+                            >
+                              <Download className="w-3 h-3 mr-1" />
+                              {exportingData === user.id ? '...' : 'JSON'}
+                            </Button>
+                            
+                            {/* Export Database (SQLite .db) */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => exportUserDatabase(user.id, user.username)}
+                              className="text-xs text-cyan-600 border-cyan-200 hover:bg-cyan-50"
+                              title="Export SQLite Database (.db)"
+                              disabled={exportingDb === user.id}
+                            >
+                              <Database className="w-3 h-3 mr-1" />
+                              {exportingDb === user.id ? '...' : 'DB'}
+                            </Button>
+                            
+                            {/* Import Database */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openImportModal(user.id, user.username)}
+                              className="text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                              title="Import SQLite Database (.db)"
+                            >
+                              <Upload className="w-3 h-3 mr-1" />
+                              Import
+                            </Button>
+                            
                             {/* Subscription Management */}
                             {user.subscription_active ? (
                               <>
@@ -889,8 +1233,8 @@ const SuperAdminPage = () => {
                                   className="text-xs text-purple-600 border-purple-200 hover:bg-purple-50"
                                   title="Preview & Download Invoice"
                                 >
-                                  <Eye className="w-3 h-3 mr-1" />
-                                  View
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  Invoice
                                 </Button>
                                 <Button
                                   size="sm"
@@ -1418,7 +1762,626 @@ const SuperAdminPage = () => {
             </Card>
           </div>
         )}
+
+        {/* App Versions Tab - Super Admin Only */}
+        {activeTab === 'app-versions' && userType === 'super-admin' && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    App Version Management
+                  </CardTitle>
+                  <p className="text-sm text-gray-500 mt-1">Manage Android APK and Windows app downloads</p>
+                </div>
+                <Button 
+                  onClick={() => {
+                    setEditingVersion(null);
+                    setNewAppVersion({
+                      platform: 'android',
+                      version: '',
+                      version_code: 1,
+                      download_url: '',
+                      release_notes: '',
+                      min_supported_version: '',
+                      is_mandatory: false,
+                      file_size: ''
+                    });
+                    setShowAppVersionModal(true);
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Version
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Platform Sections */}
+              <div className="space-y-6">
+                {/* Android Section */}
+                <div>
+                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                    <Smartphone className="w-5 h-5 text-green-600" />
+                    Android APK
+                  </h3>
+                  <div className="space-y-2">
+                    {appVersions.filter(v => v.platform === 'android').length === 0 ? (
+                      <p className="text-gray-500 text-sm py-4 text-center bg-gray-50 rounded-lg">No Android versions added yet</p>
+                    ) : (
+                      appVersions.filter(v => v.platform === 'android').map(version => (
+                        <div key={version.id} className={`p-4 rounded-lg border-2 ${version.is_active ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${version.is_active ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                                <Smartphone className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold">v{version.version}</span>
+                                  <span className="text-xs text-gray-500">(Code: {version.version_code})</span>
+                                  {version.is_active && <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">Active</span>}
+                                  {version.is_mandatory && <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">Mandatory</span>}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {version.file_size && `${version.file_size} • `}
+                                  {version.download_count || 0} downloads
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <a href={version.download_url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-gray-200 rounded-lg" title="Open URL">
+                                <ExternalLink className="w-4 h-4 text-gray-600" />
+                              </a>
+                              <button onClick={() => openEditVersion(version)} className="p-2 hover:bg-blue-100 rounded-lg" title="Edit">
+                                <Edit className="w-4 h-4 text-blue-600" />
+                              </button>
+                              <button onClick={() => toggleAppVersionActive(version)} className={`p-2 rounded-lg ${version.is_active ? 'hover:bg-orange-100' : 'hover:bg-green-100'}`} title={version.is_active ? 'Deactivate' : 'Activate'}>
+                                {version.is_active ? <XCircle className="w-4 h-4 text-orange-600" /> : <CheckCircle className="w-4 h-4 text-green-600" />}
+                              </button>
+                              <button onClick={() => deleteAppVersion(version.id)} className="p-2 hover:bg-red-100 rounded-lg" title="Delete">
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </button>
+                            </div>
+                          </div>
+                          {version.release_notes && (
+                            <p className="text-sm text-gray-600 mt-2 pl-13">{version.release_notes}</p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2 pl-13 truncate">URL: {version.download_url}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Windows Section */}
+                <div>
+                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                    <Monitor className="w-5 h-5 text-blue-600" />
+                    Windows App
+                  </h3>
+                  <div className="space-y-2">
+                    {appVersions.filter(v => v.platform === 'windows').length === 0 ? (
+                      <p className="text-gray-500 text-sm py-4 text-center bg-gray-50 rounded-lg">No Windows versions added yet</p>
+                    ) : (
+                      appVersions.filter(v => v.platform === 'windows').map(version => (
+                        <div key={version.id} className={`p-4 rounded-lg border-2 ${version.is_active ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${version.is_active ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                                <Monitor className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold">v{version.version}</span>
+                                  <span className="text-xs text-gray-500">(Code: {version.version_code})</span>
+                                  {version.is_active && <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded-full">Active</span>}
+                                  {version.is_mandatory && <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">Mandatory</span>}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {version.file_size && `${version.file_size} • `}
+                                  {version.download_count || 0} downloads
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <a href={version.download_url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-gray-200 rounded-lg" title="Open URL">
+                                <ExternalLink className="w-4 h-4 text-gray-600" />
+                              </a>
+                              <button onClick={() => openEditVersion(version)} className="p-2 hover:bg-blue-100 rounded-lg" title="Edit">
+                                <Edit className="w-4 h-4 text-blue-600" />
+                              </button>
+                              <button onClick={() => toggleAppVersionActive(version)} className={`p-2 rounded-lg ${version.is_active ? 'hover:bg-orange-100' : 'hover:bg-green-100'}`} title={version.is_active ? 'Deactivate' : 'Activate'}>
+                                {version.is_active ? <XCircle className="w-4 h-4 text-orange-600" /> : <CheckCircle className="w-4 h-4 text-green-600" />}
+                              </button>
+                              <button onClick={() => deleteAppVersion(version.id)} className="p-2 hover:bg-red-100 rounded-lg" title="Delete">
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </button>
+                            </div>
+                          </div>
+                          {version.release_notes && (
+                            <p className="text-sm text-gray-600 mt-2 pl-13">{version.release_notes}</p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2 pl-13 truncate">URL: {version.download_url}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Public Download URLs Info */}
+              <div className="mt-6 p-4 bg-gray-100 rounded-lg">
+                <h4 className="font-medium text-sm mb-2">📱 Public Download Endpoints:</h4>
+                <div className="space-y-1 text-xs font-mono text-gray-600">
+                  <p>Android: <span className="text-purple-600">{API}/app/latest/android</span></p>
+                  <p>Windows: <span className="text-purple-600">{API}/app/latest/windows</span></p>
+                  <p>Check Update: <span className="text-purple-600">{API}/app/check-update/[platform]/[version]</span></p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* App Version Modal */}
+      {showAppVersionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                {editingVersion ? 'Edit App Version' : 'Add New App Version'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label>Platform *</Label>
+                  <select
+                    value={newAppVersion.platform}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, platform: e.target.value})}
+                    className="w-full px-3 py-2 border rounded-lg mt-1"
+                    disabled={!!editingVersion}
+                  >
+                    <option value="android">Android (APK)</option>
+                    <option value="windows">Windows (EXE)</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Version * (e.g., 1.0.0)</Label>
+                    <Input
+                      value={newAppVersion.version}
+                      onChange={(e) => setNewAppVersion({...newAppVersion, version: e.target.value})}
+                      placeholder="1.0.0"
+                    />
+                  </div>
+                  <div>
+                    <Label>Version Code * (number)</Label>
+                    <Input
+                      type="number"
+                      value={newAppVersion.version_code}
+                      onChange={(e) => setNewAppVersion({...newAppVersion, version_code: parseInt(e.target.value) || 1})}
+                      placeholder="1"
+                      min="1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Download URL * (Direct link to APK/EXE)</Label>
+                  <Input
+                    value={newAppVersion.download_url}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, download_url: e.target.value})}
+                    placeholder="https://example.com/app.apk"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Use direct download links from Google Drive, Dropbox, GitHub Releases, etc.
+                  </p>
+                </div>
+
+                <div>
+                  <Label>File Size (optional)</Label>
+                  <Input
+                    value={newAppVersion.file_size}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, file_size: e.target.value})}
+                    placeholder="25 MB"
+                  />
+                </div>
+
+                <div>
+                  <Label>Release Notes (optional)</Label>
+                  <textarea
+                    value={newAppVersion.release_notes}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, release_notes: e.target.value})}
+                    placeholder="What's new in this version..."
+                    className="w-full px-3 py-2 border rounded-lg mt-1 h-20 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <Label>Min Supported Version (optional)</Label>
+                  <Input
+                    value={newAppVersion.min_supported_version}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, min_supported_version: e.target.value})}
+                    placeholder="1.0.0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Users below this version will be forced to update</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is_mandatory"
+                    checked={newAppVersion.is_mandatory}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, is_mandatory: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="is_mandatory" className="cursor-pointer">Mandatory Update (force users to update)</Label>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    onClick={() => {
+                      setShowAppVersionModal(false);
+                      setEditingVersion(null);
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={editingVersion ? updateAppVersion : createAppVersion}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                  >
+                    {editingVersion ? 'Update Version' : 'Create Version'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Business Details Modal */}
+      {showBusinessDetails && businessDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <CardHeader className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-t-lg flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Business Details: {businessDetails.business_settings?.restaurant_name || businessDetails.user?.username}
+                  </CardTitle>
+                  <p className="text-indigo-100 text-sm mt-1">{businessDetails.user?.email}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowBusinessDetails(false)}
+                  className="text-white hover:bg-white/20"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* User Info */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-600 font-medium">Username</p>
+                  <p className="font-bold">{businessDetails.user?.username}</p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-600 font-medium">Subscription</p>
+                  <p className="font-bold flex items-center gap-1">
+                    {businessDetails.user?.subscription_active ? (
+                      <><CheckCircle className="w-4 h-4 text-green-600" /> Active</>
+                    ) : businessDetails.user?.is_trial_active ? (
+                      <><Clock className="w-4 h-4 text-yellow-600" /> Trial ({businessDetails.user?.trial_days_remaining}d left)</>
+                    ) : (
+                      <><XCircle className="w-4 h-4 text-red-600" /> Expired</>
+                    )}
+                  </p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-lg">
+                  <p className="text-xs text-purple-600 font-medium">Total Revenue</p>
+                  <p className="font-bold">₹{(businessDetails.stats?.total_revenue || 0).toLocaleString()}</p>
+                </div>
+                <div className="p-3 bg-orange-50 rounded-lg">
+                  <p className="text-xs text-orange-600 font-medium">Total Orders</p>
+                  <p className="font-bold">{businessDetails.stats?.completed_orders || 0}</p>
+                </div>
+              </div>
+
+              {/* Business Settings */}
+              {businessDetails.business_settings && (
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4" /> Business Settings
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div><span className="text-gray-500">Name:</span> <span className="font-medium">{businessDetails.business_settings.restaurant_name || '-'}</span></div>
+                    <div><span className="text-gray-500">Phone:</span> <span className="font-medium">{businessDetails.business_settings.phone || '-'}</span></div>
+                    <div><span className="text-gray-500">Email:</span> <span className="font-medium">{businessDetails.business_settings.email || '-'}</span></div>
+                    <div><span className="text-gray-500">Address:</span> <span className="font-medium">{businessDetails.business_settings.address || '-'}</span></div>
+                    <div><span className="text-gray-500">GSTIN:</span> <span className="font-medium">{businessDetails.business_settings.gstin || '-'}</span></div>
+                    <div><span className="text-gray-500">Business Type:</span> <span className="font-medium">{businessDetails.business_settings.business_type || 'restaurant'}</span></div>
+                    <div><span className="text-gray-500">KOT Mode:</span> <span className="font-medium">{businessDetails.business_settings.kot_mode_enabled ? 'Enabled' : 'Disabled'}</span></div>
+                    <div><span className="text-gray-500">Tax Rate:</span> <span className="font-medium">{businessDetails.business_settings.tax_rate || 5}%</span></div>
+                    <div><span className="text-gray-500">Currency:</span> <span className="font-medium">{businessDetails.business_settings.currency || 'INR'}</span></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-white border rounded-lg text-center">
+                  <p className="text-2xl font-bold text-blue-600">{businessDetails.stats?.menu_items || 0}</p>
+                  <p className="text-xs text-gray-500">Menu Items</p>
+                </div>
+                <div className="p-3 bg-white border rounded-lg text-center">
+                  <p className="text-2xl font-bold text-green-600">{businessDetails.stats?.tables || 0}</p>
+                  <p className="text-xs text-gray-500">Tables</p>
+                </div>
+                <div className="p-3 bg-white border rounded-lg text-center">
+                  <p className="text-2xl font-bold text-purple-600">{businessDetails.stats?.inventory_items || 0}</p>
+                  <p className="text-xs text-gray-500">Inventory Items</p>
+                </div>
+                <div className="p-3 bg-white border rounded-lg text-center">
+                  <p className="text-2xl font-bold text-orange-600">{businessDetails.stats?.credit_orders || 0}</p>
+                  <p className="text-xs text-gray-500">Credit Orders</p>
+                  {businessDetails.stats?.pending_credit > 0 && (
+                    <p className="text-xs text-red-600">₹{businessDetails.stats.pending_credit.toLocaleString()} pending</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Staff Members */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4" /> Staff Members ({businessDetails.staff_count || 0})
+                </h4>
+                {businessDetails.staff?.length > 0 ? (
+                  <div className="space-y-2">
+                    {businessDetails.staff.map(staff => (
+                      <div key={staff.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-bold text-indigo-600">{staff.username?.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{staff.username}</p>
+                            <p className="text-xs text-gray-500">{staff.email} • {staff.role}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded text-xs ${staff.subscription_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {staff.subscription_active ? 'Active' : 'Inactive'}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateStaffSubscription(staff.id, !staff.subscription_active)}
+                            className={`text-xs ${staff.subscription_active ? 'text-red-600 border-red-200' : 'text-green-600 border-green-200'}`}
+                          >
+                            {staff.subscription_active ? 'Deactivate' : 'Activate'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">No staff members</p>
+                )}
+              </div>
+
+              {/* Recent Orders */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" /> Recent Orders
+                </h4>
+                {businessDetails.recent_orders?.length > 0 ? (
+                  <div className="space-y-2">
+                    {businessDetails.recent_orders.map(order => (
+                      <div key={order.id} className="flex items-center justify-between p-2 bg-white rounded border text-sm">
+                        <div>
+                          <span className="font-mono text-xs text-gray-500">#{order.id?.slice(0, 8)}</span>
+                          {order.customer_name && <span className="ml-2">{order.customer_name}</span>}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`px-2 py-0.5 rounded text-xs ${
+                            order.status === 'completed' ? 'bg-green-100 text-green-700' :
+                            order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {order.status}
+                          </span>
+                          {order.is_credit && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs">Credit</span>}
+                          <span className="font-bold">₹{order.total?.toFixed(0)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">No orders yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t bg-gray-50 flex gap-3 flex-wrap flex-shrink-0">
+              <Button
+                onClick={() => exportUserData(businessDetails.user?.id, businessDetails.user?.username)}
+                className="bg-teal-600 hover:bg-teal-700"
+                disabled={exportingData === businessDetails.user?.id}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {exportingData === businessDetails.user?.id ? 'Exporting...' : 'Export JSON'}
+              </Button>
+              <Button
+                onClick={() => exportUserDatabase(businessDetails.user?.id, businessDetails.user?.username)}
+                className="bg-cyan-600 hover:bg-cyan-700"
+                disabled={exportingDb === businessDetails.user?.id}
+              >
+                <Database className="w-4 h-4 mr-2" />
+                {exportingDb === businessDetails.user?.id ? 'Exporting...' : 'Export DB'}
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowBusinessDetails(false);
+                  openImportModal(businessDetails.user?.id, businessDetails.user?.username);
+                }}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import DB
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowBusinessDetails(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Import Database Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <HardDrive className="w-5 h-5" />
+                  Import Database
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowImportModal(false)}
+                  className="text-white hover:bg-white/20"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>User:</strong> {importUsername}
+                </p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Import a SQLite .db backup file to restore or fix data corruption.
+                </p>
+              </div>
+
+              {/* File Upload */}
+              <div>
+                <Label className="text-sm font-medium">Select Database File (.db)</Label>
+                <div className="mt-2">
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept=".db"
+                    onChange={handleImportFileChange}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => importFileRef.current?.click()}
+                    className="w-full justify-center"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {importFile ? importFile.name : 'Choose .db File'}
+                  </Button>
+                </div>
+                {importFile && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ File selected: {(importFile.size / 1024).toFixed(1)} KB
+                  </p>
+                )}
+              </div>
+
+              {/* Import Mode */}
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <Label className="text-sm font-medium mb-2 block">Import Mode</Label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importMode"
+                      checked={!importReplaceMode}
+                      onChange={() => setImportReplaceMode(false)}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="font-medium text-sm">Merge</p>
+                      <p className="text-xs text-gray-500">Add new records, update existing ones (safe)</p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="importMode"
+                      checked={importReplaceMode}
+                      onChange={() => setImportReplaceMode(true)}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="font-medium text-sm text-red-600">Replace All</p>
+                      <p className="text-xs text-red-500">Delete existing data and replace with backup (use for corruption fix)</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {importReplaceMode && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700 font-medium">⚠️ Warning</p>
+                  <p className="text-xs text-red-600">
+                    Replace mode will DELETE all existing orders, menu items, tables, inventory, payments, and staff for this user before importing.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  onClick={importUserDatabase}
+                  disabled={!importFile || importing}
+                  className={`flex-1 ${importReplaceMode ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+                >
+                  {importing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Database className="w-4 h-4 mr-2" />
+                      {importReplaceMode ? 'Replace & Import' : 'Merge & Import'}
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowImportModal(false)}
+                  disabled={importing}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Create Lead Modal */}
       {showCreateLead && (

@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { API } from "../App";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -106,6 +108,27 @@ const AnimatedCounter = ({ end, duration = 2000, suffix = '' }) => {
 // Desktop App Download Section Component
 const DesktopDownloadSection = () => {
   const navigate = useNavigate();
+  const [appVersions, setAppVersions] = useState({ android: null, windows: null });
+  
+  // Fetch latest app versions from API
+  useEffect(() => {
+    const fetchAppVersions = async () => {
+      try {
+        const [androidRes, windowsRes] = await Promise.allSettled([
+          axios.get(`${API}/app/latest/android`),
+          axios.get(`${API}/app/latest/windows`)
+        ]);
+        
+        setAppVersions({
+          android: androidRes.status === 'fulfilled' ? androidRes.value.data : null,
+          windows: windowsRes.status === 'fulfilled' ? windowsRes.value.data : null
+        });
+      } catch (error) {
+        console.error('Failed to fetch app versions', error);
+      }
+    };
+    fetchAppVersions();
+  }, []);
   
   // Detect user's operating system
   const getOS = () => {
@@ -121,26 +144,27 @@ const DesktopDownloadSection = () => {
   const os = getOS();
   const isMobile = os === "android" || os === "ios";
   
-  // Windows desktop app download URL (Google Drive direct download)
-  const fileId = "1SILwfrO_f73ujof-x-PcTgJaJv2yHW_E";
-  const windowsAppUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&authuser=0&confirm=t`;
-  
   const handleGetStarted = () => {
     navigate("/login");
     toast.success("Get started with BillByteKOT!");
   };
   
   const handleDownloadWindows = () => {
-    // Download the Windows app (direct download)
-    const link = document.createElement('a');
-    link.href = windowsAppUrl;
-    link.download = "BillByteKOT-Setup.exe";
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast.success("Downloading BillByteKOT for Windows...");
+    if (appVersions.windows?.download_url) {
+      window.open(appVersions.windows.download_url, '_blank');
+      toast.success("Downloading BillByteKOT for Windows...");
+    } else {
+      toast.error("Windows app not available yet");
+    }
+  };
+  
+  const handleDownloadAndroid = () => {
+    if (appVersions.android?.download_url) {
+      window.open(appVersions.android.download_url, '_blank');
+      toast.success("Downloading BillByteKOT for Android...");
+    } else {
+      toast.error("Android app not available yet");
+    }
   };
   
   return (
@@ -150,7 +174,7 @@ const DesktopDownloadSection = () => {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full mb-4">
               <Monitor className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-600">Desktop App Available</span>
+              <span className="text-sm font-medium text-blue-600">Desktop & Mobile Apps Available</span>
             </div>
             
             <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
@@ -228,33 +252,41 @@ const DesktopDownloadSection = () => {
               {/* Platform Support */}
               <div className="bg-white rounded-xl p-4 border border-gray-200">
                 <p className="text-sm font-medium text-gray-700 mb-3 text-center">Available on:</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-2">
                   <button
                     onClick={handleDownloadWindows}
                     className="text-center p-2 rounded-lg hover:bg-blue-50 transition-colors"
                   >
-                    <Monitor className="w-8 h-8 mx-auto mb-1 text-blue-600" />
+                    <Monitor className="w-7 h-7 mx-auto mb-1 text-blue-600" />
                     <p className="text-xs font-medium">Windows</p>
-                    <p className="text-xs text-blue-600">Download</p>
+                    <p className="text-[10px] text-blue-600">{appVersions.windows ? `v${appVersions.windows.version}` : 'Download'}</p>
+                  </button>
+                  <button
+                    onClick={handleDownloadAndroid}
+                    className="text-center p-2 rounded-lg hover:bg-green-50 transition-colors"
+                  >
+                    <Smartphone className="w-7 h-7 mx-auto mb-1 text-green-600" />
+                    <p className="text-xs font-medium">Android</p>
+                    <p className="text-[10px] text-green-600">{appVersions.android ? `v${appVersions.android.version}` : 'APK'}</p>
                   </button>
                   <button
                     onClick={handleGetStarted}
                     className="text-center p-2 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    <Apple className="w-8 h-8 mx-auto mb-1 text-gray-700" />
+                    <Apple className="w-7 h-7 mx-auto mb-1 text-gray-700" />
                     <p className="text-xs font-medium">macOS</p>
-                    <p className="text-xs text-gray-600">Web App</p>
+                    <p className="text-[10px] text-gray-600">Web App</p>
                   </button>
                   <button
                     onClick={handleGetStarted}
                     className="text-center p-2 rounded-lg hover:bg-orange-50 transition-colors"
                   >
-                    <Monitor className="w-8 h-8 mx-auto mb-1 text-orange-600" />
-                    <p className="text-xs font-medium">Linux</p>
-                    <p className="text-xs text-gray-600">Web App</p>
+                    <Globe className="w-7 h-7 mx-auto mb-1 text-orange-600" />
+                    <p className="text-xs font-medium">Web</p>
+                    <p className="text-[10px] text-gray-600">Any Device</p>
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 text-center mt-3">Windows: Desktop app available • Others: Use web app</p>
+                <p className="text-xs text-gray-500 text-center mt-3">Windows & Android: Native apps • Others: Use web app</p>
               </div>
               
               {/* Quick Start Button */}
