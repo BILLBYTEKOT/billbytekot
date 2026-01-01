@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import axios from 'axios';
 import { API } from '../App';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { 
   Users, Ticket, TrendingUp, Shield, 
   CheckCircle, Clock, XCircle, UserPlus, Calendar, CreditCard,
-  Mail, FileText, Upload, RefreshCw, Lock
+  Mail, FileText, Upload, RefreshCw, Lock, Download, Eye, X
 } from 'lucide-react';
 
 const SuperAdminPage = () => {
@@ -31,6 +31,8 @@ const SuperAdminPage = () => {
   const [showCreateLead, setShowCreateLead] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [invoiceData, setInvoiceData] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [subscriptionMonths, setSubscriptionMonths] = useState(12);
   const [subscriptionAmount, setSubscriptionAmount] = useState(999);
@@ -44,6 +46,173 @@ const SuperAdminPage = () => {
     username: '', email: '', password: '', role: 'sales', 
     permissions: [], full_name: '', phone: '' 
   });
+  const invoiceRef = useRef(null);
+
+  // Generate invoice number with format: BBK/2025-26/INV/0001
+  const generateInvoiceNumber = (existingInvoiceNo = null) => {
+    if (existingInvoiceNo) return existingInvoiceNo;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const fiscalYear = month >= 4 ? `${year}-${(year + 1).toString().slice(-2)}` : `${year - 1}-${year.toString().slice(-2)}`;
+    const timestamp = Date.now().toString().slice(-6);
+    return `BBK/${fiscalYear}/INV/${timestamp}`;
+  };
+
+  // Convert number to words for Indian currency
+  const numberToWords = (num) => {
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 
+                  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    
+    if (num === 0) return 'Zero';
+    
+    const convertLessThanThousand = (n) => {
+      if (n === 0) return '';
+      if (n < 20) return ones[n];
+      if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+      return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convertLessThanThousand(n % 100) : '');
+    };
+    
+    const intPart = Math.floor(num);
+    const decPart = Math.round((num - intPart) * 100);
+    
+    let result = '';
+    if (intPart >= 10000000) {
+      result += convertLessThanThousand(Math.floor(intPart / 10000000)) + ' Crore ';
+      num = intPart % 10000000;
+    }
+    if (intPart >= 100000) {
+      result += convertLessThanThousand(Math.floor((intPart % 10000000) / 100000)) + ' Lakh ';
+    }
+    if (intPart >= 1000) {
+      result += convertLessThanThousand(Math.floor((intPart % 100000) / 1000)) + ' Thousand ';
+    }
+    result += convertLessThanThousand(intPart % 1000);
+    
+    result = result.trim() + ' Rupees';
+    if (decPart > 0) {
+      result += ' and ' + convertLessThanThousand(decPart) + ' Paise';
+    }
+    return result + ' Only';
+  };
+
+  // Preview invoice for a user
+  const previewInvoice = (user) => {
+    const now = new Date();
+    const subscriptionStartDate = user.subscription_started_at ? new Date(user.subscription_started_at) : now;
+    const expiresAt = new Date(user.subscription_expires_at);
+    
+    // Calculate subscription duration in months
+    const monthsDiff = Math.round((expiresAt - subscriptionStartDate) / (1000 * 60 * 60 * 24 * 30));
+    const amount = user.subscription_amount || 999;
+    const baseAmount = amount / 1.18; // Remove GST to get base
+    const cgst = baseAmount * 0.09;
+    const sgst = baseAmount * 0.09;
+    
+    const data = {
+      invoiceNumber: generateInvoiceNumber(user.invoice_number),
+      invoiceDate: subscriptionStartDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      dueDate: subscriptionStartDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      customerName: user.username,
+      customerEmail: user.email,
+      customerPhone: user.phone || 'N/A',
+      businessName: user.business_settings?.name || user.username + "'s Restaurant",
+      businessAddress: user.business_settings?.address || 'N/A',
+      businessCity: user.business_settings?.city || '',
+      businessState: user.business_settings?.state || 'Karnataka',
+      businessPincode: user.business_settings?.pincode || '',
+      businessGST: user.business_settings?.gst_number || 'N/A',
+      paymentId: user.subscription_payment_id || 'N/A',
+      paymentMethod: user.subscription_type || 'Online',
+      subscriptionPlan: 'BillByteKOT Premium',
+      subscriptionPeriod: `${monthsDiff || 12} Months`,
+      validFrom: subscriptionStartDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      validUntil: expiresAt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      baseAmount: baseAmount,
+      cgst: cgst,
+      sgst: sgst,
+      amount: amount,
+      gstRate: 18,
+      amountInWords: numberToWords(amount)
+    };
+    
+    setInvoiceData(data);
+    setShowInvoicePreview(true);
+  };
+
+  // Download invoice as PDF
+  const downloadInvoicePDF = () => {
+    if (!invoiceRef.current) return;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Invoice - ${invoiceData?.invoiceNumber}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; background: white; color: #333; }
+          .invoice-container { max-width: 800px; margin: 0 auto; padding: 30px; position: relative; }
+          .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 100px; color: rgba(124, 58, 237, 0.05); font-weight: bold; pointer-events: none; z-index: 0; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 3px solid #7c3aed; position: relative; z-index: 1; }
+          .logo { font-size: 26px; font-weight: bold; color: #7c3aed; }
+          .logo-sub { font-size: 11px; color: #666; margin-top: 4px; }
+          .company-details { font-size: 10px; color: #888; margin-top: 10px; line-height: 1.5; }
+          .invoice-title { text-align: right; }
+          .invoice-title h1 { font-size: 28px; color: #333; margin-bottom: 5px; letter-spacing: 2px; }
+          .invoice-number { font-size: 13px; color: #7c3aed; font-weight: 600; background: #f3e8ff; padding: 6px 12px; border-radius: 4px; display: inline-block; }
+          .invoice-meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 25px; position: relative; z-index: 1; }
+          .meta-section { background: #fafafa; padding: 15px; border-radius: 8px; border-left: 3px solid #7c3aed; }
+          .meta-section h3 { font-size: 10px; color: #7c3aed; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px; font-weight: 600; }
+          .meta-section p { font-size: 12px; color: #333; margin-bottom: 4px; line-height: 1.4; }
+          .meta-section .highlight { color: #7c3aed; font-weight: 600; }
+          .meta-section .business-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+          .items-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; position: relative; z-index: 1; }
+          .items-table th { background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%); color: white; padding: 12px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+          .items-table th:first-child { border-radius: 6px 0 0 0; }
+          .items-table th:last-child { border-radius: 0 6px 0 0; text-align: right; }
+          .items-table td { padding: 14px 10px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top; }
+          .items-table td:last-child { text-align: right; }
+          .items-table .item-name { font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+          .items-table .item-desc { font-size: 10px; color: #666; line-height: 1.4; }
+          .totals-section { display: flex; justify-content: space-between; margin-bottom: 20px; position: relative; z-index: 1; }
+          .bank-details { flex: 1; background: #f8f5ff; padding: 15px; border-radius: 8px; margin-right: 20px; }
+          .bank-details h4 { font-size: 10px; color: #7c3aed; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; }
+          .bank-details p { font-size: 11px; color: #555; margin-bottom: 3px; }
+          .totals { width: 280px; }
+          .totals-row { display: flex; justify-content: space-between; padding: 8px 12px; font-size: 12px; }
+          .totals-row:nth-child(odd) { background: #fafafa; }
+          .totals-row.total { background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%); color: white; font-size: 16px; font-weight: bold; border-radius: 6px; margin-top: 8px; padding: 12px; }
+          .amount-words { background: linear-gradient(135deg, #f3e8ff 0%, #faf5ff 100%); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e9d5ff; position: relative; z-index: 1; }
+          .amount-words span { font-size: 9px; color: #7c3aed; text-transform: uppercase; letter-spacing: 1px; }
+          .amount-words p { font-size: 12px; color: #333; font-weight: 500; margin-top: 4px; }
+          .terms { background: #fafafa; padding: 15px; border-radius: 8px; margin-bottom: 20px; position: relative; z-index: 1; }
+          .terms h4 { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; }
+          .terms ul { font-size: 10px; color: #666; padding-left: 15px; line-height: 1.6; }
+          .footer { text-align: center; padding-top: 20px; border-top: 2px solid #eee; position: relative; z-index: 1; }
+          .footer p { font-size: 11px; color: #666; margin-bottom: 4px; }
+          .footer .thank-you { font-size: 14px; color: #7c3aed; font-weight: 600; margin-bottom: 8px; }
+          .paid-stamp { position: absolute; top: 40%; right: 30px; transform: rotate(-20deg); font-size: 50px; color: rgba(34, 197, 94, 0.25); font-weight: bold; border: 5px solid rgba(34, 197, 94, 0.25); padding: 8px 25px; border-radius: 10px; z-index: 2; }
+          .qr-section { text-align: center; margin-top: 15px; }
+          .qr-section p { font-size: 9px; color: #888; }
+          @media print { 
+            body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } 
+            .invoice-container { padding: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        ${invoiceRef.current.innerHTML}
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
+  };
 
   // Check if team member has specific permission
   const hasPermission = (permission) => {
@@ -686,7 +855,17 @@ const SuperAdminPage = () => {
                                   title="Send Invoice Email"
                                 >
                                   <Mail className="w-3 h-3 mr-1" />
-                                  Invoice
+                                  Email
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => previewInvoice(user)}
+                                  className="text-xs text-purple-600 border-purple-200 hover:bg-purple-50"
+                                  title="Preview & Download Invoice"
+                                >
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  View
                                 </Button>
                                 <Button
                                   size="sm"
@@ -1544,6 +1723,194 @@ const SuperAdminPage = () => {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Invoice Preview Modal */}
+      {showInvoicePreview && invoiceData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl my-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-600 to-purple-700">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+                <FileText className="w-5 h-5" />
+                Invoice Preview - {invoiceData.invoiceNumber}
+              </h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={downloadInvoicePDF}
+                  className="bg-white text-purple-600 hover:bg-purple-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowInvoicePreview(false)}
+                  className="text-white hover:bg-purple-500"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+            
+            {/* Invoice Content */}
+            <div ref={invoiceRef} className="p-8 bg-white overflow-auto max-h-[80vh]">
+              <div className="invoice-container relative">
+                {/* Watermark */}
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-[-30deg] text-[100px] font-bold text-purple-100 pointer-events-none select-none z-0">
+                  BillByteKOT
+                </div>
+                
+                {/* Paid Stamp */}
+                <div className="absolute top-[35%] right-8 transform rotate-[-20deg] text-5xl font-bold text-green-500/25 border-[5px] border-green-500/25 px-6 py-2 rounded-lg z-10">
+                  PAID
+                </div>
+                
+                {/* Header */}
+                <div className="flex justify-between items-start mb-6 pb-5 border-b-[3px] border-purple-600 relative z-10">
+                  <div>
+                    <div className="text-2xl font-bold text-purple-600">🍽️ BillByteKOT</div>
+                    <div className="text-xs text-gray-500 mt-1">Smart Restaurant Management System</div>
+                    <div className="text-[10px] text-gray-400 mt-3 leading-relaxed">
+                      BillByte Innovations<br />
+                      Bangalore, Karnataka 560001, India<br />
+                      GSTIN: 29XXXXX1234X1ZX<br />
+                      support@billbytekot.in | +91-8310832669
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <h1 className="text-3xl font-bold text-gray-800 tracking-wider">TAX INVOICE</h1>
+                    <div className="text-purple-600 font-semibold mt-2 bg-purple-50 px-3 py-1.5 rounded inline-block text-sm">
+                      {invoiceData.invoiceNumber}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Invoice Meta - 3 Column Grid */}
+                <div className="grid grid-cols-3 gap-4 mb-6 relative z-10">
+                  <div className="bg-gray-50 p-4 rounded-lg border-l-[3px] border-purple-600">
+                    <h3 className="text-[10px] text-purple-600 uppercase tracking-wider mb-2 font-semibold">Bill To</h3>
+                    <p className="font-semibold text-gray-800 text-sm">{invoiceData.businessName}</p>
+                    <p className="text-xs text-gray-600 mt-1">{invoiceData.customerName}</p>
+                    <p className="text-xs text-gray-600">{invoiceData.customerEmail}</p>
+                    <p className="text-xs text-gray-600">{invoiceData.customerPhone}</p>
+                    {invoiceData.businessAddress !== 'N/A' && (
+                      <p className="text-xs text-gray-600 mt-1">{invoiceData.businessAddress}</p>
+                    )}
+                    {invoiceData.businessGST !== 'N/A' && (
+                      <p className="text-xs text-purple-600 font-medium mt-1">GSTIN: {invoiceData.businessGST}</p>
+                    )}
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg border-l-[3px] border-purple-600">
+                    <h3 className="text-[10px] text-purple-600 uppercase tracking-wider mb-2 font-semibold">Invoice Details</h3>
+                    <p className="text-xs mb-1"><span className="text-gray-500">Invoice Date:</span> <span className="font-medium">{invoiceData.invoiceDate}</span></p>
+                    <p className="text-xs mb-1"><span className="text-gray-500">Due Date:</span> <span className="font-medium">{invoiceData.dueDate}</span></p>
+                    <p className="text-xs mb-1"><span className="text-gray-500">Payment ID:</span> <span className="font-medium text-purple-600">{invoiceData.paymentId}</span></p>
+                    <p className="text-xs"><span className="text-gray-500">Payment Mode:</span> <span className="font-medium uppercase">{invoiceData.paymentMethod}</span></p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg border-l-[3px] border-purple-600">
+                    <h3 className="text-[10px] text-purple-600 uppercase tracking-wider mb-2 font-semibold">Subscription Period</h3>
+                    <p className="text-xs mb-1"><span className="text-gray-500">Plan:</span> <span className="font-medium">{invoiceData.subscriptionPlan}</span></p>
+                    <p className="text-xs mb-1"><span className="text-gray-500">Duration:</span> <span className="font-medium">{invoiceData.subscriptionPeriod}</span></p>
+                    <p className="text-xs mb-1"><span className="text-gray-500">Valid From:</span> <span className="font-medium text-green-600">{invoiceData.validFrom}</span></p>
+                    <p className="text-xs"><span className="text-gray-500">Valid Until:</span> <span className="font-medium text-green-600">{invoiceData.validUntil}</span></p>
+                  </div>
+                </div>
+                
+                {/* Items Table */}
+                <table className="w-full mb-6 relative z-10">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+                      <th className="py-3 px-3 text-left text-[10px] uppercase tracking-wider rounded-tl-lg">Description</th>
+                      <th className="py-3 px-3 text-center text-[10px] uppercase tracking-wider">HSN/SAC</th>
+                      <th className="py-3 px-3 text-center text-[10px] uppercase tracking-wider">Qty</th>
+                      <th className="py-3 px-3 text-right text-[10px] uppercase tracking-wider">Rate (₹)</th>
+                      <th className="py-3 px-3 text-right text-[10px] uppercase tracking-wider rounded-tr-lg">Amount (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-4 px-3">
+                        <div className="font-semibold text-gray-800 text-sm">BillByteKOT Premium Subscription</div>
+                        <div className="text-[10px] text-gray-500 mt-1 leading-relaxed">
+                          {invoiceData.subscriptionPeriod} subscription with all premium features:<br />
+                          • Unlimited Bills & KOT Generation<br />
+                          • AI-Powered Analytics & Reports<br />
+                          • Thermal Printer Integration<br />
+                          • Multi-device Sync & Cloud Backup<br />
+                          • Priority Customer Support
+                        </div>
+                      </td>
+                      <td className="py-4 px-3 text-center text-xs text-gray-600">998314</td>
+                      <td className="py-4 px-3 text-center text-xs">1</td>
+                      <td className="py-4 px-3 text-right text-xs">{invoiceData.baseAmount.toFixed(2)}</td>
+                      <td className="py-4 px-3 text-right font-semibold text-sm">{invoiceData.baseAmount.toFixed(2)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                
+                {/* Totals Section */}
+                <div className="flex justify-between mb-5 relative z-10">
+                  {/* Bank Details */}
+                  <div className="flex-1 bg-purple-50 p-4 rounded-lg mr-5">
+                    <h4 className="text-[10px] text-purple-600 uppercase tracking-wider mb-2 font-semibold">Bank Details (For Reference)</h4>
+                    <p className="text-[11px] text-gray-600">Bank: HDFC Bank</p>
+                    <p className="text-[11px] text-gray-600">A/C Name: BillByte Innovations</p>
+                    <p className="text-[11px] text-gray-600">A/C No: XXXX XXXX 1234</p>
+                    <p className="text-[11px] text-gray-600">IFSC: HDFC0001234</p>
+                    <p className="text-[11px] text-gray-600">Branch: Bangalore</p>
+                  </div>
+                  
+                  {/* Totals */}
+                  <div className="w-72">
+                    <div className="flex justify-between py-2 px-3 text-xs bg-gray-50 rounded-t">
+                      <span className="text-gray-600">Subtotal</span>
+                      <span>₹{invoiceData.baseAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between py-2 px-3 text-xs">
+                      <span className="text-gray-600">CGST @ 9%</span>
+                      <span>₹{invoiceData.cgst.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between py-2 px-3 text-xs bg-gray-50">
+                      <span className="text-gray-600">SGST @ 9%</span>
+                      <span>₹{invoiceData.sgst.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between py-3 px-3 text-base font-bold text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-b mt-1">
+                      <span>Grand Total</span>
+                      <span>₹{invoiceData.amount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Amount in Words */}
+                <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-3 rounded-lg mb-5 border border-purple-200 relative z-10">
+                  <span className="text-[9px] text-purple-600 uppercase tracking-wider font-semibold">Amount in Words</span>
+                  <p className="text-xs text-gray-800 font-medium mt-1">{invoiceData.amountInWords}</p>
+                </div>
+                
+                {/* Terms & Conditions */}
+                <div className="bg-gray-50 p-4 rounded-lg mb-5 relative z-10">
+                  <h4 className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 font-semibold">Terms & Conditions</h4>
+                  <ul className="text-[10px] text-gray-500 list-disc pl-4 space-y-1">
+                    <li>This is a digitally generated invoice and is valid without signature.</li>
+                    <li>Subscription is non-refundable once activated.</li>
+                    <li>For support queries, contact support@billbytekot.in</li>
+                    <li>Subject to Bangalore jurisdiction.</li>
+                  </ul>
+                </div>
+                
+                {/* Footer */}
+                <div className="text-center pt-5 border-t-2 border-gray-100 relative z-10">
+                  <p className="text-sm text-purple-600 font-semibold mb-2">Thank you for choosing BillByteKOT! 🙏</p>
+                  <p className="text-[11px] text-gray-500">We appreciate your business and look forward to serving you.</p>
+                  <p className="text-[10px] text-gray-400 mt-3">
+                    www.billbytekot.in | support@billbytekot.in | +91-8310832669
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -6517,85 +6517,156 @@ def generate_payment_id():
 
 
 def generate_invoice_number():
-    """Generate unique invoice number"""
+    """Generate unique invoice number with format: BBK/2025-26/INV/0001"""
     import random
-    timestamp = datetime.now().strftime("%Y%m%d")
-    random_num = random.randint(1000, 9999)
-    return f"INV-{timestamp}-{random_num}"
+    now = datetime.now()
+    year = now.year
+    month = now.month
+    # Fiscal year in India starts from April
+    fiscal_year = f"{year}-{str(year + 1)[-2:]}" if month >= 4 else f"{year - 1}-{str(year)[-2:]}"
+    sequence = random.randint(1, 9999)
+    return f"BBK/{fiscal_year}/INV/{sequence:04d}"
 
 
 async def send_subscription_invoice_email(user_email: str, user_name: str, invoice_data: dict):
     """Send subscription invoice email"""
     from email_service import send_support_email
     
-    subject = f"BillByteKOT Subscription Invoice - {invoice_data['invoice_number']}"
+    # Calculate tax breakdown
+    base_amount = invoice_data['amount'] / 1.18
+    cgst = base_amount * 0.09
+    sgst = base_amount * 0.09
+    
+    subject = f"BillByteKOT Tax Invoice - {invoice_data['invoice_number']}"
     
     html_body = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <style>
-            body {{ font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }}
-            .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-            .header {{ text-align: center; color: #7c3aed; border-bottom: 2px solid #7c3aed; padding-bottom: 20px; margin-bottom: 20px; }}
-            .invoice-details {{ background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-            .row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }}
-            .row:last-child {{ border-bottom: none; }}
-            .total {{ font-size: 24px; font-weight: bold; color: #7c3aed; text-align: right; margin-top: 20px; }}
-            .footer {{ text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }}
-            .badge {{ display: inline-block; background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; font-size: 14px; }}
+            body {{ font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }}
+            .container {{ max-width: 650px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 30px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 28px; }}
+            .header p {{ margin: 5px 0 0; opacity: 0.9; }}
+            .invoice-badge {{ display: inline-block; background: #10b981; color: white; padding: 8px 20px; border-radius: 25px; font-size: 14px; font-weight: 600; margin-top: 15px; }}
+            .content {{ padding: 30px; }}
+            .invoice-header {{ display: flex; justify-content: space-between; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid #f0f0f0; }}
+            .invoice-number {{ font-size: 18px; color: #7c3aed; font-weight: 700; }}
+            .invoice-date {{ color: #666; font-size: 14px; }}
+            .section {{ margin-bottom: 25px; }}
+            .section-title {{ font-size: 12px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }}
+            .details-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }}
+            .detail-box {{ background: #f8f9fa; padding: 15px; border-radius: 8px; }}
+            .detail-label {{ font-size: 12px; color: #666; margin-bottom: 4px; }}
+            .detail-value {{ font-size: 14px; color: #333; font-weight: 500; }}
+            .items-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+            .items-table th {{ background: #7c3aed; color: white; padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; }}
+            .items-table td {{ padding: 15px 12px; border-bottom: 1px solid #eee; }}
+            .totals {{ margin-left: auto; width: 280px; }}
+            .total-row {{ display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }}
+            .total-row.final {{ border-top: 2px solid #7c3aed; padding-top: 15px; margin-top: 10px; font-size: 20px; font-weight: bold; color: #7c3aed; }}
+            .amount-words {{ background: #f0f7ff; padding: 15px; border-radius: 8px; border-left: 4px solid #7c3aed; margin: 20px 0; }}
+            .footer {{ background: #f8f9fa; padding: 25px; text-align: center; }}
+            .footer p {{ margin: 5px 0; font-size: 12px; color: #666; }}
+            .footer .company {{ font-weight: 600; color: #333; }}
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
                 <h1>🍽️ BillByteKOT</h1>
-                <p>Subscription Invoice</p>
-                <span class="badge">✓ PAID</span>
+                <p>Smart Restaurant Management System</p>
+                <span class="invoice-badge">✓ PAID</span>
             </div>
             
-            <h2>Hello {user_name}!</h2>
-            <p>Thank you for subscribing to BillByteKOT. Here are your invoice details:</p>
-            
-            <div class="invoice-details">
-                <div class="row">
-                    <span><strong>Invoice Number:</strong></span>
-                    <span>{invoice_data['invoice_number']}</span>
+            <div class="content">
+                <div class="invoice-header">
+                    <div>
+                        <div class="invoice-number">{invoice_data['invoice_number']}</div>
+                        <div class="invoice-date">Tax Invoice</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="detail-label">Invoice Date</div>
+                        <div class="detail-value">{invoice_data['date']}</div>
+                    </div>
                 </div>
-                <div class="row">
-                    <span><strong>Payment ID:</strong></span>
-                    <span>{invoice_data['payment_id']}</span>
+                
+                <div class="section">
+                    <div class="section-title">Billed To</div>
+                    <div class="detail-value" style="font-size: 16px;">{user_name}</div>
+                    <div style="color: #666; font-size: 14px;">{user_email}</div>
                 </div>
-                <div class="row">
-                    <span><strong>Date:</strong></span>
-                    <span>{invoice_data['date']}</span>
+                
+                <div class="details-grid">
+                    <div class="detail-box">
+                        <div class="detail-label">Payment ID</div>
+                        <div class="detail-value" style="color: #7c3aed;">{invoice_data['payment_id']}</div>
+                    </div>
+                    <div class="detail-box">
+                        <div class="detail-label">Payment Method</div>
+                        <div class="detail-value">{invoice_data['payment_method'].upper()}</div>
+                    </div>
+                    <div class="detail-box">
+                        <div class="detail-label">Subscription Period</div>
+                        <div class="detail-value">{invoice_data['months']} Month(s)</div>
+                    </div>
+                    <div class="detail-box">
+                        <div class="detail-label">Valid Until</div>
+                        <div class="detail-value" style="color: #10b981;">{invoice_data['expires_at']}</div>
+                    </div>
                 </div>
-                <div class="row">
-                    <span><strong>Payment Method:</strong></span>
-                    <span>{invoice_data['payment_method'].upper()}</span>
+                
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>HSN/SAC</th>
+                            <th style="text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <strong>BillByteKOT Premium Subscription</strong><br>
+                                <span style="font-size: 12px; color: #666;">Annual subscription with all premium features</span>
+                            </td>
+                            <td>998314</td>
+                            <td style="text-align: right;">₹{base_amount:.2f}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="totals">
+                    <div class="total-row">
+                        <span>Subtotal</span>
+                        <span>₹{base_amount:.2f}</span>
+                    </div>
+                    <div class="total-row">
+                        <span>CGST (9%)</span>
+                        <span>₹{cgst:.2f}</span>
+                    </div>
+                    <div class="total-row">
+                        <span>SGST (9%)</span>
+                        <span>₹{sgst:.2f}</span>
+                    </div>
+                    <div class="total-row final">
+                        <span>Total</span>
+                        <span>₹{invoice_data['amount']:.2f}</span>
+                    </div>
                 </div>
-                <div class="row">
-                    <span><strong>Subscription Period:</strong></span>
-                    <span>{invoice_data['months']} Month(s)</span>
-                </div>
-                <div class="row">
-                    <span><strong>Valid Until:</strong></span>
-                    <span>{invoice_data['expires_at']}</span>
+                
+                <div class="amount-words">
+                    <div style="font-size: 11px; color: #666; text-transform: uppercase;">Amount in Words</div>
+                    <div style="font-weight: 500;">Nine Hundred Ninety Nine Rupees Only</div>
                 </div>
             </div>
-            
-            <div class="total">
-                Total: ₹{invoice_data['amount']:.2f}
-            </div>
-            
-            <p style="margin-top: 30px; color: #666;">
-                Your subscription is now active. Enjoy all premium features of BillByteKOT!
-            </p>
             
             <div class="footer">
-                <p><strong>BillByteKOT</strong> - Smart Restaurant Management</p>
-                <p>© 2025 BillByte Innovations. All rights reserved.</p>
-                <p>For support: support@billbytekot.in</p>
+                <p class="company">BillByte Innovations</p>
+                <p>Bangalore, Karnataka, India</p>
+                <p>support@billbytekot.in | +91-8310832669</p>
+                <p style="margin-top: 15px; font-size: 11px; color: #999;">This is a computer-generated invoice and does not require a signature.</p>
             </div>
         </div>
     </body>
@@ -6603,24 +6674,33 @@ async def send_subscription_invoice_email(user_email: str, user_name: str, invoi
     """
     
     text_body = f"""
-    BillByteKOT Subscription Invoice
+    BillByteKOT Tax Invoice
+    ========================
     
-    Hello {user_name}!
+    Invoice Number: {invoice_data['invoice_number']}
+    Date: {invoice_data['date']}
     
-    Thank you for subscribing to BillByteKOT.
+    Billed To: {user_name} ({user_email})
     
-    Invoice Details:
-    - Invoice Number: {invoice_data['invoice_number']}
+    Payment Details:
     - Payment ID: {invoice_data['payment_id']}
-    - Date: {invoice_data['date']}
     - Payment Method: {invoice_data['payment_method'].upper()}
     - Subscription Period: {invoice_data['months']} Month(s)
     - Valid Until: {invoice_data['expires_at']}
+    
+    Invoice Summary:
+    - BillByteKOT Premium Subscription: ₹{base_amount:.2f}
+    - CGST (9%): ₹{cgst:.2f}
+    - SGST (9%): ₹{sgst:.2f}
     - Total: ₹{invoice_data['amount']:.2f}
+    
+    Amount in Words: Nine Hundred Ninety Nine Rupees Only
     
     Your subscription is now active!
     
-    For support: support@billbytekot.in
+    ---
+    BillByte Innovations
+    support@billbytekot.in | +91-8310832669
     """
     
     try:
