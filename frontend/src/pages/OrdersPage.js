@@ -39,7 +39,13 @@ const OrdersPage = ({ user }) => {
     payment_method: 'cash',
     is_credit: false,
     payment_received: 0,
-    balance_amount: 0
+    balance_amount: 0,
+    // Multi-payment support
+    cash_amount: 0,
+    card_amount: 0,
+    upi_amount: 0,
+    credit_amount: 0,
+    use_split_payment: false
   });
   const [editItems, setEditItems] = useState([]);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState({ open: false, order: null });
@@ -290,6 +296,12 @@ const OrdersPage = ({ user }) => {
       notes: item.notes || ''
     }));
     setEditItems(items);
+    
+    // Check if order has split payments
+    const hasSplitPayment = (order.cash_amount > 0 && (order.card_amount > 0 || order.upi_amount > 0 || order.credit_amount > 0)) ||
+                           (order.card_amount > 0 && (order.upi_amount > 0 || order.credit_amount > 0)) ||
+                           (order.upi_amount > 0 && order.credit_amount > 0);
+    
     setEditOrderModal({ 
       open: true, 
       order,
@@ -298,7 +310,13 @@ const OrdersPage = ({ user }) => {
       payment_method: order.payment_method || 'cash',
       is_credit: order.is_credit || false,
       payment_received: order.payment_received || 0,
-      balance_amount: order.balance_amount || 0
+      balance_amount: order.balance_amount || 0,
+      // Multi-payment fields
+      cash_amount: order.cash_amount || 0,
+      card_amount: order.card_amount || 0,
+      upi_amount: order.upi_amount || 0,
+      credit_amount: order.credit_amount || 0,
+      use_split_payment: hasSplitPayment || order.payment_method === 'split'
     });
     setActionMenuOpen(null);
   };
@@ -311,7 +329,7 @@ const OrdersPage = ({ user }) => {
     }
 
     // Validate customer name is required for credit bills
-    if (editOrderModal.is_credit && !editOrderModal.customer_name?.trim()) {
+    if ((editOrderModal.is_credit || editOrderModal.credit_amount > 0) && !editOrderModal.customer_name?.trim()) {
       toast.error('Customer name is required for credit bills');
       return;
     }
@@ -321,10 +339,41 @@ const OrdersPage = ({ user }) => {
       const tax = subtotal * 0.05;
       const total = subtotal + tax;
 
-      // Calculate balance amount
-      const paymentReceived = parseFloat(editOrderModal.payment_received) || 0;
-      const balanceAmount = Math.max(0, total - paymentReceived);
-      const isCredit = editOrderModal.is_credit || balanceAmount > 0;
+      let paymentReceived, balanceAmount, isCredit, paymentMethod;
+      let cashAmount = 0, cardAmount = 0, upiAmount = 0, creditAmount = 0;
+
+      if (editOrderModal.use_split_payment) {
+        // Multi-payment / Split payment mode
+        cashAmount = parseFloat(editOrderModal.cash_amount) || 0;
+        cardAmount = parseFloat(editOrderModal.card_amount) || 0;
+        upiAmount = parseFloat(editOrderModal.upi_amount) || 0;
+        creditAmount = parseFloat(editOrderModal.credit_amount) || 0;
+        
+        paymentReceived = cashAmount + cardAmount + upiAmount;
+        balanceAmount = creditAmount;
+        isCredit = creditAmount > 0;
+        
+        // Validate total matches
+        const totalPaid = paymentReceived + creditAmount;
+        if (Math.abs(totalPaid - total) > 0.01) {
+          toast.error(`Payment total (₹${totalPaid.toFixed(2)}) doesn't match bill total (₹${total.toFixed(2)})`);
+          return;
+        }
+        
+        paymentMethod = 'split';
+      } else {
+        // Single payment mode
+        paymentReceived = parseFloat(editOrderModal.payment_received) || 0;
+        balanceAmount = Math.max(0, total - paymentReceived);
+        isCredit = editOrderModal.is_credit || balanceAmount > 0;
+        paymentMethod = editOrderModal.payment_method || 'cash';
+        
+        // Set single payment amounts
+        if (paymentMethod === 'cash') cashAmount = paymentReceived;
+        else if (paymentMethod === 'card') cardAmount = paymentReceived;
+        else if (paymentMethod === 'upi') upiAmount = paymentReceived;
+        else if (paymentMethod === 'credit') creditAmount = total;
+      }
 
       await axios.put(`${API}/orders/${editOrderModal.order.id}`, {
         items: editItems,
@@ -333,10 +382,14 @@ const OrdersPage = ({ user }) => {
         total,
         customer_name: editOrderModal.customer_name || '',
         customer_phone: editOrderModal.customer_phone || '',
-        payment_method: editOrderModal.payment_method || 'cash',
+        payment_method: paymentMethod,
         is_credit: isCredit,
         payment_received: paymentReceived,
-        balance_amount: balanceAmount
+        balance_amount: balanceAmount,
+        cash_amount: cashAmount,
+        card_amount: cardAmount,
+        upi_amount: upiAmount,
+        credit_amount: creditAmount
       });
 
       toast.success('Order updated!');
@@ -348,7 +401,12 @@ const OrdersPage = ({ user }) => {
         payment_method: 'cash', 
         is_credit: false,
         payment_received: 0,
-        balance_amount: 0
+        balance_amount: 0,
+        cash_amount: 0,
+        card_amount: 0,
+        upi_amount: 0,
+        credit_amount: 0,
+        use_split_payment: false
       });
       setEditItems([]);
       await fetchOrders();
@@ -1058,17 +1116,24 @@ const OrdersPage = ({ user }) => {
                         )}
                         <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
                           {new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                          {order.is_credit ? (
-                            <span className="ml-2 text-orange-600 font-medium">• ⚠️ Credit (Unpaid)</span>
+                          {order.is_credit || order.credit_amount > 0 ? (
+                            <span className="ml-2 text-orange-600 font-medium">• ⚠️ Credit (₹{(order.balance_amount || order.credit_amount || 0).toFixed(0)} due)</span>
+                          ) : order.payment_method === 'split' ? (
+                            <span className="ml-2">• Split Payment</span>
                           ) : order.payment_method && (
                             <span className="ml-2">• Paid via {order.payment_method}</span>
                           )}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {order.is_credit && (
+                        {(order.is_credit || order.credit_amount > 0) && (
                           <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 shadow-sm">
                             Credit
+                          </span>
+                        )}
+                        {order.payment_method === 'split' && !order.is_credit && !order.credit_amount && (
+                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 shadow-sm">
+                            Split
                           </span>
                         )}
                         <span className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${config.badge} shadow-sm`}>
@@ -1356,18 +1421,48 @@ const OrdersPage = ({ user }) => {
                   {viewOrderModal.order?.payment_method && (
                     <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-gray-500">Payment:</span>
-                      <span className="font-medium capitalize">{viewOrderModal.order.payment_method}</span>
+                      <span className="font-medium capitalize">{viewOrderModal.order.payment_method === 'split' ? 'Split Payment' : viewOrderModal.order.payment_method}</span>
                     </div>
                   )}
-                  {viewOrderModal.order?.is_credit && (
+                  {/* Split Payment Breakdown */}
+                  {viewOrderModal.order?.payment_method === 'split' && (
+                    <div className="mt-2 p-2 bg-purple-50 rounded-lg space-y-1">
+                      <p className="text-xs font-medium text-purple-700">Payment Breakdown:</p>
+                      {viewOrderModal.order.cash_amount > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span>💵 Cash:</span>
+                          <span>₹{viewOrderModal.order.cash_amount.toFixed(0)}</span>
+                        </div>
+                      )}
+                      {viewOrderModal.order.card_amount > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span>💳 Card:</span>
+                          <span>₹{viewOrderModal.order.card_amount.toFixed(0)}</span>
+                        </div>
+                      )}
+                      {viewOrderModal.order.upi_amount > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span>📱 UPI:</span>
+                          <span>₹{viewOrderModal.order.upi_amount.toFixed(0)}</span>
+                        </div>
+                      )}
+                      {viewOrderModal.order.credit_amount > 0 && (
+                        <div className="flex justify-between text-xs text-orange-600 font-medium">
+                          <span>⚠️ Credit:</span>
+                          <span>₹{viewOrderModal.order.credit_amount.toFixed(0)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {(viewOrderModal.order?.is_credit || viewOrderModal.order?.credit_amount > 0) && (
                     <>
                       <div className="flex justify-between text-xs sm:text-sm text-green-600">
                         <span>Amount Received:</span>
-                        <span className="font-medium">₹{(viewOrderModal.order.payment_received || 0).toFixed(0)}</span>
+                        <span className="font-medium">₹{(viewOrderModal.order.payment_received || (viewOrderModal.order.cash_amount || 0) + (viewOrderModal.order.card_amount || 0) + (viewOrderModal.order.upi_amount || 0)).toFixed(0)}</span>
                       </div>
                       <div className="flex justify-between text-xs sm:text-sm text-orange-600 font-medium">
                         <span>⚠️ Balance Due:</span>
-                        <span>₹{(viewOrderModal.order.balance_amount || 0).toFixed(0)}</span>
+                        <span>₹{(viewOrderModal.order.balance_amount || viewOrderModal.order.credit_amount || 0).toFixed(0)}</span>
                       </div>
                       <div className="text-xs text-orange-600 font-medium mt-1">⚠️ Credit Bill (Unpaid)</div>
                     </>
@@ -1459,68 +1554,241 @@ const OrdersPage = ({ user }) => {
 
                 {/* Payment Method Section */}
                 <div className="p-3 sm:p-4 border-b bg-green-50">
-                  <Label className="text-sm font-medium mb-2 block text-green-800">Payment</Label>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {['cash', 'card', 'upi', 'credit'].map((method) => (
-                      <button
-                        key={method}
-                        onClick={() => setEditOrderModal({ 
-                          ...editOrderModal, 
-                          payment_method: method,
-                          is_credit: method === 'credit'
-                        })}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          editOrderModal.payment_method === method
-                            ? method === 'credit' 
-                              ? 'bg-orange-600 text-white' 
-                              : 'bg-green-600 text-white'
-                            : 'bg-white border hover:border-green-500'
-                        }`}
-                      >
-                        {method === 'cash' && '💵 Cash'}
-                        {method === 'card' && '💳 Card'}
-                        {method === 'upi' && '📱 UPI'}
-                        {method === 'credit' && '⚠️ Credit'}
-                      </button>
-                    ))}
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-sm font-medium text-green-800">Payment</Label>
+                    <button
+                      onClick={() => {
+                        const total = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05;
+                        if (editOrderModal.use_split_payment) {
+                          // Switching to single payment
+                          setEditOrderModal({ 
+                            ...editOrderModal, 
+                            use_split_payment: false,
+                            payment_method: 'cash',
+                            payment_received: total,
+                            balance_amount: 0,
+                            cash_amount: 0,
+                            card_amount: 0,
+                            upi_amount: 0,
+                            credit_amount: 0,
+                            is_credit: false
+                          });
+                        } else {
+                          // Switching to split payment
+                          setEditOrderModal({ 
+                            ...editOrderModal, 
+                            use_split_payment: true,
+                            payment_method: 'split',
+                            cash_amount: 0,
+                            card_amount: 0,
+                            upi_amount: 0,
+                            credit_amount: 0
+                          });
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        editOrderModal.use_split_payment 
+                          ? 'bg-purple-600 text-white' 
+                          : 'bg-white border border-purple-300 text-purple-600 hover:bg-purple-50'
+                      }`}
+                    >
+                      {editOrderModal.use_split_payment ? '✓ Split Payment' : '➕ Split Payment'}
+                    </button>
                   </div>
                   
-                  {/* Payment Received & Balance for Credit Bills */}
-                  {(editOrderModal.is_credit || editOrderModal.payment_method === 'credit') && (
-                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-3">
-                      <p className="text-xs text-orange-700 font-medium">💰 Credit Bill Payment Details</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-gray-600">Amount Received</Label>
-                          <Input
-                            type="number"
-                            value={editOrderModal.payment_received || 0}
-                            onChange={(e) => {
-                              const received = parseFloat(e.target.value) || 0;
+                  {!editOrderModal.use_split_payment ? (
+                    <>
+                      {/* Single Payment Mode */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {['cash', 'card', 'upi', 'credit'].map((method) => (
+                          <button
+                            key={method}
+                            onClick={() => {
                               const total = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05;
                               setEditOrderModal({ 
                                 ...editOrderModal, 
-                                payment_received: received,
-                                balance_amount: Math.max(0, total - received)
+                                payment_method: method,
+                                is_credit: method === 'credit',
+                                payment_received: method === 'credit' ? 0 : total,
+                                balance_amount: method === 'credit' ? total : 0
                               });
                             }}
-                            placeholder="0"
-                            className="mt-1 h-10"
-                            min="0"
-                          />
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                              editOrderModal.payment_method === method
+                                ? method === 'credit' 
+                                  ? 'bg-orange-600 text-white' 
+                                  : 'bg-green-600 text-white'
+                                : 'bg-white border hover:border-green-500'
+                            }`}
+                          >
+                            {method === 'cash' && '💵 Cash'}
+                            {method === 'card' && '💳 Card'}
+                            {method === 'upi' && '📱 UPI'}
+                            {method === 'credit' && '⚠️ Credit'}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Payment Received & Balance for Credit Bills */}
+                      {(editOrderModal.is_credit || editOrderModal.payment_method === 'credit') && (
+                        <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-3">
+                          <p className="text-xs text-orange-700 font-medium">💰 Credit Bill Payment Details</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs text-gray-600">Amount Received</Label>
+                              <Input
+                                type="number"
+                                value={editOrderModal.payment_received || 0}
+                                onChange={(e) => {
+                                  const received = parseFloat(e.target.value) || 0;
+                                  const total = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05;
+                                  setEditOrderModal({ 
+                                    ...editOrderModal, 
+                                    payment_received: received,
+                                    balance_amount: Math.max(0, total - received)
+                                  });
+                                }}
+                                placeholder="0"
+                                className="mt-1 h-10"
+                                min="0"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-600">Balance Amount</Label>
+                              <div className="mt-1 h-10 px-3 flex items-center bg-orange-100 border border-orange-300 rounded-md font-bold text-orange-800">
+                                ₹{(editOrderModal.balance_amount || (editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05 - (editOrderModal.payment_received || 0))).toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-orange-600">⚠️ Customer name is required for credit bills</p>
                         </div>
-                        <div>
-                          <Label className="text-xs text-gray-600">Balance Amount</Label>
-                          <div className="mt-1 h-10 px-3 flex items-center bg-orange-100 border border-orange-300 rounded-md font-bold text-orange-800">
-                            ₹{(editOrderModal.balance_amount || (editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05 - (editOrderModal.payment_received || 0))).toFixed(2)}
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* Split Payment Mode */}
+                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg space-y-3">
+                        <p className="text-xs text-purple-700 font-medium">💳 Split Payment - Enter amounts for each method</p>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs text-gray-600 flex items-center gap-1">💵 Cash</Label>
+                            <Input
+                              type="number"
+                              value={editOrderModal.cash_amount || ''}
+                              onChange={(e) => setEditOrderModal({ ...editOrderModal, cash_amount: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              className="mt-1 h-10"
+                              min="0"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-600 flex items-center gap-1">💳 Card</Label>
+                            <Input
+                              type="number"
+                              value={editOrderModal.card_amount || ''}
+                              onChange={(e) => setEditOrderModal({ ...editOrderModal, card_amount: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              className="mt-1 h-10"
+                              min="0"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-600 flex items-center gap-1">📱 UPI</Label>
+                            <Input
+                              type="number"
+                              value={editOrderModal.upi_amount || ''}
+                              onChange={(e) => setEditOrderModal({ ...editOrderModal, upi_amount: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              className="mt-1 h-10"
+                              min="0"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-600 flex items-center gap-1">⚠️ Credit (Unpaid)</Label>
+                            <Input
+                              type="number"
+                              value={editOrderModal.credit_amount || ''}
+                              onChange={(e) => setEditOrderModal({ ...editOrderModal, credit_amount: parseFloat(e.target.value) || 0, is_credit: parseFloat(e.target.value) > 0 })}
+                              placeholder="0"
+                              className="mt-1 h-10 border-orange-300"
+                              min="0"
+                            />
                           </div>
                         </div>
+                        
+                        {/* Split Payment Summary */}
+                        <div className="pt-2 border-t border-purple-200 space-y-1">
+                          {(() => {
+                            const total = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05;
+                            const paid = (parseFloat(editOrderModal.cash_amount) || 0) + 
+                                        (parseFloat(editOrderModal.card_amount) || 0) + 
+                                        (parseFloat(editOrderModal.upi_amount) || 0);
+                            const credit = parseFloat(editOrderModal.credit_amount) || 0;
+                            const totalEntered = paid + credit;
+                            const diff = total - totalEntered;
+                            
+                            return (
+                              <>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-gray-600">Bill Total:</span>
+                                  <span className="font-bold">₹{total.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-green-600">
+                                  <span>Paid (Cash+Card+UPI):</span>
+                                  <span className="font-bold">₹{paid.toFixed(2)}</span>
+                                </div>
+                                {credit > 0 && (
+                                  <div className="flex justify-between text-xs text-orange-600">
+                                    <span>Credit (Unpaid):</span>
+                                    <span className="font-bold">₹{credit.toFixed(2)}</span>
+                                  </div>
+                                )}
+                                <div className={`flex justify-between text-xs font-bold ${Math.abs(diff) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>
+                                  <span>{Math.abs(diff) < 0.01 ? '✓ Balanced' : diff > 0 ? '⚠️ Remaining:' : '⚠️ Excess:'}</span>
+                                  <span>{Math.abs(diff) < 0.01 ? '' : `₹${Math.abs(diff).toFixed(2)}`}</span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        
+                        {/* Quick Fill Buttons */}
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={() => {
+                              const total = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05;
+                              const remaining = total - (parseFloat(editOrderModal.cash_amount) || 0) - (parseFloat(editOrderModal.card_amount) || 0) - (parseFloat(editOrderModal.upi_amount) || 0) - (parseFloat(editOrderModal.credit_amount) || 0);
+                              if (remaining > 0) {
+                                setEditOrderModal({ ...editOrderModal, cash_amount: (parseFloat(editOrderModal.cash_amount) || 0) + remaining });
+                              }
+                            }}
+                            className="text-xs px-2 py-1 bg-white border rounded hover:bg-gray-50"
+                          >
+                            Fill Cash
+                          </button>
+                          <button
+                            onClick={() => {
+                              const total = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.05;
+                              const remaining = total - (parseFloat(editOrderModal.cash_amount) || 0) - (parseFloat(editOrderModal.card_amount) || 0) - (parseFloat(editOrderModal.upi_amount) || 0) - (parseFloat(editOrderModal.credit_amount) || 0);
+                              if (remaining > 0) {
+                                setEditOrderModal({ ...editOrderModal, credit_amount: (parseFloat(editOrderModal.credit_amount) || 0) + remaining, is_credit: true });
+                              }
+                            }}
+                            className="text-xs px-2 py-1 bg-orange-100 border border-orange-300 rounded hover:bg-orange-200 text-orange-700"
+                          >
+                            Fill Credit
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-xs text-orange-600">⚠️ Customer name is required for credit bills</p>
-                    </div>
+                      
+                      {editOrderModal.credit_amount > 0 && !editOrderModal.customer_name?.trim() && (
+                        <p className="text-xs text-red-600 mt-2 font-medium">❌ Customer name required for credit amount</p>
+                      )}
+                    </>
                   )}
                   
-                  {editOrderModal.is_credit && !editOrderModal.customer_name?.trim() && (
+                  {!editOrderModal.use_split_payment && editOrderModal.is_credit && !editOrderModal.customer_name?.trim() && (
                     <p className="text-xs text-red-600 mt-2 font-medium">❌ Please enter customer name above</p>
                   )}
                 </div>

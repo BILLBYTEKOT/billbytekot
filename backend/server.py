@@ -485,11 +485,16 @@ class Order(BaseModel):
     tracking_token: Optional[str] = None  # For customer live tracking
     order_type: Optional[str] = "dine_in"  # dine_in, takeaway, delivery
     organization_id: Optional[str] = None
-    # Payment fields
-    payment_method: Optional[str] = "cash"
+    # Payment fields - Multi-payment support
+    payment_method: Optional[str] = "cash"  # Primary payment method or 'split'
     is_credit: bool = False
     payment_received: float = 0
     balance_amount: float = 0
+    # Split payment details
+    cash_amount: float = 0
+    card_amount: float = 0
+    upi_amount: float = 0
+    credit_amount: float = 0  # Amount on credit (unpaid)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

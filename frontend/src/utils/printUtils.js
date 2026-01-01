@@ -371,8 +371,41 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
     </div>
   `;
   
-  // Credit bill payment details
-  if (isCredit || balanceAmount > 0) {
+  // Split payment details
+  const cashAmount = order.cash_amount || 0;
+  const cardAmount = order.card_amount || 0;
+  const upiAmount = order.upi_amount || 0;
+  const creditAmount = order.credit_amount || 0;
+  const isSplitPayment = order.payment_method === 'split' || 
+    (cashAmount > 0 && (cardAmount > 0 || upiAmount > 0 || creditAmount > 0)) ||
+    (cardAmount > 0 && (upiAmount > 0 || creditAmount > 0)) ||
+    (upiAmount > 0 && creditAmount > 0);
+  
+  if (isSplitPayment) {
+    html += '<div class="separator"></div>';
+    html += '<div class="center bold small mb-1">PAYMENT BREAKDOWN</div>';
+    
+    if (cashAmount > 0) {
+      html += `<div class="total-row small"><span>💵 Cash</span><span>₹${cashAmount.toFixed(2)}</span></div>`;
+    }
+    if (cardAmount > 0) {
+      html += `<div class="total-row small"><span>💳 Card</span><span>₹${cardAmount.toFixed(2)}</span></div>`;
+    }
+    if (upiAmount > 0) {
+      html += `<div class="total-row small"><span>📱 UPI</span><span>₹${upiAmount.toFixed(2)}</span></div>`;
+    }
+    if (creditAmount > 0) {
+      html += `<div class="total-row small" style="color: #d97706;"><span>⚠️ Credit</span><span>₹${creditAmount.toFixed(2)}</span></div>`;
+    }
+    
+    const totalPaid = cashAmount + cardAmount + upiAmount;
+    if (totalPaid > 0) {
+      html += `<div class="total-row" style="color: green;"><span>✅ Total Paid</span><span>₹${totalPaid.toFixed(2)}</span></div>`;
+    }
+  }
+  
+  // Credit bill payment details (for non-split or credit amount)
+  if ((isCredit || balanceAmount > 0 || creditAmount > 0) && !isSplitPayment) {
     html += '<div class="separator"></div>';
     html += `
       <div class="total-row" style="color: green;">
@@ -384,33 +417,41 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
         <span>₹${balanceAmount.toFixed(2)}</span>
       </div>
     `;
+  }
+  
+  // Show balance due for split payment with credit
+  if (isSplitPayment && creditAmount > 0) {
+    html += `<div class="total-row" style="color: #d97706; font-weight: bold;"><span>⚠️ BALANCE DUE</span><span>₹${creditAmount.toFixed(2)}</span></div>`;
+  }
+  
+  // UPI QR Code for balance payment
+  const balanceForQR = isSplitPayment ? creditAmount : balanceAmount;
+  if (upiId && balanceForQR > 0 && settings.qr_code_enabled) {
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(restaurantName)}&am=${balanceForQR.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Balance Payment - Bill #' + (order.id || '').toString().slice(0, 8))}`;
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`;
     
-    // UPI QR Code for balance payment
-    if (upiId && balanceAmount > 0 && settings.qr_code_enabled) {
-      const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(restaurantName)}&am=${balanceAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Balance Payment - Bill #' + (order.id || '').toString().slice(0, 8))}`;
-      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`;
-      
-      html += `
-        <div class="separator"></div>
-        <div class="center bold mb-1">📱 Scan to Pay Balance</div>
-        <div class="center mb-1">
-          <img src="${qrApiUrl}" alt="UPI QR" style="width: 120px; height: 120px;" onerror="this.style.display='none'" />
-        </div>
-        <div class="center small">UPI: ${upiId}</div>
-      `;
-    }
+    html += `
+      <div class="separator"></div>
+      <div class="center bold mb-1">📱 Scan to Pay Balance</div>
+      <div class="center mb-1">
+        <img src="${qrApiUrl}" alt="UPI QR" style="width: 120px; height: 120px;" onerror="this.style.display='none'" />
+      </div>
+      <div class="center small">UPI: ${upiId}</div>
+    `;
   }
   
   html += '<div class="double-line"></div>';
   
   // Payment method if available
-  if (order.payment_method) {
+  if (order.payment_method && !isSplitPayment) {
     const methodDisplay = order.payment_method === 'credit' ? 'CREDIT (UNPAID)' : order.payment_method.toUpperCase();
     html += `<div class="center small mb-2">Payment: ${methodDisplay}</div>`;
+  } else if (isSplitPayment) {
+    html += `<div class="center small mb-2">Payment: SPLIT</div>`;
   }
   
   // Credit warning
-  if (isCredit) {
+  if (isCredit || creditAmount > 0) {
     html += `<div class="center bold" style="color: #d97706; padding: 5px; border: 1px dashed #d97706; margin: 5px 0;">⚠️ CREDIT BILL - BALANCE PENDING</div>`;
   }
   
