@@ -5199,9 +5199,13 @@ async def reply_to_ticket(
     reply: TicketReplyRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Reply to a support ticket and send email to user (admin only)"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can reply to tickets")
+    """Reply to a support ticket and send email to user (admin or team with tickets permission)"""
+    # Allow admin role or team members with tickets permission
+    is_admin = current_user.get("role") == "admin"
+    is_team_with_permission = current_user.get("type") == "team" and "tickets" in current_user.get("permissions", [])
+    
+    if not is_admin and not is_team_with_permission:
+        raise HTTPException(status_code=403, detail="You don't have permission to reply to tickets")
     
     # Get the ticket
     ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
@@ -6492,6 +6496,293 @@ async def update_user_subscription_admin(
         "subscription_active": subscription_update.subscription_active
     }
 
+
+class ManualSubscription(BaseModel):
+    payment_id: str
+    payment_method: str = "manual"  # manual, upi, bank_transfer, cash
+    payment_proof_url: Optional[str] = None
+    payment_notes: Optional[str] = None
+    amount: float = 999.0
+    months: int = 12
+    send_invoice: bool = True
+
+
+def generate_payment_id():
+    """Generate unique payment ID for manual subscriptions"""
+    import random
+    import string
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return f"BBK-{timestamp}-{random_str}"
+
+
+def generate_invoice_number():
+    """Generate unique invoice number"""
+    import random
+    timestamp = datetime.now().strftime("%Y%m%d")
+    random_num = random.randint(1000, 9999)
+    return f"INV-{timestamp}-{random_num}"
+
+
+async def send_subscription_invoice_email(user_email: str, user_name: str, invoice_data: dict):
+    """Send subscription invoice email"""
+    from email_service import send_support_email
+    
+    subject = f"BillByteKOT Subscription Invoice - {invoice_data['invoice_number']}"
+    
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            .header {{ text-align: center; color: #7c3aed; border-bottom: 2px solid #7c3aed; padding-bottom: 20px; margin-bottom: 20px; }}
+            .invoice-details {{ background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+            .row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }}
+            .row:last-child {{ border-bottom: none; }}
+            .total {{ font-size: 24px; font-weight: bold; color: #7c3aed; text-align: right; margin-top: 20px; }}
+            .footer {{ text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }}
+            .badge {{ display: inline-block; background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🍽️ BillByteKOT</h1>
+                <p>Subscription Invoice</p>
+                <span class="badge">✓ PAID</span>
+            </div>
+            
+            <h2>Hello {user_name}!</h2>
+            <p>Thank you for subscribing to BillByteKOT. Here are your invoice details:</p>
+            
+            <div class="invoice-details">
+                <div class="row">
+                    <span><strong>Invoice Number:</strong></span>
+                    <span>{invoice_data['invoice_number']}</span>
+                </div>
+                <div class="row">
+                    <span><strong>Payment ID:</strong></span>
+                    <span>{invoice_data['payment_id']}</span>
+                </div>
+                <div class="row">
+                    <span><strong>Date:</strong></span>
+                    <span>{invoice_data['date']}</span>
+                </div>
+                <div class="row">
+                    <span><strong>Payment Method:</strong></span>
+                    <span>{invoice_data['payment_method'].upper()}</span>
+                </div>
+                <div class="row">
+                    <span><strong>Subscription Period:</strong></span>
+                    <span>{invoice_data['months']} Month(s)</span>
+                </div>
+                <div class="row">
+                    <span><strong>Valid Until:</strong></span>
+                    <span>{invoice_data['expires_at']}</span>
+                </div>
+            </div>
+            
+            <div class="total">
+                Total: ₹{invoice_data['amount']:.2f}
+            </div>
+            
+            <p style="margin-top: 30px; color: #666;">
+                Your subscription is now active. Enjoy all premium features of BillByteKOT!
+            </p>
+            
+            <div class="footer">
+                <p><strong>BillByteKOT</strong> - Smart Restaurant Management</p>
+                <p>© 2025 BillByte Innovations. All rights reserved.</p>
+                <p>For support: support@billbytekot.in</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_body = f"""
+    BillByteKOT Subscription Invoice
+    
+    Hello {user_name}!
+    
+    Thank you for subscribing to BillByteKOT.
+    
+    Invoice Details:
+    - Invoice Number: {invoice_data['invoice_number']}
+    - Payment ID: {invoice_data['payment_id']}
+    - Date: {invoice_data['date']}
+    - Payment Method: {invoice_data['payment_method'].upper()}
+    - Subscription Period: {invoice_data['months']} Month(s)
+    - Valid Until: {invoice_data['expires_at']}
+    - Total: ₹{invoice_data['amount']:.2f}
+    
+    Your subscription is now active!
+    
+    For support: support@billbytekot.in
+    """
+    
+    try:
+        result = await send_support_email(user_email, subject, html_body, text_body)
+        return result
+    except Exception as e:
+        print(f"❌ Failed to send invoice email: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@api_router.post("/super-admin/users/{user_id}/manual-subscription")
+async def create_manual_subscription(
+    user_id: str,
+    subscription: ManualSubscription,
+    username: str,
+    password: str
+):
+    """Create manual subscription with payment proof - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Get user
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Calculate expiry date
+    expires_at = datetime.now(timezone.utc)
+    expires_at = expires_at.replace(month=expires_at.month + subscription.months) if expires_at.month + subscription.months <= 12 else expires_at.replace(year=expires_at.year + 1, month=(expires_at.month + subscription.months) % 12 or 12)
+    
+    # Generate invoice number
+    invoice_number = generate_invoice_number()
+    
+    # Create subscription record
+    subscription_record = {
+        "id": str(uuid.uuid4())[:8],
+        "user_id": user_id,
+        "payment_id": subscription.payment_id,
+        "invoice_number": invoice_number,
+        "payment_method": subscription.payment_method,
+        "payment_proof_url": subscription.payment_proof_url,
+        "payment_notes": subscription.payment_notes,
+        "amount": subscription.amount,
+        "months": subscription.months,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": expires_at.isoformat(),
+        "created_by": username
+    }
+    
+    # Save subscription record
+    await db.manual_subscriptions.insert_one(subscription_record)
+    
+    # Update user subscription
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "subscription_active": True,
+            "subscription_expires_at": expires_at.isoformat(),
+            "subscription_payment_id": subscription.payment_id,
+            "subscription_type": "manual"
+        }}
+    )
+    
+    # Send invoice email if requested
+    email_result = {"success": False}
+    if subscription.send_invoice:
+        invoice_data = {
+            "invoice_number": invoice_number,
+            "payment_id": subscription.payment_id,
+            "date": datetime.now().strftime("%d %B %Y"),
+            "payment_method": subscription.payment_method,
+            "months": subscription.months,
+            "expires_at": expires_at.strftime("%d %B %Y"),
+            "amount": subscription.amount
+        }
+        email_result = await send_subscription_invoice_email(
+            user.get("email"),
+            user.get("username", "User"),
+            invoice_data
+        )
+    
+    return {
+        "success": True,
+        "message": "Manual subscription created successfully",
+        "subscription_id": subscription_record["id"],
+        "invoice_number": invoice_number,
+        "payment_id": subscription.payment_id,
+        "expires_at": expires_at.isoformat(),
+        "invoice_sent": email_result.get("success", False)
+    }
+
+
+@api_router.post("/super-admin/generate-payment-id")
+async def generate_new_payment_id(username: str, password: str):
+    """Generate a new payment ID for manual subscriptions"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    return {"payment_id": generate_payment_id()}
+
+
+@api_router.get("/super-admin/subscriptions")
+async def get_all_subscriptions(
+    username: str,
+    password: str,
+    skip: int = 0,
+    limit: int = 100
+):
+    """Get all manual subscription records - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    subscriptions = await db.manual_subscriptions.find({}, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.manual_subscriptions.count_documents({})
+    
+    return {"subscriptions": subscriptions, "total": total}
+
+
+@api_router.post("/super-admin/users/{user_id}/send-invoice")
+async def send_invoice_to_user(
+    user_id: str,
+    username: str,
+    password: str
+):
+    """Send invoice email to user for their current subscription"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not user.get("subscription_active"):
+        raise HTTPException(status_code=400, detail="User has no active subscription")
+    
+    # Get subscription record if exists
+    sub_record = await db.manual_subscriptions.find_one(
+        {"user_id": user_id},
+        sort=[("created_at", -1)]
+    )
+    
+    invoice_data = {
+        "invoice_number": sub_record.get("invoice_number") if sub_record else generate_invoice_number(),
+        "payment_id": user.get("subscription_payment_id", sub_record.get("payment_id") if sub_record else "N/A"),
+        "date": datetime.now().strftime("%d %B %Y"),
+        "payment_method": sub_record.get("payment_method", "online") if sub_record else "online",
+        "months": sub_record.get("months", 12) if sub_record else 12,
+        "expires_at": datetime.fromisoformat(user["subscription_expires_at"].replace("Z", "+00:00")).strftime("%d %B %Y") if user.get("subscription_expires_at") else "N/A",
+        "amount": sub_record.get("amount", 999) if sub_record else 999
+    }
+    
+    result = await send_subscription_invoice_email(
+        user.get("email"),
+        user.get("username", "User"),
+        invoice_data
+    )
+    
+    return {
+        "success": result.get("success", False),
+        "message": "Invoice sent successfully" if result.get("success") else "Failed to send invoice"
+    }
+
 @api_router.delete("/super-admin/users/{user_id}")
 async def delete_user_admin(user_id: str, username: str, password: str):
     """Delete user and all their data - Site Owner Only"""
@@ -6557,6 +6848,71 @@ async def update_ticket_admin(
         raise HTTPException(status_code=404, detail="Ticket not found")
     
     return {"message": "Ticket updated successfully", "ticket_id": ticket_id, "status": ticket_update.status}
+
+
+class SuperAdminTicketReply(BaseModel):
+    message: str
+    update_status: Optional[str] = None
+
+
+@api_router.post("/super-admin/tickets/{ticket_id}/reply")
+async def super_admin_reply_to_ticket(
+    ticket_id: str,
+    reply: SuperAdminTicketReply,
+    username: str,
+    password: str
+):
+    """Reply to a support ticket as super admin - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Get the ticket
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Create reply record
+    reply_record = {
+        "id": str(uuid.uuid4())[:8],
+        "message": reply.message,
+        "from": "support",
+        "admin_name": username,
+        "admin_email": "support@billbytekot.in",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Update ticket with reply
+    update_data = {
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if reply.update_status:
+        update_data["status"] = reply.update_status
+    
+    await db.support_tickets.update_one(
+        {"id": ticket_id},
+        {
+            "$push": {"replies": reply_record},
+            "$set": update_data
+        }
+    )
+    
+    # Send email to user
+    email_result = await send_ticket_reply_email(
+        ticket_id=ticket_id,
+        user_email=ticket["email"],
+        user_name=ticket["name"],
+        subject=ticket["subject"],
+        reply_message=reply.message,
+        admin_name=username
+    )
+    
+    return {
+        "success": True,
+        "message": "Reply sent successfully",
+        "email_sent": email_result.get("success", False),
+        "reply_id": reply_record["id"]
+    }
 
 @api_router.get("/super-admin/analytics")
 async def get_analytics_admin(username: str, password: str, days: int = 30):

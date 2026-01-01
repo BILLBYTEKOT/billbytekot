@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { API } from '../App';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,8 +7,9 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { 
-  Users, Ticket, TrendingUp, Database, Shield, 
-  CheckCircle, Clock, XCircle, DollarSign, UserPlus 
+  Users, Ticket, TrendingUp, Shield, 
+  CheckCircle, Clock, XCircle, UserPlus, Calendar, CreditCard,
+  Mail, FileText, Upload, RefreshCw
 } from 'lucide-react';
 
 const SuperAdminPage = () => {
@@ -26,6 +27,18 @@ const SuperAdminPage = () => {
   const [loading, setLoading] = useState(false);
   const [showCreateLead, setShowCreateLead] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [subscriptionMonths, setSubscriptionMonths] = useState(12);
+  const [subscriptionAmount, setSubscriptionAmount] = useState(999);
+  const [paymentId, setPaymentId] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('manual');
+  const [paymentProofUrl, setPaymentProofUrl] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [sendInvoice, setSendInvoice] = useState(true);
+  const [teamToken, setTeamToken] = useState(null);
+  const [teamUser, setTeamUser] = useState(null);
+  const [loginMode, setLoginMode] = useState('super-admin'); // 'super-admin' or 'team'
   const [newLead, setNewLead] = useState({ name: '', email: '', phone: '', businessName: '', notes: '' });
   const [newTeamMember, setNewTeamMember] = useState({ 
     username: '', email: '', password: '', role: 'sales', 
@@ -36,15 +49,29 @@ const SuperAdminPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await axios.get(`${API}/super-admin/dashboard`, {
-        params: credentials
-      });
-      setDashboard(response.data);
-      setAuthenticated(true);
-      toast.success('Super Admin access granted');
-      fetchAllData();
+      if (loginMode === 'super-admin') {
+        // Super Admin login
+        const response = await axios.get(`${API}/super-admin/dashboard`, {
+          params: credentials
+        });
+        setDashboard(response.data);
+        setAuthenticated(true);
+        toast.success('Super Admin access granted');
+        fetchAllData();
+      } else {
+        // Team member login
+        const response = await axios.post(`${API}/team/login`, {
+          username: credentials.username,
+          password: credentials.password
+        });
+        setTeamToken(response.data.token);
+        setTeamUser(response.data.user);
+        setAuthenticated(true);
+        toast.success(`Welcome ${response.data.user.full_name || response.data.user.username}!`);
+        fetchAllDataAsTeam(response.data.token);
+      }
     } catch (error) {
-      toast.error('Invalid super admin credentials');
+      toast.error(error.response?.data?.detail || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -88,18 +115,118 @@ const SuperAdminPage = () => {
     }
   };
 
-  const updateSubscription = async (userId, active) => {
+  const fetchAllDataAsTeam = async (token) => {
+    // Team members have limited access based on permissions
+    try {
+      // For now, team members can view tickets if they have permission
+      const ticketsRes = await axios.get(`${API}/support/tickets`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTickets(ticketsRes.data.tickets || []);
+    } catch (error) {
+      console.error('Failed to fetch team data', error);
+    }
+  };
+
+  const generatePaymentId = async () => {
+    try {
+      const response = await axios.post(
+        `${API}/super-admin/generate-payment-id`,
+        {},
+        { params: credentials }
+      );
+      setPaymentId(response.data.payment_id);
+      toast.success('Payment ID generated');
+    } catch (error) {
+      toast.error('Failed to generate payment ID');
+    }
+  };
+
+  const activateSubscription = async () => {
+    if (!selectedUser) return;
+    
+    if (!paymentId) {
+      toast.error('Payment ID is required');
+      return;
+    }
+    
+    try {
+      const response = await axios.post(
+        `${API}/super-admin/users/${selectedUser.id}/manual-subscription`,
+        {
+          payment_id: paymentId,
+          payment_method: paymentMethod,
+          payment_proof_url: paymentProofUrl || null,
+          payment_notes: paymentNotes || null,
+          amount: subscriptionAmount,
+          months: subscriptionMonths,
+          send_invoice: sendInvoice
+        },
+        { params: credentials }
+      );
+      
+      toast.success(`Subscription activated! Invoice #${response.data.invoice_number}`);
+      if (sendInvoice && response.data.invoice_sent) {
+        toast.success('Invoice email sent to user');
+      }
+      
+      resetSubscriptionModal();
+      fetchAllData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to activate subscription');
+    }
+  };
+
+  const sendInvoiceEmail = async (userId) => {
+    try {
+      const response = await axios.post(
+        `${API}/super-admin/users/${userId}/send-invoice`,
+        {},
+        { params: credentials }
+      );
+      if (response.data.success) {
+        toast.success('Invoice sent successfully');
+      } else {
+        toast.error('Failed to send invoice');
+      }
+    } catch (error) {
+      toast.error('Failed to send invoice');
+    }
+  };
+
+  const deactivateSubscription = async (userId) => {
+    if (!window.confirm('Are you sure you want to deactivate this subscription?')) return;
+    
     try {
       await axios.put(
         `${API}/super-admin/users/${userId}/subscription`,
-        { subscription_active: active },
+        { subscription_active: false },
         { params: credentials }
       );
-      toast.success('Subscription updated');
+      toast.success('Subscription deactivated');
       fetchAllData();
     } catch (error) {
-      toast.error('Failed to update subscription');
+      toast.error('Failed to deactivate subscription');
     }
+  };
+
+  const resetSubscriptionModal = () => {
+    setShowSubscriptionModal(false);
+    setSelectedUser(null);
+    setSubscriptionMonths(12);
+    setSubscriptionAmount(999);
+    setPaymentId('');
+    setPaymentMethod('manual');
+    setPaymentProofUrl('');
+    setPaymentNotes('');
+    setSendInvoice(true);
+  };
+
+  const openSubscriptionModal = (user) => {
+    setSelectedUser(user);
+    resetSubscriptionModal();
+    setSelectedUser(user);
+    setShowSubscriptionModal(true);
   };
 
   const updateTicketStatus = async (ticketId, status) => {
@@ -257,9 +384,37 @@ const SuperAdminPage = () => {
           <CardHeader>
             <div className="flex items-center gap-2 justify-center">
               <Shield className="w-8 h-8 text-purple-400" />
-              <CardTitle className="text-2xl text-white">Super Admin Access</CardTitle>
+              <CardTitle className="text-2xl text-white">Admin Panel Access</CardTitle>
             </div>
-            <p className="text-center text-gray-400 text-sm">Site Owner Only</p>
+            
+            {/* Login Mode Toggle */}
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setLoginMode('super-admin')}
+                className={`flex-1 py-2 px-3 rounded text-sm font-medium transition ${
+                  loginMode === 'super-admin' 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Super Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginMode('team')}
+                className={`flex-1 py-2 px-3 rounded text-sm font-medium transition ${
+                  loginMode === 'team' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Team Member
+              </button>
+            </div>
+            <p className="text-center text-gray-400 text-sm mt-2">
+              {loginMode === 'super-admin' ? 'Site Owner Only' : 'Sales/Support Team Login'}
+            </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -285,10 +440,10 @@ const SuperAdminPage = () => {
               </div>
               <Button 
                 type="submit" 
-                className="w-full bg-purple-600 hover:bg-purple-700"
+                className={`w-full ${loginMode === 'super-admin' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                 disabled={loading}
               >
-                {loading ? 'Authenticating...' : 'Access Super Admin'}
+                {loading ? 'Authenticating...' : loginMode === 'super-admin' ? 'Access Super Admin' : 'Team Login'}
               </Button>
             </form>
           </CardContent>
@@ -393,18 +548,22 @@ const SuperAdminPage = () => {
         {activeTab === 'users' && (
           <Card>
             <CardHeader>
-              <CardTitle>All Users</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                All Users & Subscription Management
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b">
+                    <tr className="border-b bg-gray-50">
                       <th className="text-left p-2">Username</th>
                       <th className="text-left p-2">Email</th>
                       <th className="text-left p-2">Role</th>
-                      <th className="text-left p-2">Status</th>
-                      <th className="text-left p-2">Trial Days</th>
+                      <th className="text-left p-2">Subscription Status</th>
+                      <th className="text-left p-2">Expires</th>
+                      <th className="text-left p-2">Trial</th>
                       <th className="text-left p-2">Bills</th>
                       <th className="text-left p-2">Actions</th>
                     </tr>
@@ -412,8 +571,8 @@ const SuperAdminPage = () => {
                   <tbody>
                     {users.map(user => (
                       <tr key={user.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2">{user.username}</td>
-                        <td className="p-2 text-sm">{user.email}</td>
+                        <td className="p-2 font-medium">{user.username}</td>
+                        <td className="p-2 text-sm text-gray-600">{user.email}</td>
                         <td className="p-2">
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
                             {user.role}
@@ -422,7 +581,7 @@ const SuperAdminPage = () => {
                         <td className="p-2">
                           {user.subscription_active ? (
                             <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs flex items-center gap-1 w-fit">
-                              <CheckCircle className="w-3 h-3" /> Subscribed
+                              <CheckCircle className="w-3 h-3" /> Active
                             </span>
                           ) : (
                             <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs flex items-center gap-1 w-fit">
@@ -430,9 +589,18 @@ const SuperAdminPage = () => {
                             </span>
                           )}
                         </td>
+                        <td className="p-2 text-sm">
+                          {user.subscription_expires_at ? (
+                            <span className={`${new Date(user.subscription_expires_at) < new Date() ? 'text-red-600' : 'text-green-600'}`}>
+                              {new Date(user.subscription_expires_at).toLocaleDateString()}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
                         <td className="p-2">
-                          <span className="text-sm font-medium">
-                            {7 + (user.trial_extension_days || 0)} days
+                          <span className="text-sm">
+                            {7 + (user.trial_extension_days || 0)}d
                           </span>
                           {user.trial_extension_days > 0 && (
                             <span className="text-xs text-green-600 ml-1">(+{user.trial_extension_days})</span>
@@ -441,19 +609,46 @@ const SuperAdminPage = () => {
                         <td className="p-2">{user.bill_count || 0}</td>
                         <td className="p-2">
                           <div className="flex flex-wrap gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateSubscription(user.id, !user.subscription_active)}
-                              className="text-xs"
-                            >
-                              {user.subscription_active ? 'Deactivate' : 'Activate Sub'}
-                            </Button>
+                            {/* Subscription Management */}
+                            {user.subscription_active ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => sendInvoiceEmail(user.id)}
+                                  className="text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                                  title="Send Invoice Email"
+                                >
+                                  <Mail className="w-3 h-3 mr-1" />
+                                  Invoice
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => deactivateSubscription(user.id)}
+                                  className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                                >
+                                  <XCircle className="w-3 h-3 mr-1" />
+                                  Deactivate
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => openSubscriptionModal(user)}
+                                className="text-xs bg-green-600 hover:bg-green-700"
+                              >
+                                <CreditCard className="w-3 h-3 mr-1" />
+                                Activate
+                              </Button>
+                            )}
+                            
+                            {/* Extend Trial */}
                             <div className="flex items-center gap-1">
                               <Input
                                 type="number"
                                 placeholder="Days"
-                                className="w-16 h-8 text-xs"
+                                className="w-14 h-7 text-xs"
                                 min="1"
                                 max="365"
                                 id={`trial-days-${user.id}`}
@@ -461,7 +656,7 @@ const SuperAdminPage = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-xs bg-blue-50 hover:bg-blue-100"
+                                className="text-xs h-7 bg-blue-50 hover:bg-blue-100"
                                 onClick={() => {
                                   const input = document.getElementById(`trial-days-${user.id}`);
                                   extendTrial(user.id, input?.value);
@@ -470,11 +665,13 @@ const SuperAdminPage = () => {
                                 +Trial
                               </Button>
                             </div>
+                            
+                            {/* Delete User */}
                             <Button
                               size="sm"
                               variant="destructive"
                               onClick={() => deleteUser(user.id)}
-                              className="text-xs"
+                              className="text-xs h-7"
                             >
                               Delete
                             </Button>
@@ -710,9 +907,9 @@ const SuperAdminPage = () => {
                             }
                             try {
                               await axios.post(
-                                `${API}/support/ticket/${ticket.id}/reply`,
+                                `${API}/super-admin/tickets/${ticket.id}/reply`,
                                 { message, update_status: 'pending' },
-                                { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+                                { params: credentials }
                               );
                               toast.success('Reply sent successfully! Email sent to customer.');
                               textarea.value = '';
@@ -737,9 +934,9 @@ const SuperAdminPage = () => {
                             }
                             try {
                               await axios.post(
-                                `${API}/support/ticket/${ticket.id}/reply`,
+                                `${API}/super-admin/tickets/${ticket.id}/reply`,
                                 { message, update_status: 'resolved' },
-                                { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+                                { params: credentials }
                               );
                               toast.success('Reply sent & ticket resolved!');
                               textarea.value = '';
@@ -1090,6 +1287,177 @@ const SuperAdminPage = () => {
                 <div className="flex gap-2">
                   <Button onClick={createTeamMember} className="flex-1">Create Member</Button>
                   <Button onClick={() => setShowCreateTeam(false)} variant="outline" className="flex-1">Cancel</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Subscription Management Modal */}
+      {showSubscriptionModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto p-4">
+          <Card className="w-full max-w-lg my-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-green-600" />
+                Manual Subscription Activation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* User Info */}
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">User</p>
+                  <p className="font-medium">{selectedUser.username}</p>
+                  <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                </div>
+                
+                {/* Payment ID - Required */}
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Payment ID *
+                  </Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      value={paymentId}
+                      onChange={(e) => setPaymentId(e.target.value)}
+                      placeholder="Enter or generate payment ID"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={generatePaymentId}
+                      className="flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Generate
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Payment Method */}
+                <div>
+                  <Label>Payment Method</Label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-full px-3 py-2 border rounded mt-1"
+                  >
+                    <option value="manual">Manual / Cash</option>
+                    <option value="upi">UPI</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="card">Card</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
+                
+                {/* Duration & Amount */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Duration
+                    </Label>
+                    <select
+                      value={subscriptionMonths}
+                      onChange={(e) => setSubscriptionMonths(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border rounded mt-1"
+                    >
+                      <option value={1}>1 Month</option>
+                      <option value={3}>3 Months</option>
+                      <option value={6}>6 Months</option>
+                      <option value={12}>12 Months</option>
+                      <option value={24}>24 Months</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Amount (₹)</Label>
+                    <Input
+                      type="number"
+                      value={subscriptionAmount}
+                      onChange={(e) => setSubscriptionAmount(parseFloat(e.target.value))}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                
+                {/* Payment Proof URL */}
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    Payment Proof URL (optional)
+                  </Label>
+                  <Input
+                    value={paymentProofUrl}
+                    onChange={(e) => setPaymentProofUrl(e.target.value)}
+                    placeholder="https://drive.google.com/... or image URL"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Upload screenshot to Google Drive/Imgur and paste link</p>
+                </div>
+                
+                {/* Payment Notes */}
+                <div>
+                  <Label>Payment Notes (optional)</Label>
+                  <Input
+                    value={paymentNotes}
+                    onChange={(e) => setPaymentNotes(e.target.value)}
+                    placeholder="Transaction reference, remarks..."
+                    className="mt-1"
+                  />
+                </div>
+                
+                {/* Send Invoice Checkbox */}
+                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="sendInvoice"
+                    checked={sendInvoice}
+                    onChange={(e) => setSendInvoice(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="sendInvoice" className="flex items-center gap-2 cursor-pointer">
+                    <Mail className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm">Send invoice email to user</span>
+                  </label>
+                </div>
+                
+                {/* Expiry Preview */}
+                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-sm text-green-700">Subscription will expire on:</p>
+                  <p className="font-bold text-green-800">
+                    {(() => {
+                      const date = new Date();
+                      date.setMonth(date.getMonth() + subscriptionMonths);
+                      return date.toLocaleDateString('en-IN', { 
+                        day: 'numeric', 
+                        month: 'long', 
+                        year: 'numeric' 
+                      });
+                    })()}
+                  </p>
+                </div>
+                
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={activateSubscription} 
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    disabled={!paymentId}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Activate Subscription
+                  </Button>
+                  <Button 
+                    onClick={resetSubscriptionModal}
+                    variant="outline" 
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
                 </div>
               </div>
             </CardContent>
