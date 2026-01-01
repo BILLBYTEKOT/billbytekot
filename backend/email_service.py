@@ -24,8 +24,17 @@ def get_config():
     }
 
 
-async def send_via_resend(email: str, subject: str, html_body: str, text_body: str, from_email: str = None) -> dict:
-    """Send email via Resend API (Free - 100 emails/day)"""
+async def send_via_resend(email: str, subject: str, html_body: str, text_body: str, from_email: str = None, reply_to: str = None) -> dict:
+    """Send email via Resend API (Free - 100 emails/day)
+    
+    Args:
+        email: Recipient email address
+        subject: Email subject
+        html_body: HTML content
+        text_body: Plain text content
+        from_email: Sender email (default: support@billbytekot.in)
+        reply_to: Reply-to email address for receiving replies
+    """
     config = get_config()
     api_key = config["resend_api_key"]
     
@@ -34,8 +43,8 @@ async def send_via_resend(email: str, subject: str, html_body: str, text_body: s
     
     print(f"📧 Sending email via Resend to {email}")
     
-    # Use custom from_email if provided, otherwise default
-    sender = from_email or "BillByteKOT <shiv@billbytekot.in>"
+    # Use custom from_email if provided, otherwise default to support@billbytekot.in
+    sender = from_email or "BillByteKOT <support@billbytekot.in>"
     
     async with httpx.AsyncClient() as client:
         url = "https://api.resend.com/emails"
@@ -47,6 +56,13 @@ async def send_via_resend(email: str, subject: str, html_body: str, text_body: s
             "html": html_body,
             "text": text_body
         }
+        
+        # Add reply_to if specified (enables receiving replies at support@billbytekot.in)
+        if reply_to:
+            payload["reply_to"] = reply_to
+        else:
+            # Default reply-to for all emails
+            payload["reply_to"] = "support@billbytekot.in"
         
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -117,8 +133,17 @@ async def send_via_smtp(email: str, subject: str, html_body: str, text_body: str
     raise Exception("All SMTP ports failed")
 
 
-async def send_email(email: str, subject: str, html_body: str, text_body: str, from_email: str = None) -> dict:
-    """Send email using configured provider with fallback"""
+async def send_email(email: str, subject: str, html_body: str, text_body: str, from_email: str = None, reply_to: str = None) -> dict:
+    """Send email using configured provider with fallback
+    
+    Args:
+        email: Recipient email address
+        subject: Email subject
+        html_body: HTML content
+        text_body: Plain text content
+        from_email: Sender email (default: support@billbytekot.in)
+        reply_to: Reply-to email address for receiving replies
+    """
     config = get_config()
     provider = config["provider"].lower()
     
@@ -127,11 +152,11 @@ async def send_email(email: str, subject: str, html_body: str, text_body: str, f
     # Try primary provider first
     try:
         if provider == "resend":
-            return await send_via_resend(email, subject, html_body, text_body, from_email)
+            return await send_via_resend(email, subject, html_body, text_body, from_email, reply_to)
         elif provider == "smtp":
             return await send_via_smtp(email, subject, html_body, text_body)
         else:
-            return await send_via_resend(email, subject, html_body, text_body, from_email)
+            return await send_via_resend(email, subject, html_body, text_body, from_email, reply_to)
     except Exception as e:
         print(f"❌ Primary email failed ({provider}): {e}")
         
@@ -147,5 +172,24 @@ async def send_email(email: str, subject: str, html_body: str, text_body: str, f
 
 
 async def send_support_email(email: str, subject: str, html_body: str, text_body: str) -> dict:
-    """Send email from support@billbytekot.in"""
-    return await send_email(email, subject, html_body, text_body, from_email="BillByteKOT Support <support@billbytekot.in>")
+    """Send email from support@billbytekot.in with reply-to enabled"""
+    return await send_email(
+        email, 
+        subject, 
+        html_body, 
+        text_body, 
+        from_email="BillByteKOT Support <support@billbytekot.in>",
+        reply_to="support@billbytekot.in"
+    )
+
+
+async def send_otp_email(email: str, subject: str, html_body: str, text_body: str) -> dict:
+    """Send OTP email from support@billbytekot.in"""
+    return await send_email(
+        email, 
+        subject, 
+        html_body, 
+        text_body, 
+        from_email="BillByteKOT <support@billbytekot.in>",
+        reply_to="support@billbytekot.in"
+    )

@@ -732,12 +732,12 @@ async def send_registration_otp_email(email: str, otp: str, username: str = "Use
     
     # Use email_service for all providers (including resend)
     try:
-        from email_service import send_email
+        from email_service import send_otp_email
         
         # Log OTP for debugging
         print(f"🔐 REGISTRATION OTP for {email}: {otp}")
         
-        result = await send_email(email, subject, html_body, text_body)
+        result = await send_otp_email(email, subject, html_body, text_body)
         return result
     except Exception as e:
         print(f"Email service error: {e}")
@@ -747,7 +747,7 @@ async def send_registration_otp_email(email: str, otp: str, username: str = "Use
 
 async def send_password_reset_otp_email(email: str, otp: str, username: str = "User"):
     """Send password reset OTP email"""
-    from email_service import send_email
+    from email_service import send_otp_email
     
     subject = "Your BillByteKOT Password Reset OTP"
     
@@ -784,7 +784,7 @@ async def send_password_reset_otp_email(email: str, otp: str, username: str = "U
     
     text_body = f"Hello {username},\n\nYour BillByteKOT Password Reset OTP is: {otp}\n\nValid for 10 minutes.\n\nIf you didn't request this, please ignore this email."
     
-    return await send_email(email, subject, html_body, text_body)
+    return await send_otp_email(email, subject, html_body, text_body)
 
 
 async def send_password_reset_email(email: str, reset_link: str, username: str = "User"):
@@ -951,7 +951,7 @@ async def send_password_reset_email(email: str, reset_link: str, username: str =
 
 async def send_staff_verification_email(email: str, otp: str, staff_name: str, admin_name: str):
     """Send OTP email for staff email verification"""
-    from email_service import send_email
+    from email_service import send_otp_email
     
     subject = "Verify Your Email - BillByteKOT Staff Account"
     
@@ -1018,7 +1018,7 @@ async def send_staff_verification_email(email: str, otp: str, staff_name: str, a
     print(f"🔐 STAFF VERIFICATION OTP for {email}: {otp}")
     
     try:
-        result = await send_email(email, subject, html_body, text_body)
+        result = await send_otp_email(email, subject, html_body, text_body)
         return result
     except Exception as e:
         print(f"Email service error: {e}")
