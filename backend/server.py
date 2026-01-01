@@ -4909,6 +4909,171 @@ class SupportTicket(BaseModel):
     preferredTime: Optional[str] = None
 
 
+async def send_ticket_confirmation_email(ticket_id: str, name: str, email: str, subject: str, request_type: str):
+    """Send confirmation email when a ticket is raised"""
+    from email_service import send_support_email
+    
+    email_subject = f"Ticket #{ticket_id} - We've received your {request_type} request"
+    
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }}
+            .header {{ background: linear-gradient(135deg, #7c3aed, #a855f7); padding: 30px; text-align: center; }}
+            .header h1 {{ color: white; margin: 0; font-size: 24px; }}
+            .content {{ padding: 30px; }}
+            .ticket-box {{ background: #f8f9fa; border-left: 4px solid #7c3aed; padding: 15px; margin: 20px 0; border-radius: 4px; }}
+            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px; }}
+            .btn {{ display: inline-block; background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🎫 Support Ticket Received</h1>
+            </div>
+            <div class="content">
+                <p>Hello <strong>{name}</strong>,</p>
+                <p>Thank you for contacting BillByteKOT support! We've received your request and our team will get back to you within 24 hours.</p>
+                
+                <div class="ticket-box">
+                    <p><strong>Ticket ID:</strong> #{ticket_id}</p>
+                    <p><strong>Subject:</strong> {subject}</p>
+                    <p><strong>Type:</strong> {request_type.title()}</p>
+                </div>
+                
+                <p>In the meantime, you can:</p>
+                <ul>
+                    <li>Check our <a href="https://billbytekot.in/help">Help Center</a> for quick answers</li>
+                    <li>Reply to this email with any additional information</li>
+                    <li>Call us at +91-8310832669 (Mon-Sat, 9 AM - 6 PM IST)</li>
+                </ul>
+                
+                <p>We're here to help you succeed! 🚀</p>
+            </div>
+            <div class="footer">
+                <p><strong>BillByteKOT Support Team</strong></p>
+                <p>Email: support@billbytekot.in | Phone: +91-8310832669</p>
+                <p>© 2026 BillByte Innovations. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_body = f"""
+    Hello {name},
+    
+    Thank you for contacting BillByteKOT support!
+    
+    Ticket ID: #{ticket_id}
+    Subject: {subject}
+    Type: {request_type.title()}
+    
+    Our team will get back to you within 24 hours.
+    
+    In the meantime, you can:
+    - Check our Help Center at https://billbytekot.in/help
+    - Reply to this email with any additional information
+    - Call us at +91-8310832669 (Mon-Sat, 9 AM - 6 PM IST)
+    
+    Best regards,
+    BillByteKOT Support Team
+    support@billbytekot.in
+    """
+    
+    try:
+        result = await send_support_email(email, email_subject, html_body, text_body)
+        print(f"📧 Ticket confirmation email sent to {email}: {result}")
+        return result
+    except Exception as e:
+        print(f"❌ Failed to send ticket confirmation email: {e}")
+        return {"success": False, "message": str(e)}
+
+
+async def send_ticket_reply_email(ticket_id: str, user_email: str, user_name: str, subject: str, reply_message: str, admin_name: str = "Support Team"):
+    """Send reply email to user from support"""
+    from email_service import send_support_email
+    
+    email_subject = f"Re: Ticket #{ticket_id} - {subject}"
+    
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }}
+            .header {{ background: linear-gradient(135deg, #7c3aed, #a855f7); padding: 30px; text-align: center; }}
+            .header h1 {{ color: white; margin: 0; font-size: 24px; }}
+            .content {{ padding: 30px; }}
+            .reply-box {{ background: #f0fdf4; border-left: 4px solid #22c55e; padding: 20px; margin: 20px 0; border-radius: 4px; }}
+            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>💬 Reply to Your Ticket</h1>
+            </div>
+            <div class="content">
+                <p>Hello <strong>{user_name}</strong>,</p>
+                <p>We have a response to your support ticket:</p>
+                
+                <div class="reply-box">
+                    <p><strong>Ticket ID:</strong> #{ticket_id}</p>
+                    <p><strong>Subject:</strong> {subject}</p>
+                    <hr style="border: none; border-top: 1px solid #ddd; margin: 15px 0;">
+                    <p><strong>Response from {admin_name}:</strong></p>
+                    <p style="white-space: pre-wrap;">{reply_message}</p>
+                </div>
+                
+                <p>If you have any further questions, simply reply to this email or create a new ticket.</p>
+                
+                <p>Thank you for choosing BillByteKOT! 🙏</p>
+            </div>
+            <div class="footer">
+                <p><strong>BillByteKOT Support Team</strong></p>
+                <p>Email: support@billbytekot.in | Phone: +91-8310832669</p>
+                <p>© 2026 BillByte Innovations. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_body = f"""
+    Hello {user_name},
+    
+    We have a response to your support ticket:
+    
+    Ticket ID: #{ticket_id}
+    Subject: {subject}
+    
+    Response from {admin_name}:
+    {reply_message}
+    
+    If you have any further questions, simply reply to this email or create a new ticket.
+    
+    Thank you for choosing BillByteKOT!
+    
+    Best regards,
+    BillByteKOT Support Team
+    support@billbytekot.in
+    """
+    
+    try:
+        result = await send_support_email(user_email, email_subject, html_body, text_body)
+        print(f"📧 Ticket reply email sent to {user_email}: {result}")
+        return result
+    except Exception as e:
+        print(f"❌ Failed to send ticket reply email: {e}")
+        return {"success": False, "message": str(e)}
+
+
 @api_router.post("/support/ticket")
 async def create_support_ticket(ticket: SupportTicket):
     """Create a support ticket or demo booking"""
@@ -4926,6 +5091,7 @@ async def create_support_ticket(ticket: SupportTicket):
         "preferred_date": ticket.preferredDate,
         "preferred_time": ticket.preferredTime,
         "status": "open",
+        "replies": [],  # Store conversation history
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
@@ -4938,9 +5104,18 @@ async def create_support_ticket(ticket: SupportTicket):
     else:
         print(f"📧 New support ticket #{ticket_id}: {ticket.subject} from {ticket.name} ({ticket.email})")
     
-    response_message = "Support ticket created successfully. We'll contact you within 24 hours."
+    # Send confirmation email to user
+    asyncio.create_task(send_ticket_confirmation_email(
+        ticket_id, 
+        ticket.name, 
+        ticket.email, 
+        ticket.subject, 
+        ticket.requestType or "support"
+    ))
+    
+    response_message = "Support ticket created successfully. We'll contact you within 24 hours. A confirmation email has been sent."
     if ticket.requestType == "demo":
-        response_message = f"Demo booking confirmed for {ticket.preferredDate} at {ticket.preferredTime}. We'll send you a confirmation email shortly!"
+        response_message = f"Demo booking confirmed for {ticket.preferredDate} at {ticket.preferredTime}. A confirmation email has been sent!"
     
     return {
         "success": True,
@@ -5010,6 +5185,89 @@ async def update_ticket_status(
     return {
         "success": True,
         "message": f"Ticket status updated to {status}"
+    }
+
+
+class TicketReplyRequest(BaseModel):
+    message: str
+    update_status: Optional[str] = None  # Optional: update status when replying
+
+
+@api_router.post("/support/ticket/{ticket_id}/reply")
+async def reply_to_ticket(
+    ticket_id: str,
+    reply: TicketReplyRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Reply to a support ticket and send email to user (admin only)"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can reply to tickets")
+    
+    # Get the ticket
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Create reply record
+    reply_record = {
+        "id": str(uuid.uuid4())[:8],
+        "message": reply.message,
+        "from": "support",
+        "admin_name": current_user.get("username", "Support Team"),
+        "admin_email": current_user.get("email", "support@billbytekot.in"),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Update ticket with reply
+    update_data = {
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if reply.update_status:
+        update_data["status"] = reply.update_status
+    
+    await db.support_tickets.update_one(
+        {"id": ticket_id},
+        {
+            "$push": {"replies": reply_record},
+            "$set": update_data
+        }
+    )
+    
+    # Send email to user
+    email_result = await send_ticket_reply_email(
+        ticket_id=ticket_id,
+        user_email=ticket["email"],
+        user_name=ticket["name"],
+        subject=ticket["subject"],
+        reply_message=reply.message,
+        admin_name=current_user.get("username", "Support Team")
+    )
+    
+    return {
+        "success": True,
+        "message": "Reply sent successfully",
+        "email_sent": email_result.get("success", False),
+        "reply_id": reply_record["id"]
+    }
+
+
+@api_router.get("/support/ticket/{ticket_id}")
+async def get_ticket_details(
+    ticket_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get detailed ticket information including replies (admin only)"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can view ticket details")
+    
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    return {
+        "success": True,
+        "ticket": ticket
     }
 
 

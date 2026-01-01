@@ -24,7 +24,7 @@ def get_config():
     }
 
 
-async def send_via_resend(email: str, subject: str, html_body: str, text_body: str) -> dict:
+async def send_via_resend(email: str, subject: str, html_body: str, text_body: str, from_email: str = None) -> dict:
     """Send email via Resend API (Free - 100 emails/day)"""
     config = get_config()
     api_key = config["resend_api_key"]
@@ -34,11 +34,14 @@ async def send_via_resend(email: str, subject: str, html_body: str, text_body: s
     
     print(f"📧 Sending email via Resend to {email}")
     
+    # Use custom from_email if provided, otherwise default
+    sender = from_email or "BillByteKOT <shiv@billbytekot.in>"
+    
     async with httpx.AsyncClient() as client:
         url = "https://api.resend.com/emails"
         
         payload = {
-            "from": "BillByteKOT <shiv@billbytekot.in>",
+            "from": sender,
             "to": [email],
             "subject": subject,
             "html": html_body,
@@ -114,7 +117,7 @@ async def send_via_smtp(email: str, subject: str, html_body: str, text_body: str
     raise Exception("All SMTP ports failed")
 
 
-async def send_email(email: str, subject: str, html_body: str, text_body: str) -> dict:
+async def send_email(email: str, subject: str, html_body: str, text_body: str, from_email: str = None) -> dict:
     """Send email using configured provider with fallback"""
     config = get_config()
     provider = config["provider"].lower()
@@ -124,11 +127,11 @@ async def send_email(email: str, subject: str, html_body: str, text_body: str) -
     # Try primary provider first
     try:
         if provider == "resend":
-            return await send_via_resend(email, subject, html_body, text_body)
+            return await send_via_resend(email, subject, html_body, text_body, from_email)
         elif provider == "smtp":
             return await send_via_smtp(email, subject, html_body, text_body)
         else:
-            return await send_via_resend(email, subject, html_body, text_body)
+            return await send_via_resend(email, subject, html_body, text_body, from_email)
     except Exception as e:
         print(f"❌ Primary email failed ({provider}): {e}")
         
@@ -141,3 +144,8 @@ async def send_email(email: str, subject: str, html_body: str, text_body: str) -
                 print(f"❌ SMTP fallback also failed: {smtp_error}")
         
         return {"success": False, "message": str(e)}
+
+
+async def send_support_email(email: str, subject: str, html_body: str, text_body: str) -> dict:
+    """Send email from support@billbytekot.in"""
+    return await send_email(email, subject, html_body, text_body, from_email="BillByteKOT Support <support@billbytekot.in>")

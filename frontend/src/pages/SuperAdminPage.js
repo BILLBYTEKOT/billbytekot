@@ -667,6 +667,94 @@ const SuperAdminPage = () => {
                       <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white p-3 border rounded">{ticket.message}</p>
                     </div>
                     
+                    {/* Previous Replies */}
+                    {ticket.replies && ticket.replies.length > 0 && (
+                      <div className="mb-3">
+                        <span className="text-xs text-gray-500 block mb-2">💬 Conversation History</span>
+                        <div className="space-y-2">
+                          {ticket.replies.map((reply, idx) => (
+                            <div key={idx} className="p-3 bg-green-50 border border-green-200 rounded">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-medium text-green-700">
+                                  {reply.from === 'support' ? `Support (${reply.admin_name})` : 'Customer'}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(reply.created_at).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap">{reply.message}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Reply Form */}
+                    <div className="mb-3 p-3 bg-blue-50 rounded border border-blue-200">
+                      <span className="text-xs text-blue-600 font-medium block mb-2">📧 Reply to Customer (sends email from support@billbytekot.in)</span>
+                      <textarea
+                        id={`reply-${ticket.id}`}
+                        placeholder="Type your reply here..."
+                        className="w-full p-2 border rounded text-sm min-h-[80px] mb-2"
+                        rows={3}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            const textarea = document.getElementById(`reply-${ticket.id}`);
+                            const message = textarea?.value?.trim();
+                            if (!message) {
+                              toast.error('Please enter a reply message');
+                              return;
+                            }
+                            try {
+                              await axios.post(
+                                `${API}/support/ticket/${ticket.id}/reply`,
+                                { message, update_status: 'pending' },
+                                { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+                              );
+                              toast.success('Reply sent successfully! Email sent to customer.');
+                              textarea.value = '';
+                              fetchAllData();
+                            } catch (error) {
+                              toast.error(error.response?.data?.detail || 'Failed to send reply');
+                            }
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          Send Reply & Email
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            const textarea = document.getElementById(`reply-${ticket.id}`);
+                            const message = textarea?.value?.trim();
+                            if (!message) {
+                              toast.error('Please enter a reply message');
+                              return;
+                            }
+                            try {
+                              await axios.post(
+                                `${API}/support/ticket/${ticket.id}/reply`,
+                                { message, update_status: 'resolved' },
+                                { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+                              );
+                              toast.success('Reply sent & ticket resolved!');
+                              textarea.value = '';
+                              fetchAllData();
+                            } catch (error) {
+                              toast.error(error.response?.data?.detail || 'Failed to send reply');
+                            }
+                          }}
+                          className="border-green-300 text-green-700 hover:bg-green-50"
+                        >
+                          Send & Resolve
+                        </Button>
+                      </div>
+                    </div>
+                    
                     {/* Footer */}
                     <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
                       <span>Created: {new Date(ticket.created_at).toLocaleString()}</span>
