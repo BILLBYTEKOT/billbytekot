@@ -8587,11 +8587,27 @@ async def get_public_sale_offer():
     if not offer:
         return {"enabled": False}
     
-    # Check if offer has expired
+    # Check if offer has expired based on end_date or valid_until
+    now = datetime.now(timezone.utc)
+    
+    # Check end_date (date only)
     if offer.get("end_date"):
         try:
             end_date = datetime.fromisoformat(offer["end_date"])
-            if datetime.now() > end_date:
+            if end_date.tzinfo is None:
+                end_date = end_date.replace(hour=23, minute=59, second=59)
+            if now.replace(tzinfo=None) > end_date:
+                return {"enabled": False}
+        except:
+            pass
+    
+    # Check valid_until (datetime with time)
+    if offer.get("valid_until"):
+        try:
+            valid_until = datetime.fromisoformat(offer["valid_until"])
+            if valid_until.tzinfo is None:
+                valid_until = valid_until.replace(tzinfo=timezone.utc)
+            if now > valid_until:
                 return {"enabled": False}
         except:
             pass

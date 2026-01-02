@@ -75,7 +75,8 @@ const SuperAdminPage = () => {
     discount_text: '',
     badge_text: '',
     bg_color: 'from-red-500 to-orange-500',
-    end_date: ''
+    end_date: '',
+    valid_until: '' // Exact datetime when offer expires
   });
   const [showSaleOfferModal, setShowSaleOfferModal] = useState(false);
   const [savingSaleOffer, setSavingSaleOffer] = useState(false);
@@ -2306,13 +2307,33 @@ const SuperAdminPage = () => {
                         </select>
                       </div>
                       <div>
-                        <Label>End Date (optional)</Label>
+                        <Label>End Date (date only)</Label>
                         <Input
                           type="date"
                           value={saleOffer.end_date}
                           onChange={(e) => setSaleOffer({...saleOffer, end_date: e.target.value})}
                         />
                       </div>
+                    </div>
+
+                    {/* Exact Validity DateTime */}
+                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                      <Label className="text-orange-700 font-medium">⏰ Valid Until (Exact Date & Time)</Label>
+                      <p className="text-xs text-orange-600 mb-2">Banner will auto-hide after this exact time</p>
+                      <Input
+                        type="datetime-local"
+                        value={saleOffer.valid_until}
+                        onChange={(e) => setSaleOffer({...saleOffer, valid_until: e.target.value})}
+                        className="mt-1"
+                      />
+                      {saleOffer.valid_until && (
+                        <p className="text-xs text-orange-600 mt-2">
+                          Offer expires: {new Date(saleOffer.valid_until).toLocaleString('en-IN', { 
+                            dateStyle: 'full', 
+                            timeStyle: 'short' 
+                          })}
+                        </p>
+                      )}
                     </div>
 
                     <Button
@@ -2348,7 +2369,8 @@ const SuperAdminPage = () => {
                 <ul className="text-xs text-blue-700 space-y-1">
                   <li>• When enabled, a promotional banner will appear on the landing page</li>
                   <li>• The banner shows your custom title, subtitle, and discount text</li>
-                  <li>• Set an end date to automatically expire the offer</li>
+                  <li>• Set an end date OR exact validity time to auto-expire the offer</li>
+                  <li>• Banner auto-hides when validity expires - no manual action needed</li>
                   <li>• Toggle off anytime to hide the banner immediately</li>
                 </ul>
               </div>
