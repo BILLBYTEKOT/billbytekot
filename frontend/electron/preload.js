@@ -24,8 +24,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Notifications
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),
   
-  // Printing
+  // Printing - Silent (direct to printer, no dialog)
   printReceipt: (content) => ipcRenderer.send('print-receipt', content),
+  
+  // Printing - With dialog (user can choose printer)
+  printReceiptWithDialog: (content) => ipcRenderer.send('print-receipt-dialog', content),
+  
+  // Get available printers
+  getPrinters: () => ipcRenderer.invoke('get-printers'),
+  
+  // Listen for print result
+  onPrintResult: (callback) => ipcRenderer.on('print-result', (_event, data) => callback(data)),
   
   // WhatsApp Integration (legacy - opens external browser)
   sendWhatsApp: (phone, message) => ipcRenderer.send('send-whatsapp', { phone, message }),

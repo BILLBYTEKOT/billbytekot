@@ -96,8 +96,26 @@ const getBillNumber = (order) => {
   return numericPart.padStart(5, '0');
 };
 
-// Direct thermal print function - prints immediately without dialog
+// Check if running in Electron
+const isElectron = () => {
+  return !!(window.electronAPI?.isElectron || window.__ELECTRON__);
+};
+
+// Direct thermal print function - SILENT in Electron, dialog in browser
 export const printThermal = (htmlContent, paperWidth = '80mm') => {
+  // If running in Electron, use silent print
+  if (isElectron() && window.electronAPI?.printReceipt) {
+    try {
+      window.electronAPI.printReceipt(htmlContent);
+      toast.success('Printing...');
+      return true;
+    } catch (error) {
+      console.error('Electron print failed:', error);
+      // Fallback to browser print
+    }
+  }
+  
+  // Browser fallback - opens print dialog
   const printWindow = window.open('', '_blank', 'width=400,height=600');
   
   if (!printWindow) {
@@ -885,9 +903,44 @@ export const printWithCopies = (content, title = 'Print') => {
   }
 };
 
-// Silent print function - attempts to print without dialog (for supported browsers/apps)
+// Silent print function - direct print without dialog (Electron only)
 export const silentPrint = (htmlContent, paperWidth = '80mm') => {
-  // For Electron/Desktop apps, this can be enhanced to use native printing
-  // For web, we use the standard print approach
+  // For Electron/Desktop apps, use native silent printing
+  if (isElectron() && window.electronAPI?.printReceipt) {
+    try {
+      window.electronAPI.printReceipt(htmlContent);
+      return true;
+    } catch (error) {
+      console.error('Silent print failed:', error);
+    }
+  }
+  // For web, fall back to standard print (with dialog)
   return printThermal(htmlContent, paperWidth);
+};
+
+// Print with dialog - always shows printer selection
+export const printWithDialog = (htmlContent, paperWidth = '80mm') => {
+  // For Electron, use the dialog version
+  if (isElectron() && window.electronAPI?.printReceiptWithDialog) {
+    try {
+      window.electronAPI.printReceiptWithDialog(htmlContent);
+      return true;
+    } catch (error) {
+      console.error('Print with dialog failed:', error);
+    }
+  }
+  // For web, use standard print (always shows dialog)
+  return printThermal(htmlContent, paperWidth);
+};
+
+// Get available printers (Electron only)
+export const getAvailablePrinters = async () => {
+  if (isElectron() && window.electronAPI?.getPrinters) {
+    try {
+      return await window.electronAPI.getPrinters();
+    } catch (error) {
+      console.error('Failed to get printers:', error);
+    }
+  }
+  return [];
 };

@@ -269,15 +269,142 @@ ipcMain.on('show-notification', (event, { title, body }) => {
   }
 });
 
-// Handle print request
+// Handle print request - SILENT PRINT (direct to default printer)
 ipcMain.on('print-receipt', (event, content) => {
-  const printWindow = new BrowserWindow({ show: false });
-  printWindow.loadURL(`data:text/html,${encodeURIComponent(content)}`);
+  const printWindow = new BrowserWindow({ 
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+  
+  // Create proper HTML document for printing
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { size: 80mm auto; margin: 0; }
+        body {
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.4;
+          width: 80mm;
+          padding: 3mm;
+          -webkit-print-color-adjust: exact;
+        }
+      </style>
+    </head>
+    <body>${content}</body>
+    </html>
+  `;
+  
+  printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+  
+  printWindow.webContents.on('did-finish-load', () => {
+    // Get available printers
+    printWindow.webContents.getPrintersAsync().then(printers => {
+      console.log('[BillByteKOT] Available printers:', printers.map(p => p.name));
+      
+      // Find thermal printer or use default
+      const thermalPrinter = printers.find(p => 
+        p.name.toLowerCase().includes('thermal') ||
+        p.name.toLowerCase().includes('pos') ||
+        p.name.toLowerCase().includes('receipt') ||
+        p.name.toLowerCase().includes('58mm') ||
+        p.name.toLowerCase().includes('80mm')
+      );
+      
+      const printOptions = {
+        silent: true, // SILENT PRINT - no dialog!
+        printBackground: true,
+        deviceName: thermalPrinter ? thermalPrinter.name : '', // Use thermal printer if found
+        margins: { marginType: 'none' },
+        pageSize: { width: 80000, height: 297000 } // 80mm width in microns
+      };
+      
+      console.log('[BillByteKOT] Printing silently to:', printOptions.deviceName || 'default printer');
+      
+      printWindow.webContents.print(printOptions, (success, failureReason) => {
+        if (success) {
+          console.log('[BillByteKOT] Print successful');
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('print-result', { success: true });
+          }
+        } else {
+          console.error('[BillByteKOT] Print failed:', failureReason);
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('print-result', { success: false, error: failureReason });
+          }
+        }
+        printWindow.close();
+      });
+    }).catch(err => {
+      console.error('[BillByteKOT] Failed to get printers:', err);
+      // Fallback to silent print with default printer
+      printWindow.webContents.print({ silent: true, printBackground: true }, (success) => {
+        printWindow.close();
+      });
+    });
+  });
+});
+
+// Handle print with dialog (for when user wants to choose printer)
+ipcMain.on('print-receipt-dialog', (event, content) => {
+  const printWindow = new BrowserWindow({ 
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { size: 80mm auto; margin: 0; }
+        body {
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.4;
+          width: 80mm;
+          padding: 3mm;
+        }
+      </style>
+    </head>
+    <body>${content}</body>
+    </html>
+  `;
+  
+  printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+  
   printWindow.webContents.on('did-finish-load', () => {
     printWindow.webContents.print({ silent: false, printBackground: true }, (success) => {
       printWindow.close();
     });
   });
+});
+
+// Get list of available printers
+ipcMain.handle('get-printers', async () => {
+  try {
+    const tempWindow = new BrowserWindow({ show: false });
+    const printers = await tempWindow.webContents.getPrintersAsync();
+    tempWindow.close();
+    return printers.map(p => ({ name: p.name, isDefault: p.isDefault }));
+  } catch (error) {
+    console.error('[BillByteKOT] Failed to get printers:', error);
+    return [];
+  }
 });
 
 // Handle WhatsApp integration
