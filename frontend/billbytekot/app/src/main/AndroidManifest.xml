@@ -38,8 +38,6 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/appName"
         
-        android:manageSpaceActivity="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
-        
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Translucent.NoTitleBar">
 
@@ -62,19 +60,6 @@
         
 
         
-            <activity android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
-                android:exported="false"
-                android:enabled="true"
-                android:excludeFromRecents="true">
-                <meta-data
-                    android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
-                    android:value="@string/launchUrl" />
-                <intent-filter>
-                    <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
-                    <category android:name="android.intent.category.DEFAULT" />
-                </intent-filter>
-            </activity>
-        
 
         <activity android:name="LauncherActivity"
             android:alwaysRetainTaskState="true"
@@ -87,6 +72,10 @@
                 android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
                 android:resource="@color/colorPrimary" />
 
+            
+                <meta-data
+                    android:name="android.support.customtabs.trusted.LAUNCH_HANDLER_CLIENT_MODE"
+                    android:value="@string/launchHandlerClientMode" />
             
 
             <meta-data
@@ -135,6 +124,10 @@
 
             
 
+            
+                <meta-data
+                    android:name="android.support.customtabs.trusted.DISPLAY_OVERRIDE"
+                    android:resource="@array/display_override" />
             
 
             

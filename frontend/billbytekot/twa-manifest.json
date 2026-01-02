@@ -5,47 +5,24 @@
   "launcherName": "BillByteKOT",
   "display": "standalone",
   "themeColor": "#7C3AED",
-  "themeColorDark": "#1a1a2e",
+  "themeColorDark": "#1A1A2E",
   "navigationColor": "#7C3AED",
-  "navigationColorDark": "#1a1a2e",
+  "navigationColorDark": "#1A1A2E",
   "navigationDividerColor": "#7C3AED",
-  "navigationDividerColorDark": "#1a1a2e",
+  "navigationDividerColorDark": "#1A1A2E",
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
   "startUrl": "/",
   "iconUrl": "https://billbytekot.in/icon-512.png",
-  "maskableIconUrl": "https://billbytekot.in/icon-512-maskable.png",
+  "maskableIconUrl": "https://billbytekot.in/icon-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "C:\\Users\\shivs\\da\\restro-ai\\frontend\\billbytekot\\android.keystore",
     "alias": "android"
   },
-  "appVersionName": "1.5.0",
-  "appVersionCode": 15,
-  "shortcuts": [
-    {
-      "name": "New Order",
-      "short_name": "Order",
-      "url": "/orders?action=new",
-      "icons": [
-        {
-          "src": "https://billbytekot.in/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Kitchen",
-      "short_name": "KOT",
-      "url": "/kitchen",
-      "icons": [
-        {
-          "src": "https://billbytekot.in/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    }
-  ],
+  "appVersionName": "17",
+  "appVersionCode": 16,
+  "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://billbytekot.in/manifest.json",
   "fallbackType": "customtabs",
@@ -76,6 +53,9 @@
   "protocolHandlers": [],
   "fileHandlers": [],
   "launchHandlerClientMode": "navigate-existing",
-  "displayOverride": ["standalone", "minimal-ui"],
-  "appVersion": "1.5.0"
+  "displayOverride": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "appVersion": "17"
 }
