@@ -5,11 +5,11 @@
   "launcherName": "BillByteKOT",
   "display": "standalone",
   "themeColor": "#7C3AED",
-  "themeColorDark": "#1a1a2e",
+  "themeColorDark": "#1A1A2E",
   "navigationColor": "#7C3AED",
-  "navigationColorDark": "#1a1a2e",
+  "navigationColorDark": "#1A1A2E",
   "navigationDividerColor": "#7C3AED",
-  "navigationDividerColorDark": "#1a1a2e",
+  "navigationDividerColorDark": "#1A1A2E",
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
   "startUrl": "/",
@@ -20,8 +20,8 @@
     "path": "C:\\Users\\shivs\\da\\restro-ai\\frontend\\billbytekot\\android.keystore",
     "alias": "android"
   },
-  "appVersionName": "1.8.0",
-  "appVersionCode": 18,
+  "appVersionName": "19",
+  "appVersionCode": 19,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://billbytekot.in/manifest.json",
@@ -53,6 +53,9 @@
   "protocolHandlers": [],
   "fileHandlers": [],
   "launchHandlerClientMode": "navigate-existing",
-  "displayOverride": ["standalone", "minimal-ui"],
-  "appVersion": "1.8.0"
+  "displayOverride": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "appVersion": "19"
 }

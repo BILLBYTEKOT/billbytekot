@@ -569,65 +569,79 @@ const OrdersPage = ({ user }) => {
     <Layout user={user}>
       {/* Full-screen Menu Selection Page (Step 2) */}
       {showMenuPage && (
-        <div className="fixed inset-0 z-50 bg-gradient-to-b from-gray-50 to-gray-100">
+        <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-50 via-violet-50/30 to-purple-50/50">
           <div className="h-full flex flex-col">
-            {/* Header - Enhanced */}
-            <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-violet-700 text-white px-4 py-3 shadow-xl">
-              <div className="flex items-center justify-between">
+            {/* Header - Premium Design */}
+            <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white px-4 py-4 shadow-2xl relative overflow-hidden">
+              {/* Background Pattern */}
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full translate-y-1/2 -translate-x-1/2"></div>
+              </div>
+              <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => { setShowMenuPage(false); resetForm(); }}
-                    className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-xl transition-all active:scale-95"
+                    className="w-11 h-11 flex items-center justify-center bg-white/15 hover:bg-white/25 rounded-2xl transition-all active:scale-90 backdrop-blur-sm border border-white/20"
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
                   <div>
-                    <h1 className="text-lg font-bold tracking-tight">Select Items</h1>
-                    <p className="text-xs text-white/70">
-                      {formData.table_id ? `Table ${tables.find(t => t.id === formData.table_id)?.table_number || ''}` : 'Counter'}
-                      {formData.customer_name && ` • ${formData.customer_name}`}
+                    <h1 className="text-xl font-bold tracking-tight">Select Items</h1>
+                    <p className="text-sm text-white/80 flex items-center gap-1.5 mt-0.5">
+                      <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                      {formData.table_id ? `Table ${tables.find(t => t.id === formData.table_id)?.table_number || ''}` : 'Counter Order'}
+                      {formData.customer_name && <span className="text-white/60">• {formData.customer_name}</span>}
                     </p>
                   </div>
                 </div>
                 {selectedItems.length > 0 && (
-                  <div className="flex items-center gap-2 bg-white text-violet-600 px-4 py-2 rounded-full shadow-lg">
-                    <ShoppingCart className="w-4 h-4" />
-                    <span className="font-bold text-lg">{selectedItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                  <div className="flex items-center gap-2 bg-white text-violet-600 px-4 py-2.5 rounded-2xl shadow-xl border-2 border-violet-100">
+                    <ShoppingCart className="w-5 h-5" />
+                    <span className="font-black text-xl">{selectedItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Search and Categories - Enhanced */}
-            <div className="bg-white shadow-sm px-4 py-3 space-y-3">
+            {/* Search and Categories - Premium */}
+            <div className="bg-white/80 backdrop-blur-lg shadow-lg px-4 py-4 space-y-3 border-b border-violet-100">
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-violet-400" />
                 <Input
                   placeholder="Search menu items..."
                   value={menuSearch}
                   onChange={(e) => setMenuSearch(e.target.value)}
-                  className="pl-12 h-12 text-base rounded-xl border-2 border-gray-100 focus:border-violet-400 bg-gray-50 focus:bg-white transition-all"
+                  className="pl-12 h-13 text-base rounded-2xl border-2 border-violet-100 focus:border-violet-400 bg-violet-50/50 focus:bg-white transition-all shadow-sm focus:shadow-lg focus:shadow-violet-100"
                 />
+                {menuSearch && (
+                  <button 
+                    onClick={() => setMenuSearch('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-violet-200 rounded-full flex items-center justify-center text-violet-600 hover:bg-violet-300"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                 {categories.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
-                    className={`px-5 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
+                    className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all duration-300 ${
                       activeCategory === cat
-                        ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-200 scale-105'
-                        : 'bg-gray-100 text-gray-600 hover:bg-violet-50 hover:text-violet-600 active:scale-95'
+                        ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-xl shadow-violet-300/50 scale-105 border-2 border-violet-400'
+                        : 'bg-white text-gray-600 hover:bg-violet-50 hover:text-violet-600 active:scale-95 border-2 border-gray-100 shadow-sm'
                     }`}
                   >
-                    {cat === 'all' ? 'All Items' : cat}
+                    {cat === 'all' ? '🍽️ All' : cat}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Menu Grid - Enhanced Cards */}
-            <div className="flex-1 overflow-y-auto px-3 py-4 pb-44">
+            {/* Menu Grid - Premium Cards */}
+            <div className="flex-1 overflow-y-auto px-3 py-4 pb-52">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {menuItems
                   .filter(item => {
@@ -643,40 +657,42 @@ const OrdersPage = ({ user }) => {
                       <div
                         key={item.id}
                         onClick={() => quantity === 0 && handleAddItem(item)}
-                        className={`relative bg-white rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer select-none ${
+                        className={`relative bg-white rounded-3xl overflow-hidden transition-all duration-300 cursor-pointer select-none ${
                           quantity > 0 
-                            ? 'ring-2 ring-violet-500 shadow-xl shadow-violet-100 scale-[1.02]' 
-                            : 'shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-95'
+                            ? 'ring-3 ring-violet-500 shadow-2xl shadow-violet-200/60 scale-[1.02] bg-gradient-to-br from-violet-50 to-purple-50' 
+                            : 'shadow-lg shadow-gray-200/60 hover:shadow-2xl hover:shadow-violet-200/40 hover:scale-[1.02] active:scale-95 border border-gray-100'
                         }`}
                       >
-                        {/* Quantity Badge - Enhanced */}
+                        {/* Quantity Badge - Premium */}
                         {quantity > 0 && (
-                          <div className="absolute top-2 right-2 z-10 w-8 h-8 bg-gradient-to-br from-violet-600 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg animate-bounce-in">
+                          <div className="absolute -top-1 -right-1 z-10 w-9 h-9 bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center text-sm font-black shadow-xl shadow-violet-400/50 border-2 border-white">
                             {quantity}
                           </div>
                         )}
                         
                         {/* Card Content */}
-                        <div className="p-3">
+                        <div className="p-4">
                           {/* Item Name & Category */}
-                          <div className="mb-2">
-                            <p className="font-bold text-gray-800 text-sm line-clamp-2 leading-snug">{item.name}</p>
-                            <p className="text-[11px] text-gray-400 mt-1 uppercase tracking-wide">{item.category}</p>
+                          <div className="mb-3">
+                            <p className="font-bold text-gray-800 text-[15px] line-clamp-2 leading-tight">{item.name}</p>
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              <span className="px-2 py-0.5 bg-violet-100 text-violet-600 rounded-lg text-[10px] font-bold uppercase tracking-wider">{item.category}</span>
+                            </div>
                           </div>
                           
-                          {/* Price - Enhanced */}
-                          <p className="text-xl font-black text-violet-600 mb-3">
-                            <span className="text-sm font-medium">₹</span>{item.price}
+                          {/* Price - Premium */}
+                          <p className="text-2xl font-black bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent mb-3">
+                            <span className="text-base">₹</span>{item.price}
                           </p>
                           
-                          {/* Add/Quantity Controls - Enhanced */}
+                          {/* Add/Quantity Controls - Premium */}
                           {quantity === 0 ? (
-                            <button className="w-full py-2.5 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 rounded-xl text-violet-600 font-semibold text-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 border-2 border-violet-100">
+                            <button className="w-full py-3 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-violet-300/50">
                               <Plus className="w-4 h-4" />
-                              Add
+                              Add Item
                             </button>
                           ) : (
-                            <div className="flex items-center justify-between bg-gradient-to-r from-violet-100 to-purple-100 rounded-xl p-1" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between bg-gradient-to-r from-violet-100 to-purple-100 rounded-2xl p-1.5 border-2 border-violet-200" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => {
                                   const idx = selectedItems.findIndex(si => si.menu_item_id === item.id);
@@ -687,18 +703,18 @@ const OrdersPage = ({ user }) => {
                                     handleQuantityChange(idx, quantity - 1);
                                   }
                                 }}
-                                className="w-9 h-9 flex items-center justify-center bg-white rounded-lg shadow-sm text-violet-600 font-bold text-lg active:scale-90 transition-transform hover:bg-violet-50"
+                                className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-md text-violet-600 font-black text-xl active:scale-90 transition-transform hover:bg-red-50 hover:text-red-500 border border-violet-100"
                               >
                                 −
                               </button>
-                              <span className="font-black text-violet-700 text-xl min-w-[2.5rem] text-center">{quantity}</span>
+                              <span className="font-black text-violet-700 text-2xl min-w-[3rem] text-center">{quantity}</span>
                               <button
                                 onClick={() => {
                                   playSound('add');
                                   const idx = selectedItems.findIndex(si => si.menu_item_id === item.id);
                                   handleQuantityChange(idx, quantity + 1);
                                 }}
-                                className="w-9 h-9 flex items-center justify-center bg-gradient-to-br from-violet-600 to-purple-600 rounded-lg shadow-md text-white font-bold text-lg active:scale-90 transition-transform hover:shadow-lg"
+                                className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl shadow-lg text-white font-black text-xl active:scale-90 transition-transform hover:shadow-xl border border-violet-400"
                               >
                                 +
                               </button>
@@ -710,39 +726,50 @@ const OrdersPage = ({ user }) => {
                   })}
               </div>
               
-              {/* Empty State */}
+              {/* Empty State - Premium */}
               {menuItems.filter(item => {
                 const matchesSearch = item.name.toLowerCase().includes(menuSearch.toLowerCase());
                 const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
                 return matchesSearch && matchesCategory;
               }).length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-lg font-medium">No items found</p>
-                  <p className="text-sm mt-1">Try a different search or category</p>
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 bg-gradient-to-br from-violet-100 to-purple-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                    <Search className="w-10 h-10 text-violet-400" />
+                  </div>
+                  <p className="text-xl font-bold text-gray-700">No items found</p>
+                  <p className="text-gray-500 mt-2">Try a different search or category</p>
+                  <button 
+                    onClick={() => { setMenuSearch(''); setActiveCategory('all'); }}
+                    className="mt-4 px-6 py-2.5 bg-violet-100 text-violet-600 rounded-xl font-semibold hover:bg-violet-200 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* Fixed Bottom Cart Summary - Enhanced */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-violet-200 shadow-2xl z-[60] safe-area-bottom">
+            {/* Fixed Bottom Cart Summary - Premium */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t-2 border-violet-200 shadow-2xl z-[60] safe-area-bottom rounded-t-3xl">
               {selectedItems.length > 0 ? (
-                <div className="p-3">
+                <div className="p-4">
+                  {/* Drag Handle */}
+                  <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-3"></div>
+                  
                   {/* Compact items list */}
-                  <div className="max-h-28 overflow-y-auto space-y-1 mb-3 bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl p-2">
+                  <div className="max-h-32 overflow-y-auto space-y-1.5 mb-4 bg-gradient-to-br from-violet-50 to-purple-50 rounded-2xl p-3 border border-violet-100">
                     {selectedItems.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm bg-white/80 rounded-lg px-2 py-1.5">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="w-6 h-6 bg-violet-600 text-white rounded-full flex items-center justify-center text-xs font-bold">{item.quantity}</span>
-                          <span className="truncate font-medium">{item.name}</span>
+                      <div key={index} className="flex items-center justify-between text-sm bg-white rounded-xl px-3 py-2 shadow-sm border border-violet-50">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <span className="w-7 h-7 bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-lg flex items-center justify-center text-xs font-black shadow-md">{item.quantity}</span>
+                          <span className="truncate font-semibold text-gray-700">{item.name}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="font-bold text-violet-600">₹{(item.price * item.quantity).toFixed(0)}</span>
+                          <span className="font-black text-violet-600 text-base">₹{(item.price * item.quantity).toFixed(0)}</span>
                           <button
                             onClick={() => handleRemoveItem(index)}
-                            className="w-6 h-6 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                            className="w-7 h-7 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-500 rounded-lg transition-all"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
