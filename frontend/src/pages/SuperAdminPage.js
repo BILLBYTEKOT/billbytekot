@@ -11,7 +11,7 @@ import {
   CheckCircle, Clock, XCircle, UserPlus, Calendar, CreditCard,
   Mail, FileText, Upload, RefreshCw, Lock, Download, Eye, X,
   Smartphone, Monitor, Package, Plus, Trash2, Edit, ExternalLink,
-  Database, HardDrive, Tag, Gift, Percent
+  Database, HardDrive, Tag, Gift, Percent, DollarSign
 } from 'lucide-react';
 
 const SuperAdminPage = () => {
@@ -79,6 +79,21 @@ const SuperAdminPage = () => {
   });
   const [showSaleOfferModal, setShowSaleOfferModal] = useState(false);
   const [savingSaleOffer, setSavingSaleOffer] = useState(false);
+  // Pricing Management
+  const [pricing, setPricing] = useState({
+    regular_price: 999,
+    regular_price_display: '₹999',
+    campaign_price: 599,
+    campaign_price_display: '₹599',
+    campaign_active: false,
+    campaign_name: 'NEWYEAR2026',
+    campaign_discount_percent: 40,
+    campaign_start_date: '',
+    campaign_end_date: '',
+    trial_days: 7,
+    subscription_months: 12
+  });
+  const [savingPricing, setSavingPricing] = useState(false);
   const [showBusinessDetails, setShowBusinessDetails] = useState(false);
   const [businessDetails, setBusinessDetails] = useState(null);
   const [businessDetailsLoading, setBusinessDetailsLoading] = useState(false);
@@ -294,7 +309,7 @@ const SuperAdminPage = () => {
   // Get available tabs based on user type and permissions
   const getAvailableTabs = () => {
     if (userType === 'super-admin') {
-      return ['dashboard', 'users', 'leads', 'team', 'tickets', 'analytics', 'app-versions', 'promotions'];
+      return ['dashboard', 'users', 'leads', 'team', 'tickets', 'analytics', 'app-versions', 'promotions', 'pricing'];
     }
     
     const tabs = [];
@@ -405,6 +420,18 @@ const SuperAdminPage = () => {
         }
       } catch (e) {
         // Sale offer not configured yet
+      }
+
+      // Fetch pricing settings
+      try {
+        const pricingRes = await axios.get(`${API}/super-admin/pricing`, {
+          params: credentials
+        });
+        if (pricingRes.data) {
+          setPricing(pricingRes.data);
+        }
+      } catch (e) {
+        // Pricing not configured yet
       }
     } catch (error) {
       console.error('Failed to fetch data', error);
@@ -900,18 +927,55 @@ const SuperAdminPage = () => {
 
   const toggleSaleOffer = async () => {
     const newEnabled = !saleOffer.enabled;
-    setSaleOffer({ ...saleOffer, enabled: newEnabled });
+    const updatedOffer = { ...saleOffer, enabled: newEnabled };
+    setSaleOffer(updatedOffer);
     
     try {
       await axios.post(
         `${API}/super-admin/sale-offer`,
-        { ...saleOffer, enabled: newEnabled },
+        updatedOffer,
         { params: credentials }
       );
       toast.success(newEnabled ? 'Sale offer enabled!' : 'Sale offer disabled');
     } catch (error) {
       toast.error('Failed to toggle sale offer');
       setSaleOffer({ ...saleOffer, enabled: !newEnabled }); // Revert
+    }
+  };
+
+  // Pricing Management
+  const savePricing = async () => {
+    setSavingPricing(true);
+    try {
+      await axios.post(
+        `${API}/super-admin/pricing`,
+        pricing,
+        { params: credentials }
+      );
+      toast.success('Pricing updated successfully!');
+    } catch (error) {
+      toast.error('Failed to save pricing');
+      console.error(error);
+    } finally {
+      setSavingPricing(false);
+    }
+  };
+
+  const toggleCampaign = async () => {
+    const newActive = !pricing.campaign_active;
+    const updatedPricing = { ...pricing, campaign_active: newActive };
+    setPricing(updatedPricing);
+    
+    try {
+      await axios.post(
+        `${API}/super-admin/pricing`,
+        updatedPricing,
+        { params: credentials }
+      );
+      toast.success(newActive ? 'Campaign activated!' : 'Campaign deactivated');
+    } catch (error) {
+      toast.error('Failed to toggle campaign');
+      setPricing({ ...pricing, campaign_active: !newActive }); // Revert
     }
   };
 
@@ -2286,6 +2350,186 @@ const SuperAdminPage = () => {
                   <li>• The banner shows your custom title, subtitle, and discount text</li>
                   <li>• Set an end date to automatically expire the offer</li>
                   <li>• Toggle off anytime to hide the banner immediately</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Pricing Tab - Super Admin Only */}
+        {activeTab === 'pricing' && userType === 'super-admin' && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Subscription Pricing
+                  </CardTitle>
+                  <p className="text-sm text-gray-500 mt-1">Manage subscription prices and campaigns</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Regular Pricing */}
+              <div className="p-6 rounded-xl border-2 border-gray-200 bg-gray-50">
+                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-gray-600" />
+                  Regular Pricing
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Regular Price (₹)</Label>
+                    <Input
+                      type="number"
+                      value={pricing.regular_price}
+                      onChange={(e) => setPricing({...pricing, regular_price: parseInt(e.target.value) || 0, regular_price_display: `₹${e.target.value}`})}
+                      placeholder="999"
+                    />
+                  </div>
+                  <div>
+                    <Label>Trial Days</Label>
+                    <Input
+                      type="number"
+                      value={pricing.trial_days}
+                      onChange={(e) => setPricing({...pricing, trial_days: parseInt(e.target.value) || 7})}
+                      placeholder="7"
+                    />
+                  </div>
+                  <div>
+                    <Label>Subscription Duration (months)</Label>
+                    <Input
+                      type="number"
+                      value={pricing.subscription_months}
+                      onChange={(e) => setPricing({...pricing, subscription_months: parseInt(e.target.value) || 12})}
+                      placeholder="12"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Campaign Pricing */}
+              <div className={`p-6 rounded-xl border-2 ${pricing.campaign_active ? 'border-green-500 bg-gradient-to-r from-green-50 to-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pricing.campaign_active ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                      <Gift className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Campaign / Special Offer</h3>
+                      <p className="text-sm text-gray-500">Enable discounted pricing for campaigns</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleCampaign}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${pricing.campaign_active ? 'bg-green-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${pricing.campaign_active ? 'translate-x-8' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+
+                {pricing.campaign_active && (
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Campaign Name</Label>
+                        <Input
+                          value={pricing.campaign_name}
+                          onChange={(e) => setPricing({...pricing, campaign_name: e.target.value})}
+                          placeholder="NEWYEAR2026"
+                        />
+                      </div>
+                      <div>
+                        <Label>Discount Percentage (%)</Label>
+                        <Input
+                          type="number"
+                          value={pricing.campaign_discount_percent}
+                          onChange={(e) => setPricing({...pricing, campaign_discount_percent: parseInt(e.target.value) || 0})}
+                          placeholder="40"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Campaign Price (₹)</Label>
+                        <Input
+                          type="number"
+                          value={pricing.campaign_price}
+                          onChange={(e) => setPricing({...pricing, campaign_price: parseInt(e.target.value) || 0, campaign_price_display: `₹${e.target.value}`})}
+                          placeholder="599"
+                        />
+                      </div>
+                      <div>
+                        <Label>Display Text</Label>
+                        <Input
+                          value={pricing.campaign_price_display}
+                          onChange={(e) => setPricing({...pricing, campaign_price_display: e.target.value})}
+                          placeholder="₹599"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Start Date</Label>
+                        <Input
+                          type="date"
+                          value={pricing.campaign_start_date}
+                          onChange={(e) => setPricing({...pricing, campaign_start_date: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <Label>End Date</Label>
+                        <Input
+                          type="date"
+                          value={pricing.campaign_end_date}
+                          onChange={(e) => setPricing({...pricing, campaign_end_date: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Preview */}
+                    <div className="p-4 bg-gradient-to-r from-violet-500 to-purple-600 rounded-lg text-white">
+                      <p className="text-sm opacity-80">Preview:</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="line-through opacity-70">{pricing.regular_price_display}</span>
+                        <span className="text-3xl font-bold">{pricing.campaign_price_display}</span>
+                        <span className="bg-white/20 px-2 py-1 rounded text-sm">{pricing.campaign_discount_percent}% OFF</span>
+                      </div>
+                      <p className="text-sm mt-1 opacity-80">Campaign: {pricing.campaign_name}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Save Button */}
+              <Button
+                onClick={savePricing}
+                disabled={savingPricing}
+                className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
+              >
+                {savingPricing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Save Pricing Settings
+                  </>
+                )}
+              </Button>
+
+              {/* Info */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-medium text-sm text-blue-800 mb-2">💡 How pricing works:</h4>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  <li>• Regular price is shown when no campaign is active</li>
+                  <li>• Campaign price is shown when campaign is enabled and within date range</li>
+                  <li>• Changes apply immediately to the subscription page</li>
+                  <li>• Trial days determine how long users can try before subscribing</li>
                 </ul>
               </div>
             </CardContent>

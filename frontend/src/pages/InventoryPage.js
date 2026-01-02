@@ -13,12 +13,12 @@ import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { 
-  Plus, AlertTriangle, Package, Printer, QrCode, Download, FileSpreadsheet, 
+  Plus, AlertTriangle, Package, Printer, Download, FileSpreadsheet, 
   Search, Filter, TrendingUp, TrendingDown, Calendar, BarChart3, 
   ShoppingCart, Truck, Clock, DollarSign, Archive, RefreshCw,
   Eye, Edit, Trash2, History, Bell, Target, Zap, Package2,
   ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, XCircle,
-  Settings, Users, MapPin, Phone, Mail, Globe
+  Settings, Users, MapPin, Phone, Mail, Globe, Minus
 } from 'lucide-react';
 import BulkUpload from '../components/BulkUpload';
 
@@ -45,8 +45,11 @@ const InventoryPage = ({ user }) => {
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [viewMode, setViewMode] = useState('grid'); // grid or table
-  const [qrModalOpen, setQrModalOpen] = useState(false);
-  const [qrData, setQrData] = useState({ upiId: '', amount: '', note: '' });
+  const [stockAdjustOpen, setStockAdjustOpen] = useState(false);
+  const [stockAdjustItem, setStockAdjustItem] = useState(null);
+  const [stockAdjustType, setStockAdjustType] = useState('add'); // 'add' or 'reduce'
+  const [stockAdjustQty, setStockAdjustQty] = useState('');
+  const [stockAdjustReason, setStockAdjustReason] = useState('');
   const [businessSettings, setBusinessSettings] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -568,130 +571,59 @@ const InventoryPage = ({ user }) => {
     toast.success('Inventory exported to CSV!');
   };
 
-  // Generate UPI QR Code
-  const generateUPIQR = (amount, note) => {
-    const upiId = qrData.upiId || businessSettings?.upi_id || '';
-    if (!upiId) {
-      toast.error('Please enter UPI ID');
-      return null;
+  // Stock Adjustment Functions
+  const openStockAdjust = (item, type) => {
+    setStockAdjustItem(item);
+    setStockAdjustType(type);
+    setStockAdjustQty('');
+    setStockAdjustReason('');
+    setStockAdjustOpen(true);
+  };
+
+  const handleStockAdjust = async () => {
+    if (!stockAdjustQty || parseFloat(stockAdjustQty) <= 0) {
+      toast.error('Please enter a valid quantity');
+      return;
     }
-    
-    const merchantName = businessSettings?.restaurant_name || 'Restaurant';
-    // UPI deep link format
-    const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(merchantName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note || 'Payment')}`;
-    
-    // Use QR code API to generate image
-    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiLink)}`;
-  };
 
-  // Open QR Modal for payment
-  const openQRModal = (amount = '', note = '') => {
-    setQrData({
-      upiId: businessSettings?.upi_id || '',
-      amount: amount,
-      note: note || 'Inventory Purchase'
-    });
-    setQrModalOpen(true);
-  };
+    const qty = parseFloat(stockAdjustQty);
+    const newQty = stockAdjustType === 'add' 
+      ? stockAdjustItem.quantity + qty 
+      : stockAdjustItem.quantity - qty;
 
-  // Print QR Code
-  const handlePrintQR = () => {
-    const qrUrl = generateUPIQR(qrData.amount, qrData.note);
-    if (!qrUrl) return;
+    if (newQty < 0) {
+      toast.error('Cannot reduce stock below 0');
+      return;
+    }
 
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>UPI Payment QR - ${businessSettings?.restaurant_name || 'Restaurant'}</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            min-height: 100vh; 
-            margin: 0;
-            padding: 20px;
-            background: #f3f4f6;
-          }
-          .qr-card {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 350px;
-          }
-          .logo { font-size: 40px; margin-bottom: 10px; }
-          h1 { margin: 0 0 5px 0; color: #7c3aed; font-size: 22px; }
-          .subtitle { color: #666; margin-bottom: 20px; font-size: 14px; }
-          .qr-container {
-            background: white;
-            padding: 15px;
-            border-radius: 15px;
-            border: 3px solid #7c3aed;
-            display: inline-block;
-            margin: 15px 0;
-          }
-          .qr-container img { display: block; }
-          .amount {
-            font-size: 32px;
-            font-weight: bold;
-            color: #16a34a;
-            margin: 15px 0;
-          }
-          .note { color: #666; font-size: 14px; margin-bottom: 15px; }
-          .upi-id {
-            background: #f3f4f6;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 14px;
-            color: #374151;
-          }
-          .footer { margin-top: 20px; font-size: 11px; color: #9ca3af; }
-          .apps { margin-top: 15px; font-size: 12px; color: #666; }
-          .no-print { margin-top: 20px; }
-          .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin: 5px; }
-          .btn-primary { background: #7c3aed; color: white; }
-          .btn-secondary { background: #6b7280; color: white; }
-          @media print { 
-            .no-print { display: none; } 
-            body { background: white; }
-            .qr-card { box-shadow: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="qr-card">
-          <div class="logo">📱</div>
-          <h1>${businessSettings?.restaurant_name || 'Restaurant'}</h1>
-          <p class="subtitle">Scan to Pay with UPI</p>
-          
-          <div class="qr-container">
-            <img src="${qrUrl}" alt="UPI QR Code" width="220" height="220" />
-          </div>
-          
-          ${qrData.amount ? `<div class="amount">₹${qrData.amount}</div>` : ''}
-          ${qrData.note ? `<p class="note">${qrData.note}</p>` : ''}
-          
-          <div class="upi-id">${qrData.upiId}</div>
-          
-          <p class="apps">Pay using GPay, PhonePe, Paytm, or any UPI app</p>
-          <p class="footer">Powered by BillByteKOT</p>
-        </div>
+    try {
+      // Update inventory quantity
+      await axios.put(`${API}/inventory/${stockAdjustItem.id}`, {
+        ...stockAdjustItem,
+        quantity: newQty
+      });
 
-        <div class="no-print">
-          <button class="btn btn-primary" onclick="window.print()">🖨️ Print QR</button>
-          <button class="btn btn-secondary" onclick="window.close()">✕ Close</button>
-        </div>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
+      // Record stock movement
+      await axios.post(`${API}/inventory/movements`, {
+        item_id: stockAdjustItem.id,
+        type: stockAdjustType === 'add' ? 'in' : 'out',
+        quantity: qty,
+        reason: stockAdjustReason || (stockAdjustType === 'add' ? 'Stock Added' : 'Stock Reduced'),
+        reference: `Manual ${stockAdjustType === 'add' ? 'Addition' : 'Reduction'}`,
+        notes: `${stockAdjustType === 'add' ? 'Added' : 'Reduced'} ${qty} ${stockAdjustItem.unit}. Previous: ${stockAdjustItem.quantity}, New: ${newQty}`
+      });
+
+      toast.success(`Stock ${stockAdjustType === 'add' ? 'added' : 'reduced'} successfully!`);
+      setStockAdjustOpen(false);
+      
+      // Refresh data
+      const updatedInventory = await fetchInventory();
+      const lowStockItems = updatedInventory.filter(item => item.quantity <= item.min_quantity);
+      setLowStock(lowStockItems);
+      fetchStockMovements();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to adjust stock');
+    }
   };
 
   return (
@@ -810,15 +742,6 @@ const InventoryPage = ({ user }) => {
             <Button variant="outline" onClick={handleExportCSV} title="Export to CSV">
               <FileSpreadsheet className="w-4 h-4 mr-2" />
               Export
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => openQRModal()} 
-              className="border-green-500 text-green-600 hover:bg-green-50"
-              title="Generate UPI QR Code"
-            >
-              <QrCode className="w-4 h-4 mr-2" />
-              UPI QR
             </Button>
             
             {['admin', 'cashier'].includes(user?.role) && (
@@ -1430,14 +1353,19 @@ const InventoryPage = ({ user }) => {
                           size="sm"
                           variant="outline"
                           className="border-green-500 text-green-600 hover:bg-green-50"
-                          onClick={() => openQRModal(
-                            item.reorder_quantity ? (item.reorder_quantity * (item.cost_price || item.price_per_unit)) : 
-                            ((item.min_quantity - item.quantity) * (item.cost_price || item.price_per_unit)), 
-                            `Restock: ${item.name}`
-                          )}
-                          title="Generate QR for restock payment"
+                          onClick={() => openStockAdjust(item, 'add')}
+                          title="Add Stock"
                         >
-                          <QrCode className="w-3 h-3" />
+                          <Plus className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                          onClick={() => openStockAdjust(item, 'reduce')}
+                          title="Reduce Stock"
+                        >
+                          <Minus className="w-3 h-3" />
                         </Button>
                         {['admin'].includes(user?.role) && (
                           <Button
@@ -1481,85 +1409,81 @@ const InventoryPage = ({ user }) => {
           </div>
         )}
 
-        {/* UPI QR Code Modal */}
-        {qrModalOpen && (
+        {/* Stock Adjustment Modal */}
+        {stockAdjustOpen && stockAdjustItem && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-md border-0 shadow-2xl">
-              <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
+              <CardHeader className={`${stockAdjustType === 'add' ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'bg-gradient-to-r from-orange-500 to-red-500'} text-white rounded-t-lg`}>
                 <CardTitle className="flex items-center gap-2">
-                  <QrCode className="w-5 h-5" />
-                  Generate UPI Payment QR
+                  {stockAdjustType === 'add' ? <Plus className="w-5 h-5" /> : <Minus className="w-5 h-5" />}
+                  {stockAdjustType === 'add' ? 'Add Stock' : 'Reduce Stock'} - {stockAdjustItem.name}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
-                <div>
-                  <Label>UPI ID *</Label>
-                  <Input
-                    placeholder="yourname@upi or 9876543210@paytm"
-                    value={qrData.upiId}
-                    onChange={(e) => setQrData({ ...qrData, upiId: e.target.value })}
-                    className="mt-1"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Enter your UPI ID (GPay, PhonePe, Paytm, etc.)</p>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Current Stock:</span>
+                    <span className="font-bold text-lg">{stockAdjustItem.quantity} {stockAdjustItem.unit}</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-gray-600">Min Required:</span>
+                    <span className="font-medium">{stockAdjustItem.min_quantity} {stockAdjustItem.unit}</span>
+                  </div>
                 </div>
 
                 <div>
-                  <Label>Amount (₹)</Label>
+                  <Label>Quantity to {stockAdjustType === 'add' ? 'Add' : 'Reduce'} *</Label>
                   <Input
                     type="number"
-                    placeholder="Enter amount (optional)"
-                    value={qrData.amount}
-                    onChange={(e) => setQrData({ ...qrData, amount: e.target.value })}
+                    step="0.01"
+                    min="0.01"
+                    placeholder={`Enter quantity in ${stockAdjustItem.unit}`}
+                    value={stockAdjustQty}
+                    onChange={(e) => setStockAdjustQty(e.target.value)}
                     className="mt-1"
                   />
                 </div>
 
                 <div>
-                  <Label>Payment Note</Label>
+                  <Label>Reason (optional)</Label>
                   <Input
-                    placeholder="e.g., Inventory Purchase"
-                    value={qrData.note}
-                    onChange={(e) => setQrData({ ...qrData, note: e.target.value })}
+                    placeholder={stockAdjustType === 'add' ? 'e.g., New purchase, Supplier delivery' : 'e.g., Used in cooking, Damaged, Expired'}
+                    value={stockAdjustReason}
+                    onChange={(e) => setStockAdjustReason(e.target.value)}
                     className="mt-1"
                   />
                 </div>
 
-                {/* QR Preview */}
-                {qrData.upiId && (
-                  <div className="text-center p-4 bg-gray-50 rounded-xl">
-                    <p className="text-sm text-gray-600 mb-3">QR Code Preview</p>
-                    <img 
-                      src={generateUPIQR(qrData.amount, qrData.note)} 
-                      alt="UPI QR Code" 
-                      className="mx-auto rounded-lg border-4 border-green-500"
-                      style={{ width: 180, height: 180 }}
-                    />
-                    {qrData.amount && (
-                      <p className="text-2xl font-bold text-green-600 mt-3">₹{qrData.amount}</p>
-                    )}
+                {stockAdjustQty && parseFloat(stockAdjustQty) > 0 && (
+                  <div className={`p-3 rounded-lg ${stockAdjustType === 'add' ? 'bg-green-50 border border-green-200' : 'bg-orange-50 border border-orange-200'}`}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">New Stock Level:</span>
+                      <span className={`font-bold text-lg ${stockAdjustType === 'add' ? 'text-green-600' : 'text-orange-600'}`}>
+                        {stockAdjustType === 'add' 
+                          ? (stockAdjustItem.quantity + parseFloat(stockAdjustQty || 0)).toFixed(2)
+                          : (stockAdjustItem.quantity - parseFloat(stockAdjustQty || 0)).toFixed(2)
+                        } {stockAdjustItem.unit}
+                      </span>
+                    </div>
                   </div>
                 )}
 
                 <div className="flex gap-3 pt-2">
                   <Button
-                    onClick={handlePrintQR}
-                    disabled={!qrData.upiId}
-                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600"
+                    onClick={handleStockAdjust}
+                    disabled={!stockAdjustQty || parseFloat(stockAdjustQty) <= 0}
+                    className={`flex-1 ${stockAdjustType === 'add' ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}
                   >
-                    <Printer className="w-4 h-4 mr-2" />
-                    Print QR
+                    {stockAdjustType === 'add' ? <Plus className="w-4 h-4 mr-2" /> : <Minus className="w-4 h-4 mr-2" />}
+                    {stockAdjustType === 'add' ? 'Add Stock' : 'Reduce Stock'}
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setQrModalOpen(false)}
+                    onClick={() => setStockAdjustOpen(false)}
                   >
-                    Close
+                    Cancel
                   </Button>
                 </div>
-
-                <p className="text-xs text-center text-gray-500">
-                  Scan with any UPI app: GPay, PhonePe, Paytm, BHIM, etc.
-                </p>
               </CardContent>
             </Card>
           </div>

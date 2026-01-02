@@ -16,10 +16,12 @@ const SubscriptionPage = ({ user }) => {
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [pricing, setPricing] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchSubscriptionStatus();
+    fetchPricing();
     
     // Countdown timer for New Year offer - January 1, 2026 ONLY
     const calculateTimeLeft = () => {
@@ -48,6 +50,24 @@ const SubscriptionPage = ({ user }) => {
       setSubscriptionStatus(response.data);
     } catch (error) {
       toast.error('Failed to fetch subscription status');
+    }
+  };
+
+  const fetchPricing = async () => {
+    try {
+      const response = await axios.get(`${API}/pricing`);
+      setPricing(response.data);
+    } catch (error) {
+      // Use default pricing
+      setPricing({
+        regular_price: 999,
+        regular_price_display: '₹999',
+        campaign_price: 599,
+        campaign_price_display: '₹599',
+        campaign_active: false,
+        campaign_discount_percent: 40,
+        trial_days: 7
+      });
     }
   };
 
@@ -296,31 +316,31 @@ const SubscriptionPage = ({ user }) => {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center">
-                {/* New Year Special Pricing - 40% OFF */}
-                {subscriptionStatus?.campaign_active ? (
+                {/* Dynamic Pricing from Backend */}
+                {(pricing?.campaign_active || subscriptionStatus?.campaign_active) ? (
                   <>
                     <div className="flex items-center justify-center gap-2 mb-2">
-                      <span className="text-2xl text-gray-400 line-through">₹999</span>
+                      <span className="text-2xl text-gray-400 line-through">{pricing?.regular_price_display || '₹999'}</span>
                       <span className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                        40% OFF
+                        {pricing?.campaign_discount_percent || 40}% OFF
                       </span>
                     </div>
                     <p className="text-6xl font-black bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-                      ₹599
+                      {pricing?.campaign_price_display || '₹599'}
                     </p>
-                    <p className="text-gray-500">per year • Just ₹50/month!</p>
+                    <p className="text-gray-500">per year • Just ₹{Math.round((pricing?.campaign_price || 599) / 12)}/month!</p>
                     <div className="mt-2 p-2 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200">
                       <p className="text-sm text-red-700 font-medium">
-                        🎉 New Year Special - Save ₹400!
+                        🎉 Special Offer - Save ₹{(pricing?.regular_price || 999) - (pricing?.campaign_price || 599)}!
                       </p>
                     </div>
                   </>
                 ) : (
                   <>
                     <p className="text-6xl font-black bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                      {subscriptionStatus?.price_display || '₹999'}
+                      {pricing?.regular_price_display || subscriptionStatus?.price_display || '₹999'}
                     </p>
-                    <p className="text-gray-500">per year • Just ₹{Math.round((subscriptionStatus?.price || 999) / 12)}/month</p>
+                    <p className="text-gray-500">per year • Just ₹{Math.round((pricing?.regular_price || subscriptionStatus?.price || 999) / 12)}/month</p>
                   </>
                 )}
               </div>
@@ -347,14 +367,14 @@ const SubscriptionPage = ({ user }) => {
               ) : (
                 <Button onClick={handleSubscribe} disabled={loading}
                   className={`w-full h-14 text-lg font-bold shadow-lg ${
-                    subscriptionStatus?.campaign_active 
+                    (pricing?.campaign_active || subscriptionStatus?.campaign_active)
                       ? 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600' 
                       : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700'
                   }`}>
                   <Rocket className="w-5 h-5 mr-2" />
-                  {loading ? 'Processing...' : subscriptionStatus?.campaign_active 
-                      ? `🎉 Get ₹599/Year Deal Now!`
-                      : `Subscribe Now - ${subscriptionStatus?.price_display || '₹999'}/year`}
+                  {loading ? 'Processing...' : (pricing?.campaign_active || subscriptionStatus?.campaign_active)
+                      ? `🎉 Get ${pricing?.campaign_price_display || '₹599'}/Year Deal Now!`
+                      : `Subscribe Now - ${pricing?.regular_price_display || subscriptionStatus?.price_display || '₹999'}/year`}
                 </Button>
               )}
             </CardContent>

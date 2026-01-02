@@ -8601,6 +8601,96 @@ async def get_public_sale_offer():
     return offer
 
 
+# Pricing Management Endpoints
+@api_router.get("/super-admin/pricing")
+async def get_pricing(username: str, password: str):
+    """Get current pricing settings - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    pricing = await db.site_settings.find_one({"type": "pricing"})
+    if not pricing:
+        return {
+            "regular_price": 999,
+            "regular_price_display": "₹999",
+            "campaign_price": 599,
+            "campaign_price_display": "₹599",
+            "campaign_active": False,
+            "campaign_name": "NEWYEAR2026",
+            "campaign_discount_percent": 40,
+            "campaign_start_date": "",
+            "campaign_end_date": "",
+            "trial_days": 7,
+            "subscription_months": 12
+        }
+    
+    pricing.pop("_id", None)
+    pricing.pop("type", None)
+    return pricing
+
+
+@api_router.post("/super-admin/pricing")
+async def update_pricing(
+    pricing_data: dict,
+    username: str,
+    password: str
+):
+    """Update pricing settings - Site Owner Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    pricing_data["type"] = "pricing"
+    pricing_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.site_settings.update_one(
+        {"type": "pricing"},
+        {"$set": pricing_data},
+        upsert=True
+    )
+    
+    return {"message": "Pricing updated successfully"}
+
+
+@api_router.get("/pricing")
+async def get_public_pricing():
+    """Get current pricing for subscription page - Public endpoint"""
+    pricing = await db.site_settings.find_one({"type": "pricing"})
+    
+    if not pricing:
+        # Default pricing
+        return {
+            "regular_price": 999,
+            "regular_price_display": "₹999",
+            "campaign_price": 599,
+            "campaign_price_display": "₹599",
+            "campaign_active": False,
+            "campaign_discount_percent": 40,
+            "trial_days": 7
+        }
+    
+    # Check if campaign is active based on dates
+    campaign_active = pricing.get("campaign_active", False)
+    if campaign_active and pricing.get("campaign_start_date") and pricing.get("campaign_end_date"):
+        try:
+            start_date = datetime.fromisoformat(pricing["campaign_start_date"])
+            end_date = datetime.fromisoformat(pricing["campaign_end_date"])
+            now = datetime.now()
+            campaign_active = start_date <= now <= end_date
+        except:
+            pass
+    
+    return {
+        "regular_price": pricing.get("regular_price", 999),
+        "regular_price_display": pricing.get("regular_price_display", "₹999"),
+        "campaign_price": pricing.get("campaign_price", 599),
+        "campaign_price_display": pricing.get("campaign_price_display", "₹599"),
+        "campaign_active": campaign_active,
+        "campaign_name": pricing.get("campaign_name", ""),
+        "campaign_discount_percent": pricing.get("campaign_discount_percent", 0),
+        "trial_days": pricing.get("trial_days", 7)
+    }
+
+
 # Serve Windows app download
 from fastapi.responses import FileResponse, JSONResponse
 
