@@ -236,22 +236,35 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
   html += '<div class="double-line"></div>';
   html += `<div class="total-row grand-total"><span>TOTAL DUE</span><span>${total.toFixed(2)}</span></div>`;
   
-  const { payment_received = 0, balance_amount = 0, is_credit, cash_amount = 0, card_amount = 0, upi_amount = 0, credit_amount = 0 } = order;
-  const isSplit = order.payment_method === 'split' || (cash_amount > 0 && (card_amount > 0 || upi_amount > 0 || credit_amount > 0));
+  const { payment_received = 0, balance_amount = 0, is_credit, cash_amount = 0, card_amount = 0, upi_amount = 0, credit_amount = 0, payment_method } = order;
+  const isSplit = payment_method === 'split' || (cash_amount > 0 && (card_amount > 0 || upi_amount > 0 || credit_amount > 0)) || (card_amount > 0 && (upi_amount > 0 || credit_amount > 0)) || (upi_amount > 0 && credit_amount > 0);
+  
+  // Always show payment section
+  html += '<div class="separator"></div>';
   
   if (isSplit) {
-    html += '<div class="separator"></div><div class="center bold small mb-1">PAYMENT DETAILS</div>';
+    html += '<div class="center bold small mb-1">PAYMENT DETAILS</div>';
     if (cash_amount > 0) html += `<div class="total-row small"><span>Cash</span><span>${cash_amount.toFixed(2)}</span></div>`;
     if (card_amount > 0) html += `<div class="total-row small"><span>Card</span><span>${card_amount.toFixed(2)}</span></div>`;
     if (upi_amount > 0) html += `<div class="total-row small"><span>UPI</span><span>${upi_amount.toFixed(2)}</span></div>`;
     if (credit_amount > 0) html += `<div class="total-row small"><span>Credit (Due)</span><span>${credit_amount.toFixed(2)}</span></div>`;
-  } else if (is_credit || balance_amount > 0) {
-    html += `<div class="separator"></div><div class="total-row"><span>Received</span><span>${payment_received.toFixed(2)}</span></div><div class="total-row bold"><span>BALANCE DUE</span><span>${balance_amount.toFixed(2)}</span></div>`;
-  }
-  
-  if (order.payment_method && !isSplit) {
-    const m = { cash: 'CASH', card: 'CARD', upi: 'UPI', credit: 'CREDIT' }[order.payment_method] || order.payment_method.toUpperCase();
-    html += `<div class="center small mt-1">Payment: ${m}</div>`;
+    const totalPaid = cash_amount + card_amount + upi_amount;
+    if (totalPaid > 0) html += `<div class="total-row"><span>Total Paid</span><span>${totalPaid.toFixed(2)}</span></div>`;
+    if (credit_amount > 0) html += `<div class="total-row bold"><span>BALANCE DUE</span><span>${credit_amount.toFixed(2)}</span></div>`;
+  } else {
+    // Single payment method
+    const methodDisplay = { cash: 'CASH', card: 'CARD', upi: 'UPI', credit: 'CREDIT' }[payment_method] || (payment_method ? payment_method.toUpperCase() : 'CASH');
+    html += `<div class="total-row"><span>Payment Mode</span><span>${methodDisplay}</span></div>`;
+    
+    if (payment_received > 0) {
+      html += `<div class="total-row"><span>Amount Received</span><span>${payment_received.toFixed(2)}</span></div>`;
+    }
+    
+    if (is_credit || balance_amount > 0) {
+      html += `<div class="total-row bold"><span>BALANCE DUE</span><span>${balance_amount.toFixed(2)}</span></div>`;
+    } else if (payment_received >= total) {
+      html += `<div class="total-row" style="color:green"><span>Status</span><span>PAID</span></div>`;
+    }
   }
   
   html += '<div class="double-line"></div>';
@@ -318,6 +331,32 @@ export const generatePlainTextReceipt = (order, businessOverride = null) => {
   r += `Sub Total       ${items.toString().padStart(3)}     -  ${sub.toFixed(2).padStart(8)}\n`;
   if (tax > 0) r += `Tax (5%)                       ${tax.toFixed(2).padStart(8)}\n`;
   r += dsep + '\n' + `TOTAL DUE                      ${tot.toFixed(2).padStart(8)}\n` + dsep + '\n';
+  
+  // Payment details
+  const { payment_received = 0, balance_amount = 0, is_credit, cash_amount = 0, card_amount = 0, upi_amount = 0, credit_amount = 0, payment_method } = order;
+  const isSplit = payment_method === 'split' || (cash_amount > 0 && (card_amount > 0 || upi_amount > 0 || credit_amount > 0));
+  
+  if (isSplit) {
+    r += 'PAYMENT DETAILS:\n';
+    if (cash_amount > 0) r += `Cash:                          ${cash_amount.toFixed(2).padStart(8)}\n`;
+    if (card_amount > 0) r += `Card:                          ${card_amount.toFixed(2).padStart(8)}\n`;
+    if (upi_amount > 0) r += `UPI:                           ${upi_amount.toFixed(2).padStart(8)}\n`;
+    if (credit_amount > 0) r += `Credit (Due):                  ${credit_amount.toFixed(2).padStart(8)}\n`;
+    const totalPaid = cash_amount + card_amount + upi_amount;
+    if (totalPaid > 0) r += `Total Paid:                    ${totalPaid.toFixed(2).padStart(8)}\n`;
+    if (credit_amount > 0) r += `BALANCE DUE:                   ${credit_amount.toFixed(2).padStart(8)}\n`;
+  } else {
+    const methodDisplay = { cash: 'CASH', card: 'CARD', upi: 'UPI', credit: 'CREDIT' }[payment_method] || 'CASH';
+    r += `Payment Mode:                  ${methodDisplay.padStart(8)}\n`;
+    if (payment_received > 0) r += `Amount Received:               ${payment_received.toFixed(2).padStart(8)}\n`;
+    if (is_credit || balance_amount > 0) {
+      r += `BALANCE DUE:                   ${balance_amount.toFixed(2).padStart(8)}\n`;
+    } else if (payment_received >= tot) {
+      r += `Status:                            PAID\n`;
+    }
+  }
+  r += sep + '\n';
+  
   r += '\n' + center(b.footer_message || 'Thank you! Visit Again...') + '\n';
   r += center('Bill generated by BillByteKOT') + '\n' + dsep + '\n';
   
