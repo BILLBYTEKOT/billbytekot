@@ -5,11 +5,11 @@
   "launcherName": "BillByteKOT",
   "display": "standalone",
   "themeColor": "#7C3AED",
-  "themeColorDark": "#000000",
-  "navigationColor": "#000000",
-  "navigationColorDark": "#000000",
-  "navigationDividerColor": "#000000",
-  "navigationDividerColorDark": "#000000",
+  "themeColorDark": "#1a1a2e",
+  "navigationColor": "#7C3AED",
+  "navigationColorDark": "#1a1a2e",
+  "navigationDividerColor": "#7C3AED",
+  "navigationDividerColorDark": "#1a1a2e",
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
   "startUrl": "/",
@@ -20,17 +20,47 @@
     "path": "C:\\Users\\shivs\\da\\restro-ai\\frontend\\billbytekot\\android.keystore",
     "alias": "android"
   },
-  "appVersionName": "14",
-  "appVersionCode": 14,
-  "shortcuts": [],
+  "appVersionName": "1.5.0",
+  "appVersionCode": 15,
+  "shortcuts": [
+    {
+      "name": "New Order",
+      "short_name": "Order",
+      "url": "/orders?action=new",
+      "icons": [
+        {
+          "src": "https://billbytekot.in/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Kitchen",
+      "short_name": "KOT",
+      "url": "/kitchen",
+      "icons": [
+        {
+          "src": "https://billbytekot.in/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://billbytekot.in/manifest.json",
   "fallbackType": "customtabs",
-  "features": {},
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
   "alphaDependencies": {
     "enabled": false
   },
-  "enableSiteSettingsShortcut": true,
+  "enableSiteSettingsShortcut": false,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://billbytekot.in/",
@@ -45,7 +75,7 @@
   "retainedBundles": [],
   "protocolHandlers": [],
   "fileHandlers": [],
-  "launchHandlerClientMode": "",
-  "displayOverride": [],
-  "appVersion": "14"
+  "launchHandlerClientMode": "navigate-existing",
+  "displayOverride": ["standalone", "minimal-ui"],
+  "appVersion": "1.5.0"
 }

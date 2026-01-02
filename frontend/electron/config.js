@@ -14,7 +14,7 @@ module.exports = {
   
   // App Information
   APP_NAME: 'BillByteKOT',
-  APP_VERSION: '1.3.0',
+  APP_VERSION: '1.5.0',
   APP_DESCRIPTION: 'Restaurant Billing & KOT Management System',
   
   // Company Information

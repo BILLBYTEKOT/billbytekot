@@ -5628,7 +5628,7 @@ async def get_app_version():
         
         if version_doc:
             return {
-                "version": version_doc.get("version", "1.4.0"),
+                "version": version_doc.get("version", "1.5.0"),
                 "release_notes": version_doc.get("release_notes", "Bug fixes and performance improvements"),
                 "force_update": version_doc.get("force_update", False),
                 "message": version_doc.get("message", "A new version is available with improvements!"),
@@ -5639,8 +5639,8 @@ async def get_app_version():
         
         # Default version info
         return {
-            "version": "1.4.0",
-            "release_notes": "• Enhanced print flow for mobile\n• Bluetooth printer support\n• Offline sync capability\n• Bug fixes",
+            "version": "1.5.0",
+            "release_notes": "• Push notifications from admin\n• Enhanced UI/UX for order creation\n• Improved print flow\n• Better mobile experience\n• Bug fixes",
             "force_update": False,
             "message": "Update available with new features!",
             "download_url": None,
@@ -5649,7 +5649,7 @@ async def get_app_version():
         }
     except Exception as e:
         return {
-            "version": "1.4.0",
+            "version": "1.5.0",
             "release_notes": "",
             "force_update": False,
             "message": "",
