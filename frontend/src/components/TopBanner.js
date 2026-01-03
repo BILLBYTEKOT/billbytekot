@@ -412,6 +412,101 @@ const TopBanner = () => {
     );
   }
 
+  // Design 11: Early Adopter Special - ₹9/Year 99% OFF
+  if (design === 'early-adopter') {
+    const salePrice = bannerData.sale_price ? `₹${bannerData.sale_price}` : '₹9';
+    const originalPrice = bannerData.original_price ? `₹${bannerData.original_price}` : '₹999';
+    const discountPercent = bannerData.discount_percent || 99;
+    
+    return (
+      <div className="relative overflow-hidden bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white">
+        {/* Fire/Flame particles */}
+        <div className="absolute inset-0 overflow-hidden">
+          {[...Array(20)].map((_, i) => (
+            <div key={i} className="absolute animate-float" style={{
+              left: `${Math.random() * 100}%`,
+              bottom: '-10px',
+              fontSize: `${12 + Math.random() * 16}px`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${2 + Math.random() * 2}s`
+            }}>🔥</div>
+          ))}
+        </div>
+        {/* Sparkle effects */}
+        <div className="absolute inset-0">
+          {[...Array(15)].map((_, i) => (
+            <Sparkles key={i} className="absolute w-4 h-4 text-yellow-200 animate-ping" style={{ 
+              left: `${Math.random() * 100}%`, 
+              top: `${Math.random() * 100}%`, 
+              animationDelay: `${Math.random() * 2}s`,
+              opacity: 0.6
+            }} />
+          ))}
+        </div>
+        <div className="relative z-10 py-3 px-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-center gap-3 sm:gap-5 flex-wrap">
+            {/* Badge */}
+            <div className="flex items-center gap-2 bg-black/30 backdrop-blur px-3 py-1.5 rounded-full animate-bounce">
+              <Flame className="w-5 h-5 text-yellow-300 animate-pulse" />
+              <span className="font-black text-sm sm:text-base tracking-wide">{bannerData.badge_text || '🔥 EARLY ADOPTER'}</span>
+              <Flame className="w-5 h-5 text-yellow-300 animate-pulse" />
+            </div>
+            
+            {/* Price Display */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-white/60 line-through text-sm sm:text-base">{originalPrice}/yr</span>
+              <div className="relative">
+                <span className="text-3xl sm:text-4xl font-black text-yellow-200 drop-shadow-lg animate-pulse">{salePrice}</span>
+                <span className="text-sm text-yellow-200">/year</span>
+              </div>
+              <div className="bg-yellow-400 text-black px-2 py-1 rounded-lg font-black text-xs sm:text-sm animate-bounce">
+                {discountPercent}% OFF
+              </div>
+            </div>
+            
+            {/* Countdown */}
+            <div className="hidden sm:flex items-center gap-1 bg-black/30 backdrop-blur px-3 py-1.5 rounded-full">
+              <Timer className="w-4 h-4 text-yellow-300" />
+              <span className="text-xs font-mono">
+                {timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
+              </span>
+            </div>
+            
+            {/* CTA Button */}
+            <button 
+              onClick={() => navigate('/login')} 
+              className="relative bg-yellow-400 text-black px-5 sm:px-6 py-2 rounded-full font-black text-sm hover:bg-white hover:scale-110 transition-all shadow-xl group overflow-hidden"
+            >
+              <span className="relative z-10 flex items-center gap-2">
+                <Rocket className="w-4 h-4 group-hover:animate-bounce" />
+                {bannerData.cta_text || 'Grab ₹9 Deal!'}
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+            
+            {/* Close */}
+            <button onClick={() => setDismissed(true)} className="text-white/60 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          
+          {/* Scrolling urgency text */}
+          <div className="mt-1 overflow-hidden">
+            <div className="animate-marquee whitespace-nowrap text-xs text-yellow-100/80">
+              <span className="mx-4">🔥 Limited Time Only</span>
+              <span className="mx-4">⚡ First 1000 Users</span>
+              <span className="mx-4">🎉 99% OFF - Just {salePrice}/Year</span>
+              <span className="mx-4">🚀 Unlimited Bills Forever</span>
+              <span className="mx-4">💎 All Premium Features</span>
+              <span className="mx-4">🔥 Limited Time Only</span>
+              <span className="mx-4">⚡ First 1000 Users</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Default fallback - Simple gradient
   return (
     <div className="relative overflow-hidden bg-gradient-to-r from-violet-600 to-purple-600 text-white py-2 px-4">

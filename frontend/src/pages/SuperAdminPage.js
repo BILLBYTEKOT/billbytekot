@@ -2332,6 +2332,7 @@ const SuperAdminPage = () => {
                         <option value="rainbow-gradient">🌈 Rainbow Gradient (Colorful)</option>
                         <option value="split-diagonal">⚡ Split Diagonal (Bold)</option>
                         <option value="countdown-focus">⏰ Countdown Focus (Timer prominent)</option>
+                        <option value="early-adopter">🔥 Early Adopter (₹9/Year 99% OFF)</option>
                       </select>
                     </div>
 
