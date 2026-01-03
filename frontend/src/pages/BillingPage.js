@@ -315,15 +315,25 @@ const BillingPage = ({ user }) => {
     return symbols[businessSettings?.currency || 'INR'] || '₹';
   };
 
-  // Get effective tax rate (custom or from settings)
+  // Get effective tax rate (custom or from order or from settings)
   const getEffectiveTaxRate = () => {
     if (customTaxRate !== null) return customTaxRate;
-    return businessSettings?.tax_rate ?? 5;
+    // Calculate tax rate from order if tax exists
+    if (order && order.subtotal > 0 && order.tax !== undefined) {
+      const orderTaxRate = (order.tax / order.subtotal) * 100;
+      // Round to avoid floating point issues
+      return Math.round(orderTaxRate * 100) / 100;
+    }
+    return businessSettings?.tax_rate ?? 0;
   };
 
   // Calculate tax based on effective rate
   const calculateTax = () => {
     if (!order) return 0;
+    // If order already has tax calculated, use it (unless custom rate is set)
+    if (customTaxRate === null && order.tax !== undefined) {
+      return order.tax;
+    }
     return (order.subtotal * getEffectiveTaxRate()) / 100;
   };
 
