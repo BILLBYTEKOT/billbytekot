@@ -3170,7 +3170,9 @@ async def create_order(
 
     # Get business settings - handle None case
     business = current_user.get("business_settings") or {}
-    tax_rate = (business.get("tax_rate", 5.0) or 5.0) / 100
+    # Handle tax_rate properly - allow 0 as valid value
+    tax_rate_setting = business.get("tax_rate")
+    tax_rate = (tax_rate_setting if tax_rate_setting is not None else 5.0) / 100
     kot_mode_enabled = business.get("kot_mode_enabled", True)
 
     subtotal = sum(item.price * item.quantity for item in order_data.items)
@@ -5000,8 +5002,9 @@ async def create_customer_order(order_data: CustomerOrderCreate):
     if not business.get("customer_self_order_enabled"):
         raise HTTPException(status_code=403, detail="Self-ordering not enabled")
     
-    # Calculate totals
-    tax_rate = business.get("tax_rate", 5.0) / 100
+    # Calculate totals - handle tax_rate properly (allow 0)
+    tax_rate_setting = business.get("tax_rate")
+    tax_rate = (tax_rate_setting if tax_rate_setting is not None else 5.0) / 100
     subtotal = sum(item.price * item.quantity for item in order_data.items)
     tax = subtotal * tax_rate
     total = subtotal + tax
