@@ -20,6 +20,23 @@ const PWAHomePage = () => {
   });
 
   useEffect(() => {
+    // Check if running as PWA/TWA (standalone mode) or mobile app
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isInWebAppiOS = window.navigator.standalone === true;
+    const isTWA = document.referrer.includes('android-app://');
+    
+    // Check user agent for Android WebView (TWA runs in this)
+    const ua = navigator.userAgent;
+    const isAndroidWebView = /wv/.test(ua) || (/Android/.test(ua) && /Version\/[\d.]+/.test(ua));
+    
+    const isMobileApp = isStandalone || isInWebAppiOS || isTWA || isAndroidWebView;
+    
+    // If NOT in mobile app/PWA mode, redirect to landing page
+    if (!isMobileApp) {
+      navigate('/', { replace: true });
+      return;
+    }
+    
     // Check if user is logged in
     const token = localStorage.getItem('token');
     if (token) {
