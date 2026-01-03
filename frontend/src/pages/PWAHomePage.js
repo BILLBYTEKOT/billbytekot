@@ -3,20 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '../App';
 import { 
-  Utensils, ChefHat, BarChart3,
-  CheckCircle, ArrowRight, Star, Users,
-  Zap, Shield, Clock, Flame
+  Utensils, ChefHat, Receipt, BarChart3,
+  CheckCircle, ArrowRight, Star, Sparkles,
+  Zap, Shield, Clock, Flame, Play
 } from 'lucide-react';
 
 const PWAHomePage = () => {
   const navigate = useNavigate();
   const [isChecking, setIsChecking] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
   const [pricing, setPricing] = useState({
     basePrice: 1999,
     salePrice: null,
     discount: null,
-    badge: null,
-    endDate: null
+    badge: null
   });
 
   useEffect(() => {
@@ -24,246 +24,203 @@ const PWAHomePage = () => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isInWebAppiOS = window.navigator.standalone === true;
     const isTWA = document.referrer.includes('android-app://');
-    
-    // Check user agent for Android WebView (TWA runs in this)
     const ua = navigator.userAgent;
     const isAndroidWebView = /wv/.test(ua) || (/Android/.test(ua) && /Version\/[\d.]+/.test(ua));
-    
     const isMobileApp = isStandalone || isInWebAppiOS || isTWA || isAndroidWebView;
     
-    // If NOT in mobile app/PWA mode, redirect to landing page
     if (!isMobileApp) {
       navigate('/', { replace: true });
       return;
     }
     
-    // Check if user is logged in
     const token = localStorage.getItem('token');
     if (token) {
       navigate('/dashboard', { replace: true });
       return;
     }
     
-    // Fetch pricing
     fetchPricing();
     setIsChecking(false);
   }, [navigate]);
 
+  // Auto slide
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % 3);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
   const fetchPricing = async () => {
     try {
-      // First try sale offer (from Promotions tab)
       const saleRes = await axios.get(`${API}/sale-offer`).catch(() => null);
       if (saleRes?.data?.enabled) {
         const sale = saleRes.data;
-        // Check if sale is still valid
         const endDate = sale.end_date ? new Date(sale.end_date) : null;
         if (!endDate || endDate > new Date()) {
           setPricing({
             basePrice: sale.original_price || 1999,
             salePrice: sale.sale_price,
             discount: sale.discount_percent,
-            badge: sale.badge || `${sale.discount_percent}% OFF`,
-            endDate: endDate
+            badge: sale.badge
           });
           return;
         }
       }
-
-      // Fallback to pricing settings
       const pricingRes = await axios.get(`${API}/pricing`).catch(() => null);
-      if (pricingRes?.data) {
+      if (pricingRes?.data?.campaign_enabled) {
         const p = pricingRes.data;
-        if (p.campaign_enabled && p.campaign_price) {
-          setPricing({
-            basePrice: p.base_price || 1999,
-            salePrice: p.campaign_price,
-            discount: Math.round(((p.base_price - p.campaign_price) / p.base_price) * 100),
-            badge: p.campaign_badge || 'SALE',
-            endDate: p.campaign_end_date ? new Date(p.campaign_end_date) : null
-          });
-        } else {
-          setPricing({
-            basePrice: p.base_price || 1999,
-            salePrice: null,
-            discount: null,
-            badge: null,
-            endDate: null
-          });
-        }
+        setPricing({
+          basePrice: p.base_price || 1999,
+          salePrice: p.campaign_price,
+          discount: Math.round(((p.base_price - p.campaign_price) / p.base_price) * 100),
+          badge: p.campaign_badge
+        });
       }
-    } catch (e) {
-      console.log('Pricing fetch error:', e);
-    }
+    } catch (e) {}
   };
 
-  // Show loading while checking auth
   if (isChecking) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-violet-600 via-purple-600 to-violet-700 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-            <Utensils className="w-8 h-8 text-white" />
-          </div>
-          <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
 
-  const features = [
-    { icon: ChefHat, title: 'Smart KOT', desc: 'Kitchen order tickets' },
-    { icon: BarChart3, title: 'Reports', desc: 'Sales analytics' },
-    { icon: Clock, title: 'Fast Billing', desc: 'Quick checkout' },
-    { icon: Shield, title: 'Secure', desc: 'Data protection' },
+  const slides = [
+    { icon: Receipt, title: 'Smart Billing', desc: 'Generate bills in seconds with thermal printing', color: 'from-violet-500 to-purple-600' },
+    { icon: ChefHat, title: 'KOT System', desc: 'Send orders directly to kitchen display', color: 'from-orange-500 to-red-500' },
+    { icon: BarChart3, title: 'Live Reports', desc: 'Track sales, inventory & staff performance', color: 'from-emerald-500 to-green-600' },
   ];
 
-  const benefits = [
-    'Free 14-day trial',
-    'No credit card required',
-    'Cancel anytime',
-    'WhatsApp support',
-  ];
-
-  const displayPrice = pricing.salePrice || pricing.basePrice;
   const hasDiscount = pricing.salePrice && pricing.salePrice < pricing.basePrice;
+  const displayPrice = pricing.salePrice || pricing.basePrice;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-600 via-purple-600 to-violet-700">
-      {/* Sale Banner */}
-      {hasDiscount && pricing.badge && (
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-2 px-4 text-center">
-          <div className="flex items-center justify-center gap-2 text-sm font-bold">
-            <Flame className="w-4 h-4 animate-pulse" />
-            <span>{pricing.badge} - Limited Time Offer!</span>
-            <Flame className="w-4 h-4 animate-pulse" />
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="px-6 pt-10 pb-8">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-            <Utensils className="w-6 h-6 text-violet-600" />
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Top Section - Purple Gradient */}
+      <div className="bg-gradient-to-br from-violet-600 via-purple-600 to-violet-700 px-6 pt-12 pb-16 relative overflow-hidden">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+        
+        {/* Logo */}
+        <div className="flex items-center gap-3 mb-10 relative z-10">
+          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-xl">
+            <Utensils className="w-7 h-7 text-violet-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">BillByteKOT</h1>
-            <p className="text-white/70 text-sm">Restaurant Billing & KOT</p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">BillByteKOT</h1>
+            <p className="text-violet-200 text-sm">Restaurant Management</p>
           </div>
         </div>
 
-        {/* Hero */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-white leading-tight mb-3">
-            Manage Your Restaurant
-            <span className="block text-yellow-300">Like a Pro</span>
-          </h2>
-          <p className="text-white/80 text-base">
-            Complete billing, KOT system, inventory & reports in one app
-          </p>
+        {/* Feature Carousel */}
+        <div className="relative z-10">
+          <div className="bg-white/15 backdrop-blur-sm rounded-3xl p-6 border border-white/20">
+            <div className="flex items-center gap-4 mb-4">
+              <div className={`w-16 h-16 bg-gradient-to-br ${slides[currentSlide].color} rounded-2xl flex items-center justify-center shadow-lg`}>
+                {(() => {
+                  const Icon = slides[currentSlide].icon;
+                  return <Icon className="w-8 h-8 text-white" />;
+                })()}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">{slides[currentSlide].title}</h3>
+                <p className="text-violet-200 text-sm">{slides[currentSlide].desc}</p>
+              </div>
+            </div>
+            
+            {/* Slide indicators */}
+            <div className="flex justify-center gap-2">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === currentSlide ? 'w-8 bg-white' : 'w-1.5 bg-white/40'}`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Rating Badge */}
-        <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2 rounded-full mb-6">
+        {/* Rating */}
+        <div className="flex items-center justify-center gap-2 mt-6 relative z-10">
           <div className="flex">
             {[1,2,3,4,5].map(i => (
               <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
             ))}
           </div>
-          <span className="text-white text-sm font-medium">500+ Restaurants</span>
+          <span className="text-white/90 text-sm font-medium">Trusted by 500+ restaurants</span>
         </div>
       </div>
 
-      {/* Features Grid */}
-      <div className="px-6 mb-8">
-        <div className="grid grid-cols-2 gap-3">
-          {features.map((f, i) => (
-            <div key={i} className="bg-white/10 backdrop-blur rounded-xl p-4">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center mb-2">
-                <f.icon className="w-5 h-5 text-white" />
+      {/* Bottom Section - White */}
+      <div className="flex-1 px-6 -mt-6 relative z-20">
+        <div className="bg-white rounded-t-3xl shadow-2xl pt-6 pb-8 px-1">
+          
+          {/* Sale Banner */}
+          {hasDiscount && (
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-4 mb-6 mx-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Flame className="w-6 h-6 text-yellow-300 animate-pulse" />
+                  <div>
+                    <p className="text-white font-bold text-lg">{pricing.badge || `${pricing.discount}% OFF`}</p>
+                    <p className="text-orange-100 text-xs">Limited time offer</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-orange-200 line-through text-sm">₹{pricing.basePrice}</p>
+                  <p className="text-white font-bold text-2xl">₹{displayPrice}<span className="text-sm font-normal">/yr</span></p>
+                </div>
               </div>
-              <p className="text-white font-semibold text-sm">{f.title}</p>
-              <p className="text-white/60 text-xs">{f.desc}</p>
             </div>
-          ))}
-        </div>
-      </div>
+          )}
 
-      {/* CTA Section */}
-      <div className="px-6 pb-8">
-        <div className="bg-white rounded-3xl p-6 shadow-2xl">
-          {/* Price Badge */}
-          <div className="flex items-center justify-center gap-2 mb-4">
-            {hasDiscount ? (
-              <>
-                <span className="text-gray-400 line-through text-lg">₹{pricing.basePrice}</span>
-                <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse">
-                  ₹{displayPrice}/year
-                </span>
-                {pricing.discount && (
-                  <span className="bg-green-500 text-white px-2 py-0.5 rounded text-xs font-bold">
-                    {pricing.discount}% OFF
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                <span className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">
-                  ₹{displayPrice}/year
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Benefits */}
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            {benefits.map((b, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                <span className="text-gray-600 text-xs">{b}</span>
+          {/* Features List */}
+          <div className="space-y-3 mb-6 px-1">
+            {[
+              { icon: Zap, text: 'Setup in 2 minutes' },
+              { icon: Shield, text: 'Secure cloud backup' },
+              { icon: Clock, text: '14-day free trial' },
+              { icon: Sparkles, text: 'No credit card needed' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center">
+                  <item.icon className="w-4 h-4 text-violet-600" />
+                </div>
+                <span className="text-gray-700 font-medium">{item.text}</span>
+                <CheckCircle className="w-5 h-5 text-green-500 ml-auto" />
               </div>
             ))}
           </div>
 
-          {/* Buttons */}
-          <button
-            onClick={() => navigate('/login?signup=true')}
-            className={`w-full ${hasDiscount ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-violet-600 to-purple-600'} text-white py-4 rounded-xl font-bold text-lg mb-3 flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-transform`}
-          >
-            Start Free Trial
-            <ArrowRight className="w-5 h-5" />
-          </button>
+          {/* CTA Buttons */}
+          <div className="space-y-3 px-1">
+            <button
+              onClick={() => navigate('/login?signup=true')}
+              className={`w-full ${hasDiscount ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-violet-600 to-purple-600'} text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform`}
+            >
+              <Play className="w-5 h-5 fill-white" />
+              Start Free Trial
+            </button>
 
-          <button
-            onClick={() => navigate('/login')}
-            className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 active:scale-98 transition-transform"
-          >
-            Already have an account? Login
-          </button>
-
-          {/* Trust Badge */}
-          <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-gray-100">
-            <div className="flex items-center gap-1 text-gray-500 text-xs">
-              <Shield className="w-4 h-4" />
-              <span>Secure</span>
-            </div>
-            <div className="flex items-center gap-1 text-gray-500 text-xs">
-              <Zap className="w-4 h-4" />
-              <span>Fast Setup</span>
-            </div>
-            <div className="flex items-center gap-1 text-gray-500 text-xs">
-              <Users className="w-4 h-4" />
-              <span>24/7 Support</span>
-            </div>
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full bg-gray-100 text-gray-700 py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            >
+              I have an account
+              <ArrowRight className="w-5 h-5" />
+            </button>
           </div>
-        </div>
-      </div>
 
-      {/* Bottom Info */}
-      <div className="px-6 pb-8 text-center">
-        <p className="text-white/60 text-xs">
-          By continuing, you agree to our Terms of Service & Privacy Policy
-        </p>
+          {/* Footer */}
+          <p className="text-center text-gray-400 text-xs mt-6 px-4">
+            By continuing, you agree to our Terms & Privacy Policy
+          </p>
+        </div>
       </div>
     </div>
   );
