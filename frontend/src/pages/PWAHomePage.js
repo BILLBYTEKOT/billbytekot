@@ -162,19 +162,14 @@ const PWAHomePage = () => {
           
           {/* Sale Banner */}
           {hasDiscount && (
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-4 mb-6 mx-1">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Flame className="w-6 h-6 text-yellow-300 animate-pulse" />
-                  <div>
-                    <p className="text-white font-bold text-lg">{pricing.badge || `${pricing.discount}% OFF`}</p>
-                    <p className="text-orange-100 text-xs">Limited time offer</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-orange-200 line-through text-sm">₹{pricing.basePrice}</p>
-                  <p className="text-white font-bold text-2xl">₹{displayPrice}<span className="text-sm font-normal">/yr</span></p>
-                </div>
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-3 mb-5 mx-1 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-yellow-300" />
+                <span className="text-white font-bold">{pricing.badge || `${pricing.discount}% OFF`}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-orange-200 line-through text-sm">₹{pricing.basePrice}</span>
+                <span className="text-white font-bold text-lg">₹{displayPrice}/yr</span>
               </div>
             </div>
           )}
