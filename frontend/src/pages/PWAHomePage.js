@@ -1,25 +1,83 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { API } from '../App';
 import { 
-  Utensils, ChefHat, BarChart3, Smartphone,
+  Utensils, ChefHat, BarChart3,
   CheckCircle, ArrowRight, Star, Users,
-  Zap, Shield, Clock, IndianRupee
+  Zap, Shield, Clock, Flame
 } from 'lucide-react';
 
 const PWAHomePage = () => {
   const navigate = useNavigate();
   const [isChecking, setIsChecking] = useState(true);
+  const [pricing, setPricing] = useState({
+    basePrice: 1999,
+    salePrice: null,
+    discount: null,
+    badge: null,
+    endDate: null
+  });
 
   useEffect(() => {
     // Check if user is logged in
     const token = localStorage.getItem('token');
     if (token) {
-      // User is logged in, redirect to dashboard
       navigate('/dashboard', { replace: true });
       return;
     }
+    
+    // Fetch pricing
+    fetchPricing();
     setIsChecking(false);
   }, [navigate]);
+
+  const fetchPricing = async () => {
+    try {
+      // First try sale offer (from Promotions tab)
+      const saleRes = await axios.get(`${API}/sale-offer`).catch(() => null);
+      if (saleRes?.data?.enabled) {
+        const sale = saleRes.data;
+        // Check if sale is still valid
+        const endDate = sale.end_date ? new Date(sale.end_date) : null;
+        if (!endDate || endDate > new Date()) {
+          setPricing({
+            basePrice: sale.original_price || 1999,
+            salePrice: sale.sale_price,
+            discount: sale.discount_percent,
+            badge: sale.badge || `${sale.discount_percent}% OFF`,
+            endDate: endDate
+          });
+          return;
+        }
+      }
+
+      // Fallback to pricing settings
+      const pricingRes = await axios.get(`${API}/pricing`).catch(() => null);
+      if (pricingRes?.data) {
+        const p = pricingRes.data;
+        if (p.campaign_enabled && p.campaign_price) {
+          setPricing({
+            basePrice: p.base_price || 1999,
+            salePrice: p.campaign_price,
+            discount: Math.round(((p.base_price - p.campaign_price) / p.base_price) * 100),
+            badge: p.campaign_badge || 'SALE',
+            endDate: p.campaign_end_date ? new Date(p.campaign_end_date) : null
+          });
+        } else {
+          setPricing({
+            basePrice: p.base_price || 1999,
+            salePrice: null,
+            discount: null,
+            badge: null,
+            endDate: null
+          });
+        }
+      }
+    } catch (e) {
+      console.log('Pricing fetch error:', e);
+    }
+  };
 
   // Show loading while checking auth
   if (isChecking) {
@@ -49,10 +107,24 @@ const PWAHomePage = () => {
     'WhatsApp support',
   ];
 
+  const displayPrice = pricing.salePrice || pricing.basePrice;
+  const hasDiscount = pricing.salePrice && pricing.salePrice < pricing.basePrice;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-600 via-purple-600 to-violet-700">
+      {/* Sale Banner */}
+      {hasDiscount && pricing.badge && (
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-2 px-4 text-center">
+          <div className="flex items-center justify-center gap-2 text-sm font-bold">
+            <Flame className="w-4 h-4 animate-pulse" />
+            <span>{pricing.badge} - Limited Time Offer!</span>
+            <Flame className="w-4 h-4 animate-pulse" />
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="px-6 pt-12 pb-8">
+      <div className="px-6 pt-10 pb-8">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
             <Utensils className="w-6 h-6 text-violet-600" />
@@ -105,10 +177,25 @@ const PWAHomePage = () => {
         <div className="bg-white rounded-3xl p-6 shadow-2xl">
           {/* Price Badge */}
           <div className="flex items-center justify-center gap-2 mb-4">
-            <span className="text-gray-400 line-through text-lg">₹1999</span>
-            <span className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">
-              Starting ₹499/year
-            </span>
+            {hasDiscount ? (
+              <>
+                <span className="text-gray-400 line-through text-lg">₹{pricing.basePrice}</span>
+                <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse">
+                  ₹{displayPrice}/year
+                </span>
+                {pricing.discount && (
+                  <span className="bg-green-500 text-white px-2 py-0.5 rounded text-xs font-bold">
+                    {pricing.discount}% OFF
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                  ₹{displayPrice}/year
+                </span>
+              </>
+            )}
           </div>
 
           {/* Benefits */}
@@ -124,7 +211,7 @@ const PWAHomePage = () => {
           {/* Buttons */}
           <button
             onClick={() => navigate('/login?signup=true')}
-            className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg mb-3 flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-transform"
+            className={`w-full ${hasDiscount ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-violet-600 to-purple-600'} text-white py-4 rounded-xl font-bold text-lg mb-3 flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-transform`}
           >
             Start Free Trial
             <ArrowRight className="w-5 h-5" />
