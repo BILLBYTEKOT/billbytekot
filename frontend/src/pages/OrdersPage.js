@@ -1407,8 +1407,8 @@ const OrdersPage = ({ user }) => {
 
         {/* WhatsApp Modal */}
         {whatsappModal.open && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
-            <Card className="w-full max-w-md border-0 shadow-2xl">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-3 sm:p-4">
+            <Card className="w-full max-w-md border-0 shadow-2xl bg-white">
               <CardHeader className="relative p-4 sm:p-6">
                 <button
                   onClick={() => { setWhatsappModal({ open: false, orderId: null, customerName: '' }); setWhatsappPhone(''); }}
@@ -1460,8 +1460,8 @@ const OrdersPage = ({ user }) => {
 
         {/* View Order Modal */}
         {viewOrderModal.open && viewOrderModal.order && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
-            <Card className="w-full max-w-lg border-0 shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-3 sm:p-4">
+            <Card className="w-full max-w-lg border-0 shadow-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col bg-white">
               <CardHeader className="relative bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-t-lg p-4 sm:p-6 flex-shrink-0">
                 <button
                   onClick={() => setViewOrderModal({ open: false, order: null })}
@@ -1624,7 +1624,7 @@ const OrdersPage = ({ user }) => {
         {/* Edit Order Modal - Improved UI/UX */}
         {editOrderModal.open && editOrderModal.order && (
           <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50">
-            <Card className="w-full sm:max-w-lg border-0 shadow-2xl max-h-[85vh] sm:mx-4 sm:rounded-xl rounded-t-2xl rounded-b-none sm:rounded-b-xl overflow-hidden flex flex-col">
+            <Card className="w-full sm:max-w-lg border-0 shadow-2xl max-h-[85vh] sm:mx-4 sm:rounded-xl rounded-t-2xl rounded-b-none sm:rounded-b-xl overflow-hidden flex flex-col bg-white">
               {/* Header */}
               <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -1852,8 +1852,8 @@ const OrdersPage = ({ user }) => {
 
         {/* Cancel Order Confirmation Modal */}
         {cancelConfirmModal.open && cancelConfirmModal.order && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
-            <Card className="w-full max-w-sm border-0 shadow-2xl">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-3 sm:p-4">
+            <Card className="w-full max-w-sm border-0 shadow-2xl bg-white">
               <CardHeader className="text-center pb-2">
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Ban className="w-6 h-6 text-orange-600" />
@@ -1891,8 +1891,8 @@ const OrdersPage = ({ user }) => {
 
         {/* Delete Order Confirmation Modal */}
         {deleteConfirmModal.open && deleteConfirmModal.order && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
-            <Card className="w-full max-w-sm border-0 shadow-2xl">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-3 sm:p-4">
+            <Card className="w-full max-w-sm border-0 shadow-2xl bg-white">
               <CardHeader className="text-center pb-2">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <AlertTriangle className="w-6 h-6 text-red-600" />
