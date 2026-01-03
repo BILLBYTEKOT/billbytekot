@@ -1211,15 +1211,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Special Offer Section - Only show if sale offer is enabled */}
-      {saleOffer && saleOffer.enabled && <SaleOfferSection navigate={navigate} saleOffer={saleOffer} pricing={pricing} />}
-      
-      {/* Hero Position Sale Banner - Shows themed banner when sale is active */}
-      {saleOffer && saleOffer.enabled && saleOffer.theme && saleOffer.theme !== 'default' && (
-        <div className="container mx-auto px-4 py-8">
-          <SaleBanner position="hero" />
-        </div>
-      )}
+      {/* Special Offer Section - Removed */}
 
       {/* SEO Content Section - Main Homepage Content */}
       <section className="py-16 bg-white">
