@@ -78,16 +78,16 @@ const TopBanner = () => {
   if (design === 'gradient-wave') {
     return (
       <div className="relative overflow-hidden bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white">
-        {/* Animated wave background */}
-        <div className="absolute inset-0">
+        {/* Animated wave background - pointer-events-none */}
+        <div className="absolute inset-0 pointer-events-none">
           <svg className="absolute bottom-0 w-full h-8 text-white/10" viewBox="0 0 1200 120" preserveAspectRatio="none">
             <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" fill="currentColor">
               <animate attributeName="d" dur="10s" repeatCount="indefinite" values="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z;M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z;M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z"/>
             </path>
           </svg>
         </div>
-        {/* Floating particles */}
-        <div className="absolute inset-0 overflow-hidden">
+        {/* Floating particles - pointer-events-none */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(15)].map((_, i) => (
             <div key={i} className="absolute w-2 h-2 bg-white/30 rounded-full animate-float" style={{ left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 3}s`, animationDuration: `${3 + Math.random() * 2}s` }} />
           ))}
@@ -124,14 +124,14 @@ const TopBanner = () => {
   if (design === 'neon-glow') {
     return (
       <div className="relative overflow-hidden bg-gray-900 text-white">
-        {/* Neon glow effects */}
-        <div className="absolute inset-0">
+        {/* Neon glow effects - pointer-events-none */}
+        <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-32 h-32 bg-pink-500 rounded-full filter blur-3xl opacity-30 animate-pulse" />
           <div className="absolute top-0 right-1/4 w-32 h-32 bg-cyan-500 rounded-full filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '0.5s' }} />
           <div className="absolute top-0 left-1/2 w-32 h-32 bg-purple-500 rounded-full filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '1s' }} />
         </div>
-        {/* Grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px]" />
+        {/* Grid pattern - pointer-events-none */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
         <div className="relative z-10 py-3 px-4">
           <div className="max-w-7xl mx-auto flex items-center justify-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
@@ -170,8 +170,8 @@ const TopBanner = () => {
   if (design === 'festive-confetti') {
     return (
       <div className="relative overflow-hidden bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white">
-        {/* Confetti particles */}
-        <div className="absolute inset-0 overflow-hidden">
+        {/* Confetti particles - pointer-events-none */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(30)].map((_, i) => (
             <div key={i} className="absolute animate-confetti" style={{
               left: `${Math.random() * 100}%`,
@@ -185,8 +185,8 @@ const TopBanner = () => {
             }} />
           ))}
         </div>
-        {/* Sparkle effects */}
-        <div className="absolute inset-0">
+        {/* Sparkle effects - pointer-events-none */}
+        <div className="absolute inset-0 pointer-events-none">
           {[...Array(10)].map((_, i) => (
             <Sparkles key={i} className="absolute w-4 h-4 text-yellow-300 animate-ping" style={{ left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 2}s` }} />
           ))}
@@ -246,8 +246,8 @@ const TopBanner = () => {
   if (design === 'marquee-urgent') {
     return (
       <div className="relative overflow-hidden bg-gradient-to-r from-red-600 to-red-700 text-white">
-        {/* Pulsing background */}
-        <div className="absolute inset-0 bg-red-500 animate-pulse opacity-30" />
+        {/* Pulsing background - pointer-events-none */}
+        <div className="absolute inset-0 bg-red-500 animate-pulse opacity-30 pointer-events-none" />
         <div className="relative z-10 py-2">
           <div className="flex items-center">
             {/* Static left section */}
@@ -286,8 +286,8 @@ const TopBanner = () => {
   if (design === 'glass-modern') {
     return (
       <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 text-white">
-        {/* Animated gradient orbs */}
-        <div className="absolute inset-0">
+        {/* Animated gradient orbs - pointer-events-none */}
+        <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-40 h-40 bg-blue-500 rounded-full filter blur-3xl opacity-20 animate-float" />
           <div className="absolute top-0 right-1/3 w-40 h-40 bg-purple-500 rounded-full filter blur-3xl opacity-20 animate-float" style={{ animationDelay: '1s' }} />
           <div className="absolute top-0 right-1/4 w-40 h-40 bg-pink-500 rounded-full filter blur-3xl opacity-20 animate-float" style={{ animationDelay: '2s' }} />
@@ -320,10 +320,10 @@ const TopBanner = () => {
   if (design === 'retro-pixel') {
     return (
       <div className="relative overflow-hidden bg-black text-white font-mono">
-        {/* Scanline effect */}
+        {/* Scanline effect - already has pointer-events-none */}
         <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.5)_50%)] bg-[size:100%_4px] pointer-events-none opacity-30" />
-        {/* Pixel border */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500" />
+        {/* Pixel border - pointer-events-none */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 pointer-events-none" />
         <div className="relative z-10 py-3 px-4">
           <div className="max-w-7xl mx-auto flex items-center justify-center gap-4 flex-wrap">
             <div className="flex items-center gap-2 text-green-400">
@@ -375,9 +375,9 @@ const TopBanner = () => {
   if (design === 'split-diagonal') {
     return (
       <div className="relative overflow-hidden bg-black text-white h-12">
-        {/* Diagonal split */}
-        <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-purple-600" style={{ clipPath: 'polygon(0 0, 60% 0, 50% 100%, 0 100%)' }} />
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500" style={{ clipPath: 'polygon(50% 0, 100% 0, 100% 100%, 40% 100%)' }} />
+        {/* Diagonal split - pointer-events-none */}
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-purple-600 pointer-events-none" style={{ clipPath: 'polygon(0 0, 60% 0, 50% 100%, 0 100%)' }} />
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 pointer-events-none" style={{ clipPath: 'polygon(50% 0, 100% 0, 100% 100%, 40% 100%)' }} />
         <div className="relative z-10 h-full flex items-center justify-center gap-6 px-4">
           <div className="flex items-center gap-2">
             <Tag className="w-5 h-5" />
@@ -398,7 +398,7 @@ const TopBanner = () => {
   if (design === 'countdown-focus') {
     return (
       <div className="relative overflow-hidden bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_0%,transparent_70%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_0%,transparent_70%)] pointer-events-none" />
         <div className="relative z-10 py-3 px-4">
           <div className="max-w-7xl mx-auto flex items-center justify-center gap-4 flex-wrap">
             <span className="text-red-500 font-bold animate-pulse flex items-center gap-1">
