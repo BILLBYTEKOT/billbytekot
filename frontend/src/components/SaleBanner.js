@@ -16,20 +16,36 @@ const SaleBanner = ({ position = 'top' }) => {
 
   useEffect(() => {
     if (saleData?.end_date) {
-      const timer = setInterval(() => {
-        const end = new Date(saleData.end_date);
+      // Calculate immediately
+      const calculateTimeLeft = () => {
+        let endDateStr = saleData.end_date;
+        // If it's just a date (YYYY-MM-DD), add end of day time
+        if (endDateStr && endDateStr.length === 10) {
+          endDateStr = endDateStr + 'T23:59:59';
+        }
+        
+        const end = new Date(endDateStr);
         const now = new Date();
         const diff = end - now;
         
         if (diff <= 0) {
-          setTimeLeft(null);
-          clearInterval(timer);
+          setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+          return false;
         } else {
-          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-          setTimeLeft({ days, hours, minutes, seconds });
+          setTimeLeft({
+            days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+            hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+            minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+            seconds: Math.floor((diff % (1000 * 60)) / 1000)
+          });
+          return true;
+        }
+      };
+      
+      calculateTimeLeft();
+      const timer = setInterval(() => {
+        if (!calculateTimeLeft()) {
+          clearInterval(timer);
         }
       }, 1000);
       return () => clearInterval(timer);

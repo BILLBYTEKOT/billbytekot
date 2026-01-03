@@ -2602,11 +2602,6 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
-      
-      {/* Floating Corner Sale Banner */}
-      {saleOffer && saleOffer.enabled && (
-        <SaleBanner position="corner" />
-      )}
     </div>
   );
 };
