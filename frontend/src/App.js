@@ -35,6 +35,7 @@ import KOTSoftwarePage from './pages/KOTSoftwarePage';
 import POSSoftwarePage from './pages/POSSoftwarePage';
 import PublicMenuPage from './pages/PublicMenuPage';
 import NotFound from './pages/NotFound';
+import PWAHomePage from './pages/PWAHomePage';
 import DesktopInfo from './components/DesktopInfo';
 import UpdateBanner from './components/UpdateBanner';
 import { Toaster } from './components/ui/sonner';
@@ -799,6 +800,7 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/help" element={<PrivateRoute isAuthChecking={isAuthChecking}><HelpPage user={user} /></PrivateRoute>} />
           <Route path="/ops" element={<SuperAdminPage />} />
+          <Route path="/pwa" element={<PrivateRoute isAuthChecking={isAuthChecking}><PWAHomePage /></PrivateRoute>} />
           {/* 404 Not Found Route - Must be last */}
           <Route path="*" element={<NotFound />} />
         </Routes>

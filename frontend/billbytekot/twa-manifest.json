@@ -12,7 +12,7 @@
   "navigationDividerColorDark": "#1A1A2E",
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
-  "startUrl": "/",
+  "startUrl": "/pwa",
   "iconUrl": "https://billbytekot.in/icon-512.png",
   "maskableIconUrl": "https://billbytekot.in/icon-512-maskable.png",
   "splashScreenFadeOutDuration": 300,
