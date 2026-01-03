@@ -1383,10 +1383,12 @@ const SettingsPage = ({ user }) => {
                 <Input
                   type="number"
                   step="0.01"
+                  min="0"
                   value={businessSettings.tax_rate}
-                  onChange={(e) => setBusinessSettings({ ...businessSettings, tax_rate: parseFloat(e.target.value) })}
-                  placeholder="5.0"
+                  onChange={(e) => setBusinessSettings({ ...businessSettings, tax_rate: parseFloat(e.target.value) || 0 })}
+                  placeholder="0 for no tax, 5 for 5%"
                 />
+                <p className="text-xs text-gray-500 mt-1">Set to 0 for no tax</p>
               </div>
             </div>
 
