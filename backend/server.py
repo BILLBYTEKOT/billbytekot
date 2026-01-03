@@ -3103,6 +3103,37 @@ async def update_table(
     return updated
 
 
+@api_router.delete("/tables/{table_id}")
+async def delete_table(
+    table_id: str, current_user: dict = Depends(get_current_user)
+):
+    """Delete a table"""
+    # Get user's organization_id
+    user_org_id = get_secure_org_id(current_user)
+
+    existing = await db.tables.find_one(
+        {"id": table_id, "organization_id": user_org_id}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    # Check if table has active orders
+    if existing.get("status") == "occupied" and existing.get("current_order_id"):
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot delete table with active order. Please complete or cancel the order first."
+        )
+
+    result = await db.tables.delete_one(
+        {"id": table_id, "organization_id": user_org_id}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    return {"message": "Table deleted successfully"}
+
+
 # Helper function to generate WhatsApp notification link
 def generate_whatsapp_notification(phone: str, message: str) -> str:
     """Generate WhatsApp link for notification"""
