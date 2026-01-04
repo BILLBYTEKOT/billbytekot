@@ -244,7 +244,7 @@ const DesktopDownloadSection = () => {
                           Or use Web App
                         </Button>
                         <p className="text-xs text-gray-500 mt-2 text-center">
-                          Desktop app: ~80MB • Web app: No download needed
+                          Desktop app: {appVersions.windows?.file_size || '~100MB'} • Web app: No download needed
                         </p>
                       </>
                     ) : (
@@ -346,7 +346,9 @@ const DesktopDownloadSection = () => {
               
               <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
                 <p className="text-sm text-gray-700">
-                  <strong>Version 1.0.0</strong> • Released Nov 2024
+                  <strong>
+                    {appVersions.windows ? `Version ${appVersions.windows.version}` : 'Latest Version'}
+                  </strong> • {appVersions.windows?.release_notes || 'Download now'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Connects to billbytekot.in • Auto-updates enabled
