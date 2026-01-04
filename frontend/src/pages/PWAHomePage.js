@@ -15,11 +15,9 @@ const PWAHomePage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [saleOffer, setSaleOffer] = useState(null);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  // Support WhatsApp number
   const SUPPORT_WHATSAPP = '918310832669';
 
   useEffect(() => {
-    // Check if running as PWA/TWA (standalone mode) or mobile app
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isInWebAppiOS = window.navigator.standalone === true;
     const isTWA = document.referrer.includes('android-app://');
@@ -42,28 +40,18 @@ const PWAHomePage = () => {
     setIsChecking(false);
   }, [navigate]);
 
-  // Countdown timer
   useEffect(() => {
     if (!saleOffer?.enabled) return;
-    
     let endDateStr = saleOffer.valid_until || saleOffer.end_date;
     if (!endDateStr) return;
-    
-    // If it's just a date (YYYY-MM-DD), add end of day time
-    if (endDateStr.length === 10) {
-      endDateStr = endDateStr + 'T23:59:59';
-    }
+    if (endDateStr.length === 10) endDateStr = endDateStr + 'T23:59:59';
     
     const calculateTimeLeft = () => {
-      const end = new Date(endDateStr);
-      const now = new Date();
-      const diff = end - now;
-      
+      const diff = new Date(endDateStr) - new Date();
       if (diff <= 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
         return false;
       }
-      
       setTimeLeft({
         days: Math.floor(diff / (1000 * 60 * 60 * 24)),
         hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
@@ -72,33 +60,21 @@ const PWAHomePage = () => {
       });
       return true;
     };
-    
     calculateTimeLeft();
-    const timer = setInterval(() => {
-      if (!calculateTimeLeft()) clearInterval(timer);
-    }, 1000);
-    
+    const timer = setInterval(() => { if (!calculateTimeLeft()) clearInterval(timer); }, 1000);
     return () => clearInterval(timer);
   }, [saleOffer]);
 
-  // Auto slide
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % 3);
-    }, 3000);
+    const timer = setInterval(() => setCurrentSlide(prev => (prev + 1) % 3), 3000);
     return () => clearInterval(timer);
   }, []);
 
   const fetchSaleOffer = async () => {
     try {
-      const saleRes = await axios.get(`${API}/sale-offer`).catch(() => ({ data: { enabled: false } }));
-      
-      if (saleRes?.data?.enabled) {
-        setSaleOffer(saleRes.data);
-      }
-    } catch (e) {
-      console.log('Failed to fetch sale offer');
-    }
+      const res = await axios.get(`${API}/sale-offer`).catch(() => ({ data: { enabled: false } }));
+      if (res?.data?.enabled) setSaleOffer(res.data);
+    } catch (e) {}
   };
 
   if (isChecking) {
@@ -198,78 +174,42 @@ const PWAHomePage = () => {
       <div className="flex-1 px-5 -mt-6 relative z-20">
         <div className="bg-white rounded-t-3xl shadow-2xl pt-5 pb-8 px-1">
           
-          {/* Sale Banner with Full Details */}
+          {/* COMPACT Sale Banner */}
           {hasDiscount && (
-            <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 rounded-2xl p-4 mb-5 mx-1 relative overflow-hidden">
-              {/* Animated background */}
-              <div className="absolute inset-0 opacity-20">
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} className="absolute w-2 h-2 bg-white rounded-full animate-ping" style={{ left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`, animationDelay: `${Math.random() * 2}s` }} />
-                ))}
-              </div>
-              
-              <div className="relative z-10">
-                {/* Sale Title */}
-                <div className="flex items-center gap-2 mb-2">
-                  <Flame className="w-5 h-5 text-yellow-300 animate-pulse" />
-                  <span className="text-white font-bold text-lg">
-                    {saleOffer?.title || saleOffer?.badge_text || `${discountPercent}% OFF`}
-                  </span>
+            <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 rounded-xl p-3 mb-4 mx-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-yellow-300" />
+                  <span className="text-white font-bold text-sm">{saleOffer?.title || `${discountPercent}% OFF`}</span>
                 </div>
-                
-                {/* Subtitle */}
-                {saleOffer?.subtitle && (
-                  <p className="text-orange-100 text-sm mb-3">{saleOffer.subtitle}</p>
-                )}
-                
-                {/* Price Display */}
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-orange-200 line-through text-lg">₹{originalPrice}</span>
-                  <span className="text-white font-black text-3xl">₹{displayPrice}</span>
-                  <span className="text-orange-100 text-sm">/year</span>
-                  <span className="bg-yellow-400 text-black px-2 py-0.5 rounded-full text-xs font-bold ml-auto">
-                    SAVE ₹{originalPrice - displayPrice}
-                  </span>
-                </div>
-                
-                {/* Countdown Timer */}
                 {hasTimer && (
-                  <div className="bg-black/30 rounded-xl p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Timer className="w-4 h-4 text-yellow-300" />
-                      <span className="text-white/90 text-xs font-medium">Offer ends in:</span>
-                    </div>
-                    <div className="flex gap-2 justify-center">
-                      {[
-                        { val: timeLeft.days, label: 'Days' },
-                        { val: timeLeft.hours, label: 'Hrs' },
-                        { val: timeLeft.minutes, label: 'Min' },
-                        { val: timeLeft.seconds, label: 'Sec' }
-                      ].map((item, i) => (
-                        <div key={i} className="bg-white/20 rounded-lg px-3 py-2 text-center min-w-[50px]">
-                          <span className="text-white font-bold text-xl block">{String(item.val).padStart(2, '0')}</span>
-                          <span className="text-white/70 text-[10px]">{item.label}</span>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-1 text-[10px] text-white/90">
+                    <Timer className="w-3 h-3" />
+                    {timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m
                   </div>
                 )}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-orange-200 line-through text-sm">₹{originalPrice}</span>
+                <span className="text-white font-black text-xl">₹{displayPrice}</span>
+                <span className="text-orange-100 text-xs">/year</span>
+                <span className="bg-yellow-400 text-black px-1.5 py-0.5 rounded text-[10px] font-bold ml-auto">
+                  SAVE ₹{originalPrice - displayPrice}
+                </span>
               </div>
             </div>
           )}
 
           {/* No Sale - Show Regular Price */}
           {!hasDiscount && (
-            <div className="bg-gradient-to-r from-violet-500 to-purple-600 rounded-2xl p-4 mb-5 mx-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-violet-200 text-sm">Starting at just</p>
-                  <p className="text-white font-black text-2xl">₹{originalPrice}<span className="text-lg font-normal">/year</span></p>
-                </div>
-                <div className="bg-white/20 rounded-xl px-3 py-2 text-center">
-                  <p className="text-white/80 text-xs">Only</p>
-                  <p className="text-white font-bold">₹{Math.round(originalPrice/365)}/day</p>
-                </div>
+            <div className="bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl p-3 mb-4 mx-1 flex items-center justify-between">
+              <div>
+                <p className="text-violet-200 text-xs">Starting at just</p>
+                <p className="text-white font-black text-xl">₹{originalPrice}<span className="text-sm font-normal">/year</span></p>
+              </div>
+              <div className="bg-white/20 rounded-lg px-2 py-1 text-center">
+                <p className="text-white/80 text-[10px]">Only</p>
+                <p className="text-white font-bold text-sm">₹{Math.round(originalPrice/365)}/day</p>
               </div>
             </div>
           )}
