@@ -7,7 +7,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { toast } from 'sonner';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Printer, CreditCard, Wallet, Smartphone, Download, MessageCircle, X, Check, Plus, Minus, Trash2, Search } from 'lucide-react';
+import { Printer, CreditCard, Wallet, Smartphone, Download, MessageCircle, X, Check, Plus, Trash2, Search } from 'lucide-react';
 import { printReceipt } from '../utils/printUtils';
 
 const BillingPage = ({ user }) => {
@@ -20,17 +20,16 @@ const BillingPage = ({ user }) => {
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
   const [whatsappPhone, setWhatsappPhone] = useState('');
   const [paymentCompleted, setPaymentCompleted] = useState(false);
-  const [discount, setDiscount] = useState(0);
-  const [discountType, setDiscountType] = useState('amount'); // 'amount' or 'percent'
+  const [discountType, setDiscountType] = useState('amount');
   const [discountValue, setDiscountValue] = useState('');
   const [customTaxRate, setCustomTaxRate] = useState(null);
-  const [manualItemName, setManualItemName] = useState('');
-  const [manualItemPrice, setManualItemPrice] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
   const [orderItems, setOrderItems] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [showMenuDropdown, setShowMenuDropdown] = useState(false);
-  const [menuSearch, setMenuSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);
+  const priceInputRef = useRef(null);
 
   useEffect(() => {
     fetchOrder();
@@ -38,7 +37,6 @@ const BillingPage = ({ user }) => {
     fetchMenuItems();
   }, [orderId]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -54,12 +52,8 @@ const BillingPage = ({ user }) => {
       const response = await axios.get(`${API}/orders/${orderId}`);
       setOrder(response.data);
       setOrderItems(response.data.items || []);
-      if (response.data.customer_phone) {
-        setWhatsappPhone(response.data.customer_phone);
-      }
-      // Load existing discount
+      if (response.data.customer_phone) setWhatsappPhone(response.data.customer_phone);
       if (response.data.discount || response.data.discount_amount) {
-        setDiscount(response.data.discount || response.data.discount_amount || 0);
         setDiscountType(response.data.discount_type || 'amount');
         setDiscountValue(response.data.discount_value || response.data.discount || '');
       }
@@ -102,31 +96,15 @@ const BillingPage = ({ user }) => {
     return businessSettings?.tax_rate ?? 5;
   };
 
-  const calculateSubtotal = () => {
-    return orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  };
-
+  const calculateSubtotal = () => orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const calculateDiscountAmount = () => {
     const subtotal = calculateSubtotal();
     const value = parseFloat(discountValue) || 0;
-    if (discountType === 'percent') {
-      return (subtotal * value) / 100;
-    }
-    return value;
+    return discountType === 'percent' ? (subtotal * value) / 100 : value;
   };
+  const calculateTax = () => ((calculateSubtotal() - calculateDiscountAmount()) * getEffectiveTaxRate()) / 100;
+  const calculateTotal = () => calculateSubtotal() + calculateTax() - calculateDiscountAmount();
 
-  const calculateTax = () => {
-    const subtotal = calculateSubtotal();
-    const discountAmt = calculateDiscountAmount();
-    const taxableAmount = subtotal - discountAmt;
-    return (taxableAmount * getEffectiveTaxRate()) / 100;
-  };
-
-  const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax() - calculateDiscountAmount();
-  };
-
-  // Add menu item from dropdown
   const handleAddMenuItem = (menuItem) => {
     const existingIndex = orderItems.findIndex(item => item.menu_item_id === menuItem.id);
     if (existingIndex !== -1) {
@@ -134,99 +112,57 @@ const BillingPage = ({ user }) => {
       updated[existingIndex].quantity += 1;
       setOrderItems(updated);
     } else {
-      setOrderItems([...orderItems, {
-        menu_item_id: menuItem.id,
-        name: menuItem.name,
-        price: menuItem.price,
-        quantity: 1,
-        notes: ''
-      }]);
+      setOrderItems([...orderItems, { menu_item_id: menuItem.id, name: menuItem.name, price: menuItem.price, quantity: 1, notes: '' }]);
     }
     setShowMenuDropdown(false);
-    setMenuSearch('');
+    setSearchQuery('');
+    setCustomPrice('');
     toast.success(`Added: ${menuItem.name}`);
   };
 
-  // Manual item functions
-  const handleAddManualItem = () => {
-    const name = manualItemName.trim();
-    const price = parseFloat(manualItemPrice) || 0;
-    
-    if (!name) {
-      toast.error('Enter item name');
-      return;
-    }
-    if (price <= 0) {
-      toast.error('Enter valid price');
-      return;
-    }
-    
-    setOrderItems([...orderItems, {
-      menu_item_id: `manual_${Date.now()}`,
-      name: name,
-      price: price,
-      quantity: 1,
-      notes: 'Manual entry'
-    }]);
-    
-    setManualItemName('');
-    setManualItemPrice('');
+  // Get filtered menu items based on search
+  const filteredMenuItems = searchQuery.trim() 
+    ? menuItems.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : [];
+  const hasMatches = filteredMenuItems.length > 0;
+
+  // Add custom item (when no menu match)
+  const handleAddCustomItem = () => {
+    const name = searchQuery.trim();
+    const price = parseFloat(customPrice) || 0;
+    if (!name) { toast.error('Enter item name'); return; }
+    if (price <= 0) { toast.error('Enter price'); return; }
+    setOrderItems([...orderItems, { menu_item_id: `custom_${Date.now()}`, name, price, quantity: 1, notes: 'Custom item' }]);
+    setSearchQuery('');
+    setCustomPrice('');
+    setShowMenuDropdown(false);
     toast.success(`Added: ${name}`);
   };
 
   const handleItemQuantityChange = (index, delta) => {
     const updated = [...orderItems];
     const newQty = updated[index].quantity + delta;
-    if (newQty < 1) {
-      // Remove item if quantity goes to 0
-      updated.splice(index, 1);
-    } else {
-      updated[index].quantity = newQty;
-    }
+    if (newQty < 1) updated.splice(index, 1);
+    else updated[index].quantity = newQty;
     setOrderItems(updated);
   };
 
-  const handleRemoveItem = (index) => {
-    setOrderItems(orderItems.filter((_, i) => i !== index));
-  };
+  const handleRemoveItem = (index) => setOrderItems(orderItems.filter((_, i) => i !== index));
 
-  // Update order with new items before payment
   const updateOrderItems = async () => {
-    if (orderItems.length === 0) {
-      toast.error('Order must have at least one item');
-      return false;
-    }
-    
+    if (orderItems.length === 0) { toast.error('Order must have at least one item'); return false; }
     try {
       const subtotal = calculateSubtotal();
       const discountAmt = calculateDiscountAmount();
       const tax = calculateTax();
       const total = calculateTotal();
-      
       await axios.put(`${API}/orders/${orderId}`, {
-        items: orderItems,
-        subtotal: subtotal - discountAmt, // Store subtotal after discount
-        tax,
-        tax_rate: getEffectiveTaxRate(),
-        total,
-        discount: discountAmt,
-        discount_type: discountType,
-        discount_value: parseFloat(discountValue) || 0,
-        discount_amount: discountAmt
+        items: orderItems, subtotal: subtotal - discountAmt, tax, tax_rate: getEffectiveTaxRate(), total,
+        discount: discountAmt, discount_type: discountType, discount_value: parseFloat(discountValue) || 0, discount_amount: discountAmt
       });
-      
-      // Update local order state
-      setOrder(prev => ({
-        ...prev,
-        items: orderItems,
-        subtotal: subtotal - discountAmt,
-        tax,
-        total
-      }));
-      
+      setOrder(prev => ({ ...prev, items: orderItems, subtotal: subtotal - discountAmt, tax, total }));
       return true;
     } catch (error) {
-      console.error('Failed to update order items:', error);
       toast.error('Failed to update order');
       return false;
     }
@@ -235,14 +171,10 @@ const BillingPage = ({ user }) => {
   const releaseTable = async () => {
     const kotEnabled = businessSettings?.kot_mode_enabled !== false;
     if (!kotEnabled || !order?.table_id || order.table_id === 'counter') return;
-    
     try {
       const tableResponse = await axios.get(`${API}/tables/${order.table_id}`);
       await axios.put(`${API}/tables/${order.table_id}`, {
-        table_number: tableResponse.data.table_number,
-        capacity: tableResponse.data.capacity || 4,
-        status: 'available',
-        current_order_id: null
+        table_number: tableResponse.data.table_number, capacity: tableResponse.data.capacity || 4, status: 'available', current_order_id: null
       });
       toast.success(`Table ${order.table_number} released`);
     } catch (error) {
@@ -252,46 +184,20 @@ const BillingPage = ({ user }) => {
 
   const handlePayment = async () => {
     if (!order) return;
-    
-    // First update order items if changed
     const updated = await updateOrderItems();
     if (!updated) return;
-    
     setLoading(true);
     try {
-      await axios.post(`${API}/payments/create-order`, {
-        order_id: orderId,
-        amount: calculateTotal(),
-        payment_method: paymentMethod
+      await axios.post(`${API}/payments/create-order`, { order_id: orderId, amount: calculateTotal(), payment_method: paymentMethod });
+      await axios.put(`${API}/orders/${orderId}`, {
+        status: 'completed', payment_method: paymentMethod, discount: calculateDiscountAmount(),
+        discount_type: discountType, discount_value: parseFloat(discountValue) || 0, discount_amount: calculateDiscountAmount(), total: calculateTotal()
       });
-      
-      await axios.put(`${API}/orders/${orderId}`, { 
-        status: 'completed',
-        payment_method: paymentMethod,
-        discount: calculateDiscountAmount(),
-        discount_type: discountType,
-        discount_value: parseFloat(discountValue) || 0,
-        discount_amount: calculateDiscountAmount(),
-        total: calculateTotal()
-      });
-      
       toast.success('Payment completed!');
       setPaymentCompleted(true);
       await releaseTable();
-      
-      // Use updated order for printing - include discount
       const discountAmt = calculateDiscountAmount();
-      const updatedOrder = { 
-        ...order, 
-        items: orderItems, 
-        subtotal: calculateSubtotal(), 
-        tax: calculateTax(), 
-        total: calculateTotal(),
-        discount: discountAmt,
-        discount_amount: discountAmt,
-        tax_rate: getEffectiveTaxRate()
-      };
-      printReceipt(updatedOrder, businessSettings);
+      printReceipt({ ...order, items: orderItems, subtotal: calculateSubtotal(), tax: calculateTax(), total: calculateTotal(), discount: discountAmt, discount_amount: discountAmt, tax_rate: getEffectiveTaxRate() }, businessSettings);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Payment failed');
     } finally {
@@ -300,21 +206,16 @@ const BillingPage = ({ user }) => {
   };
 
   const handleWhatsappShare = async () => {
-    if (!whatsappPhone.trim()) {
-      toast.error('Enter phone number');
-      return;
-    }
+    if (!whatsappPhone.trim()) { toast.error('Enter phone number'); return; }
     try {
-      const response = await axios.post(`${API}/whatsapp/send-receipt/${orderId}`, {
-        phone_number: whatsappPhone,
-        customer_name: order?.customer_name
-      });
+      const response = await axios.post(`${API}/whatsapp/send-receipt/${orderId}`, { phone_number: whatsappPhone, customer_name: order?.customer_name });
       window.open(response.data.whatsapp_link, '_blank');
       setShowWhatsappModal(false);
     } catch (error) {
       toast.error('Failed to share');
     }
   };
+
 
   const downloadBillPDF = async () => {
     if (!order) return;
@@ -323,8 +224,6 @@ const BillingPage = ({ user }) => {
       const doc = new jsPDF();
       const currency = getCurrencySymbol();
       const restaurantName = businessSettings?.restaurant_name || 'Restaurant';
-      
-      // Header
       doc.setFillColor(124, 58, 237);
       doc.rect(0, 0, 210, 40, 'F');
       doc.setTextColor(255, 255, 255);
@@ -334,8 +233,6 @@ const BillingPage = ({ user }) => {
       doc.setFontSize(10);
       doc.text('INVOICE', 195, 15, { align: 'right' });
       doc.text(`#${order.invoice_number || order.id.slice(0, 8).toUpperCase()}`, 195, 25, { align: 'right' });
-      
-      // Info
       let y = 55;
       doc.setTextColor(50, 50, 50);
       doc.setFontSize(9);
@@ -346,8 +243,6 @@ const BillingPage = ({ user }) => {
       if (order.customer_name) { doc.text(`Customer: ${order.customer_name}`, 15, y); y += 6; }
       if (businessSettings?.address) { doc.text(businessSettings.address, 15, y); y += 6; }
       if (businessSettings?.gstin) { doc.text(`GSTIN: ${businessSettings.gstin}`, 15, y); y += 6; }
-      
-      // Items header
       y += 5;
       doc.setFillColor(245, 245, 250);
       doc.rect(15, y - 5, 180, 10, 'F');
@@ -357,8 +252,6 @@ const BillingPage = ({ user }) => {
       doc.text('Price', 150, y, { align: 'right' });
       doc.text('Total', 190, y, { align: 'right' });
       y += 8;
-      
-      // Items
       doc.setFont(undefined, 'normal');
       orderItems.forEach(item => {
         doc.text(item.name.substring(0, 30), 20, y);
@@ -367,8 +260,6 @@ const BillingPage = ({ user }) => {
         doc.text(`${currency}${(item.quantity * item.price).toFixed(2)}`, 190, y, { align: 'right' });
         y += 7;
       });
-      
-      // Totals
       y += 5;
       doc.line(15, y, 195, y);
       y += 8;
@@ -377,11 +268,12 @@ const BillingPage = ({ user }) => {
       y += 6;
       doc.text(`Tax (${getEffectiveTaxRate()}%):`, 140, y);
       doc.text(`${currency}${calculateTax().toFixed(2)}`, 190, y, { align: 'right' });
-      if (discount > 0) {
+      const discAmt = calculateDiscountAmount();
+      if (discAmt > 0) {
         y += 6;
         doc.setTextColor(34, 197, 94);
         doc.text('Discount:', 140, y);
-        doc.text(`-${currency}${discount.toFixed(2)}`, 190, y, { align: 'right' });
+        doc.text(`-${currency}${discAmt.toFixed(2)}`, 190, y, { align: 'right' });
         doc.setTextColor(50, 50, 50);
       }
       y += 8;
@@ -392,15 +284,12 @@ const BillingPage = ({ user }) => {
       doc.setFontSize(11);
       doc.text('TOTAL:', 135, y + 2);
       doc.text(`${currency}${calculateTotal().toFixed(2)}`, 190, y + 2, { align: 'right' });
-      
-      // Footer
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(9);
       doc.setFont(undefined, 'normal');
       doc.text('Thank you for your visit!', 105, 270, { align: 'center' });
       doc.setFontSize(7);
       doc.text('Generated by BillByteKOT • billbytekot.in', 105, 280, { align: 'center' });
-      
       doc.save(`Invoice-${order.invoice_number || order.id.slice(0, 8)}.pdf`);
       toast.success('Invoice downloaded!');
     } catch (error) {
@@ -419,176 +308,268 @@ const BillingPage = ({ user }) => {
   }
 
   const currency = getCurrencySymbol();
+  const discountAmt = calculateDiscountAmount();
+  const orderData = { ...order, items: orderItems, subtotal: calculateSubtotal(), tax: calculateTax(), total: calculateTotal(), discount: discountAmt, discount_amount: discountAmt, tax_rate: getEffectiveTaxRate() };
 
   return (
     <Layout user={user}>
-      <div className="max-w-4xl mx-auto p-2">
-        <Card className="border-0 shadow-xl overflow-hidden">
-          {/* Header Bar */}
-          <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-4 py-2 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <span className="font-bold">#{order.invoice_number || order.id.slice(0, 6)}</span>
-              <span className="text-violet-200 text-sm">
-                {order.table_number ? `• Table ${order.table_number}` : '• Counter'}
-              </span>
-            </div>
-            <span className="text-sm text-violet-200">{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+      {/* ========== MOBILE LAYOUT ========== */}
+      <div className="lg:hidden p-2 pb-4">
+        <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-3 py-2 rounded-t-xl flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <span className="font-bold">#{order.invoice_number || order.id.slice(0, 6)}</span>
+            <span className="text-violet-200 text-sm">{order.table_number ? `• T${order.table_number}` : '• Counter'}</span>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x">
-            {/* Left: Items (3 cols on desktop) */}
-            <div className="md:col-span-3 p-3">
-              {/* Search & Add */}
-              <div className="flex gap-2 mb-3">
-                <div className="relative flex-1" ref={dropdownRef}>
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="Search menu..."
-                    value={menuSearch}
-                    onChange={(e) => { setMenuSearch(e.target.value); setShowMenuDropdown(true); }}
-                    onFocus={() => setShowMenuDropdown(true)}
-                    className="pl-8 h-9 text-sm"
+          <span className="text-sm">{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        </div>
+        <Card className="rounded-t-none border-0 shadow-lg">
+          <CardContent className="p-3">
+            {/* Smart Search Bar */}
+            <div className="relative mb-2" ref={dropdownRef}>
+              <div className="flex gap-1">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input 
+                    placeholder="Search or add item..." 
+                    value={searchQuery} 
+                    onChange={(e) => { setSearchQuery(e.target.value); setShowMenuDropdown(true); }} 
+                    onFocus={() => setShowMenuDropdown(true)} 
+                    className="pl-8 h-9 text-sm" 
                   />
-                  {showMenuDropdown && (
-                    <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-52 overflow-y-auto">
-                      {menuItems.filter(item => item.name.toLowerCase().includes(menuSearch.toLowerCase())).slice(0, 12).map(item => (
-                        <button key={item.id} onClick={() => handleAddMenuItem(item)}
-                          className="w-full px-3 py-2 text-left hover:bg-violet-50 flex justify-between items-center text-sm border-b last:border-0">
-                          <span className="truncate">{item.name}</span>
-                          <span className="text-violet-600 font-semibold ml-2">{currency}{item.price}</span>
-                        </button>
-                      ))}
-                      {menuItems.filter(item => item.name.toLowerCase().includes(menuSearch.toLowerCase())).length === 0 && (
-                        <div className="px-3 py-2 text-gray-400 text-sm">No items</div>
-                      )}
+                </div>
+                {!hasMatches && searchQuery.trim() && (
+                  <>
+                    <Input type="number" placeholder="₹" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)} className="w-16 h-9 text-sm" ref={priceInputRef} />
+                    <Button size="sm" onClick={handleAddCustomItem} className="h-9 px-2 bg-green-600"><Plus className="w-4 h-4" /></Button>
+                  </>
+                )}
+              </div>
+              {showMenuDropdown && searchQuery.trim() && (
+                <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                  {hasMatches ? (
+                    filteredMenuItems.slice(0, 8).map(item => (
+                      <button key={item.id} onClick={() => handleAddMenuItem(item)} className="w-full px-3 py-2 text-left hover:bg-violet-50 flex justify-between text-sm border-b last:border-0">
+                        <span className="truncate">{item.name}</span><span className="text-violet-600 font-semibold">{currency}{item.price}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-gray-500 text-sm">
+                      No match found. Enter price to add "<span className="font-medium text-gray-700">{searchQuery}</span>" as custom item.
                     </div>
                   )}
                 </div>
-                <Input placeholder="Item" value={manualItemName} onChange={(e) => setManualItemName(e.target.value)} className="w-24 h-9 text-sm" />
-                <Input type="number" placeholder="₹" value={manualItemPrice} onChange={(e) => setManualItemPrice(e.target.value)} className="w-16 h-9 text-sm" min="0" />
-                <Button size="sm" onClick={handleAddManualItem} className="h-9 px-2 bg-green-600 hover:bg-green-700"><Plus className="w-4 h-4" /></Button>
-              </div>
-
-              {/* Items List */}
-              <div className="space-y-1 max-h-[35vh] md:max-h-[50vh] overflow-y-auto">
-                {orderItems.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">No items added</div>
-                ) : orderItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 py-1.5 px-2 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => handleItemQuantityChange(idx, -1)} className="w-7 h-7 bg-white border hover:bg-gray-100 rounded text-gray-600 flex items-center justify-center">
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="w-7 h-7 bg-violet-600 text-white rounded flex items-center justify-center text-sm font-bold">{item.quantity}</span>
-                      <button onClick={() => handleItemQuantityChange(idx, 1)} className="w-7 h-7 bg-white border hover:bg-gray-100 rounded text-gray-600 flex items-center justify-center">
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <span className="flex-1 font-medium text-sm truncate">{item.name}</span>
-                    <span className="font-bold text-violet-600">{currency}{(item.price * item.quantity).toFixed(0)}</span>
-                    <button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600 p-1"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: Summary & Payment (2 cols on desktop) */}
-            <div className="md:col-span-2 p-3 bg-gray-50 flex flex-col">
-              {/* Totals */}
-              <div className="space-y-1.5 text-sm mb-3">
-                <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>{currency}{calculateSubtotal().toFixed(0)}</span></div>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gray-500">Discount</span>
-                    <select value={discountType} onChange={(e) => { setDiscountType(e.target.value); setDiscountValue(''); }} className="text-xs px-1 py-0.5 border rounded bg-white">
-                      <option value="amount">₹</option><option value="percent">%</option>
-                    </select>
-                    <input type="number" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} placeholder="0" className="w-12 text-xs px-1.5 py-0.5 border rounded text-center" min="0" />
-                    <div className="flex gap-0.5">
-                      {[5, 10, 15].map(p => (
-                        <button key={p} onClick={() => { setDiscountType('percent'); setDiscountValue(p.toString()); }}
-                          className={`px-1.5 py-0.5 rounded text-xs ${discountType === 'percent' && discountValue === p.toString() ? 'bg-green-500 text-white' : 'bg-white border hover:bg-gray-100'}`}>{p}%</button>
-                      ))}
-                    </div>
-                  </div>
-                  <span className="text-green-600">{calculateDiscountAmount() > 0 ? `-${currency}${calculateDiscountAmount().toFixed(0)}` : '-'}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gray-500">Tax</span>
-                    <select value={customTaxRate !== null ? customTaxRate : getEffectiveTaxRate()} onChange={(e) => setCustomTaxRate(Number(e.target.value))} className="text-xs px-1 py-0.5 border rounded bg-white">
-                      <option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option><option value="28">28%</option>
-                    </select>
-                  </div>
-                  <span>{currency}{calculateTax().toFixed(0)}</span>
-                </div>
-                <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-300">
-                  <span>Total</span>
-                  <span className="text-violet-600">{currency}{calculateTotal().toFixed(0)}</span>
-                </div>
-              </div>
-
-              {/* Payment Methods */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                {[
-                  { id: 'cash', icon: Wallet, label: 'Cash', color: '#22c55e' },
-                  { id: 'card', icon: CreditCard, label: 'Card', color: '#3b82f6' },
-                  { id: 'upi', icon: Smartphone, label: 'UPI', color: '#8b5cf6' }
-                ].map(m => (
-                  <button key={m.id} onClick={() => setPaymentMethod(m.id)}
-                    className={`py-2.5 rounded-lg flex flex-col items-center gap-1 transition-all border-2 ${paymentMethod === m.id ? 'text-white border-transparent shadow-lg' : 'bg-white border-gray-200 hover:border-gray-300'}`}
-                    style={paymentMethod === m.id ? { backgroundColor: m.color } : {}}>
-                    <m.icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{m.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Pay Button */}
-              {!paymentCompleted ? (
-                <Button onClick={handlePayment} disabled={loading} className="w-full h-12 text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-lg shadow-lg mb-3">
-                  {loading ? <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" /> : <>Pay {currency}{calculateTotal().toFixed(0)}</>}
-                </Button>
-              ) : (
-                <div className="bg-green-100 border border-green-300 rounded-lg p-3 mb-3 flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shrink-0"><Check className="w-5 h-5 text-white" /></div>
-                  <div><p className="font-bold text-green-800">Paid!</p><p className="text-xs text-green-600">{currency}{calculateTotal().toFixed(0)} via {paymentMethod}</p></div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-3 gap-2 mt-auto">
-                <Button variant="outline" size="sm" onClick={() => {
-                  const discountAmt = calculateDiscountAmount();
-                  printReceipt({ ...order, items: orderItems, subtotal: calculateSubtotal(), tax: calculateTax(), total: calculateTotal(), discount: discountAmt, discount_amount: discountAmt, tax_rate: getEffectiveTaxRate() }, businessSettings);
-                }} className="h-9"><Printer className="w-4 h-4 mr-1" />Print</Button>
-                <Button variant="outline" size="sm" onClick={downloadBillPDF} className="h-9"><Download className="w-4 h-4 mr-1" />PDF</Button>
-                <Button variant="outline" size="sm" onClick={() => setShowWhatsappModal(true)} className="h-9 border-green-500 text-green-600 hover:bg-green-50"><MessageCircle className="w-4 h-4 mr-1" />Share</Button>
-              </div>
-
-              {paymentCompleted && (
-                <Button variant="ghost" size="sm" onClick={() => navigate('/orders')} className="w-full mt-2">← Back to Orders</Button>
               )}
             </div>
-          </div>
+            <div className="max-h-[28vh] overflow-y-auto mb-2 space-y-1">
+              {orderItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2 py-1 px-2 bg-gray-50 rounded">
+                  <button onClick={() => handleItemQuantityChange(idx, -1)} className="w-6 h-6 bg-white border rounded text-xs">-</button>
+                  <span className="w-6 h-6 bg-violet-600 text-white rounded flex items-center justify-center text-xs font-bold">{item.quantity}</span>
+                  <button onClick={() => handleItemQuantityChange(idx, 1)} className="w-6 h-6 bg-white border rounded text-xs">+</button>
+                  <span className="flex-1 text-sm truncate">{item.name}</span>
+                  <span className="font-bold text-sm text-violet-600">{currency}{(item.price * item.quantity).toFixed(0)}</span>
+                  <button onClick={() => handleRemoveItem(idx)} className="text-red-400 p-0.5"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="border-t pt-2 space-y-1 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>{currency}{calculateSubtotal().toFixed(0)}</span></div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Disc</span>
+                  <select value={discountType} onChange={(e) => { setDiscountType(e.target.value); setDiscountValue(''); }} className="text-xs px-1 border rounded"><option value="amount">₹</option><option value="percent">%</option></select>
+                  <input type="number" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} className="w-10 text-xs px-1 border rounded text-center" />
+                  {[5, 10, 15].map(p => (<button key={p} onClick={() => { setDiscountType('percent'); setDiscountValue(p.toString()); }} className={`px-1.5 py-0.5 rounded text-xs ${discountType === 'percent' && discountValue === p.toString() ? 'bg-green-500 text-white' : 'bg-gray-100'}`}>{p}%</button>))}
+                </div>
+                <span className="text-green-600">{discountAmt > 0 ? `-${currency}${discountAmt.toFixed(0)}` : '-'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1"><span className="text-gray-500">Tax</span><select value={customTaxRate !== null ? customTaxRate : getEffectiveTaxRate()} onChange={(e) => setCustomTaxRate(Number(e.target.value))} className="text-xs px-1 border rounded"><option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option></select></div>
+                <span>{currency}{calculateTax().toFixed(0)}</span>
+              </div>
+              <div className="flex justify-between text-lg font-bold pt-1 border-t"><span>Total</span><span className="text-violet-600">{currency}{calculateTotal().toFixed(0)}</span></div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              {[{ id: 'cash', icon: Wallet, label: 'Cash', color: '#22c55e' }, { id: 'card', icon: CreditCard, label: 'Card', color: '#3b82f6' }, { id: 'upi', icon: Smartphone, label: 'UPI', color: '#8b5cf6' }].map(m => (
+                <button key={m.id} onClick={() => setPaymentMethod(m.id)} className={`py-2 rounded-lg flex flex-col items-center gap-1 border-2 ${paymentMethod === m.id ? 'text-white border-transparent' : 'bg-white border-gray-200'}`} style={paymentMethod === m.id ? { backgroundColor: m.color } : {}}>
+                  <m.icon className="w-5 h-5" /><span className="text-xs font-medium">{m.label}</span>
+                </button>
+              ))}
+            </div>
+            {!paymentCompleted ? (
+              <Button onClick={handlePayment} disabled={loading} className="w-full h-12 mt-3 text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg">
+                {loading ? <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" /> : <>Pay {currency}{calculateTotal().toFixed(0)}</>}
+              </Button>
+            ) : (
+              <div className="bg-green-100 border border-green-300 rounded-lg p-2 mt-3 flex items-center gap-2">
+                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-4 h-4 text-white" /></div>
+                <div><p className="font-bold text-green-800 text-sm">Paid!</p><p className="text-xs text-green-600">{currency}{calculateTotal().toFixed(0)} via {paymentMethod}</p></div>
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              <Button variant="outline" size="sm" onClick={() => printReceipt(orderData, businessSettings)} className="h-9"><Printer className="w-4 h-4 mr-1" />Print</Button>
+              <Button variant="outline" size="sm" onClick={downloadBillPDF} className="h-9"><Download className="w-4 h-4 mr-1" />PDF</Button>
+              <Button variant="outline" size="sm" onClick={() => setShowWhatsappModal(true)} className="h-9 border-green-500 text-green-600"><MessageCircle className="w-4 h-4 mr-1" />Share</Button>
+            </div>
+            {paymentCompleted && <Button variant="ghost" size="sm" onClick={() => navigate('/orders')} className="w-full mt-2">← Back</Button>}
+          </CardContent>
         </Card>
-
-        {/* WhatsApp Modal */}
-        {showWhatsappModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-sm">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold">Share via WhatsApp</h3>
-                  <button onClick={() => setShowWhatsappModal(false)}><X className="w-5 h-5" /></button>
-                </div>
-                <Input placeholder="+91 9876543210" value={whatsappPhone} onChange={(e) => setWhatsappPhone(e.target.value)} className="mb-4" />
-                <Button onClick={handleWhatsappShare} className="w-full bg-green-600 hover:bg-green-700"><MessageCircle className="w-4 h-4 mr-2" />Send Receipt</Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
+
+
+      {/* ========== DESKTOP LAYOUT - FULL WIDTH ========== */}
+      <div className="hidden lg:flex h-[calc(100vh-80px)] gap-4 p-4">
+        {/* Left Panel - Items (65%) */}
+        <div className="flex-[3] flex flex-col bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-6 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <span className="text-2xl font-bold">#{order.invoice_number || order.id.slice(0, 6)}</span>
+              <span className="text-violet-200 text-lg">{order.table_number ? `Table ${order.table_number}` : 'Counter Order'}</span>
+            </div>
+            <span className="text-violet-200">{new Date(order.created_at).toLocaleString()}</span>
+          </div>
+          <div className="p-4 border-b">
+            {/* Smart Search Bar - Desktop */}
+            <div className="relative" ref={dropdownRef}>
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input 
+                    placeholder="Search menu or type item name..." 
+                    value={searchQuery} 
+                    onChange={(e) => { setSearchQuery(e.target.value); setShowMenuDropdown(true); }} 
+                    onFocus={() => setShowMenuDropdown(true)} 
+                    className="pl-12 h-12 text-lg" 
+                  />
+                </div>
+                {!hasMatches && searchQuery.trim() && (
+                  <>
+                    <Input type="number" placeholder="₹ Price" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)} className="w-32 h-12 text-lg" />
+                    <Button onClick={handleAddCustomItem} className="h-12 px-6 bg-green-600 hover:bg-green-700 text-lg"><Plus className="w-5 h-5 mr-2" />Add</Button>
+                  </>
+                )}
+              </div>
+              {showMenuDropdown && searchQuery.trim() && (
+                <div className="absolute z-20 w-full mt-1 bg-white border rounded-xl shadow-2xl max-h-80 overflow-y-auto">
+                  {hasMatches ? (
+                    filteredMenuItems.slice(0, 12).map(item => (
+                      <button key={item.id} onClick={() => handleAddMenuItem(item)} className="w-full px-4 py-3 text-left hover:bg-violet-50 flex justify-between items-center text-lg border-b last:border-0">
+                        <span className="font-medium">{item.name}</span><span className="text-violet-600 font-bold">{currency}{item.price}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-gray-500">
+                      No menu item found. Enter price to add "<span className="font-semibold text-gray-700">{searchQuery}</span>" as custom item.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {orderItems.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-gray-400 text-xl">Search and add items to the order</div>
+            ) : (
+              <div className="space-y-2">
+                {orderItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleItemQuantityChange(idx, -1)} className="w-12 h-12 bg-white border-2 hover:border-violet-300 rounded-xl text-xl font-bold flex items-center justify-center">−</button>
+                      <span className="w-14 h-12 bg-violet-600 text-white rounded-xl flex items-center justify-center text-xl font-bold">{item.quantity}</span>
+                      <button onClick={() => handleItemQuantityChange(idx, 1)} className="w-12 h-12 bg-white border-2 hover:border-violet-300 rounded-xl text-xl font-bold flex items-center justify-center">+</button>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-xl">{item.name}</p>
+                      <p className="text-gray-500">{currency}{item.price} each</p>
+                    </div>
+                    <span className="text-2xl font-bold text-violet-600">{currency}{(item.price * item.quantity).toFixed(0)}</span>
+                    <button onClick={() => handleRemoveItem(idx)} className="w-12 h-12 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl flex items-center justify-center"><Trash2 className="w-6 h-6" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Panel - Payment (35%) */}
+        <div className="flex-[2] flex flex-col bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="p-6 border-b space-y-4">
+            <div className="flex justify-between text-lg"><span className="text-gray-500">Subtotal</span><span className="font-semibold">{currency}{calculateSubtotal().toFixed(0)}</span></div>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <span className="text-gray-500">Discount</span>
+                <select value={discountType} onChange={(e) => { setDiscountType(e.target.value); setDiscountValue(''); }} className="px-3 py-2 border rounded-lg bg-white text-base">
+                  <option value="amount">₹ Amount</option><option value="percent">% Percent</option>
+                </select>
+                <input type="number" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} placeholder="0" className="w-24 px-3 py-2 border rounded-lg text-center text-base" />
+                <div className="flex gap-1">
+                  {[5, 10, 15, 20].map(p => (
+                    <button key={p} onClick={() => { setDiscountType('percent'); setDiscountValue(p.toString()); }} className={`px-4 py-2 rounded-lg font-medium transition-all ${discountType === 'percent' && discountValue === p.toString() ? 'bg-green-500 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}>{p}%</button>
+                  ))}
+                </div>
+              </div>
+              <span className="text-green-600 font-semibold text-lg">{discountAmt > 0 ? `-${currency}${discountAmt.toFixed(0)}` : '—'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <span className="text-gray-500">Tax</span>
+                <select value={customTaxRate !== null ? customTaxRate : getEffectiveTaxRate()} onChange={(e) => setCustomTaxRate(Number(e.target.value))} className="px-3 py-2 border rounded-lg bg-white text-base">
+                  <option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option><option value="28">28%</option>
+                </select>
+              </div>
+              <span className="font-semibold text-lg">{currency}{calculateTax().toFixed(0)}</span>
+            </div>
+            <div className="flex justify-between items-center pt-4 border-t-2 border-dashed">
+              <span className="text-3xl font-bold">Total</span>
+              <span className="text-4xl font-bold text-violet-600">{currency}{calculateTotal().toFixed(0)}</span>
+            </div>
+          </div>
+          <div className="p-6 border-b">
+            <p className="text-sm text-gray-500 mb-4 font-semibold uppercase tracking-wide">Payment Method</p>
+            <div className="grid grid-cols-3 gap-4">
+              {[{ id: 'cash', icon: Wallet, label: 'Cash', color: '#22c55e' }, { id: 'card', icon: CreditCard, label: 'Card', color: '#3b82f6' }, { id: 'upi', icon: Smartphone, label: 'UPI', color: '#8b5cf6' }].map(m => (
+                <button key={m.id} onClick={() => setPaymentMethod(m.id)} className={`py-5 rounded-xl flex flex-col items-center gap-2 border-2 transition-all ${paymentMethod === m.id ? 'text-white border-transparent shadow-lg scale-105' : 'bg-white border-gray-200 hover:border-gray-300'}`} style={paymentMethod === m.id ? { backgroundColor: m.color } : {}}>
+                  <m.icon className="w-8 h-8" /><span className="font-semibold text-lg">{m.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="p-6 flex-1 flex flex-col">
+            {!paymentCompleted ? (
+              <Button onClick={handlePayment} disabled={loading} className="w-full h-16 text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl shadow-xl">
+                {loading ? <div className="animate-spin w-6 h-6 border-3 border-white border-t-transparent rounded-full" /> : <>Pay {currency}{calculateTotal().toFixed(0)}</>}
+              </Button>
+            ) : (
+              <div className="bg-green-50 border-2 border-green-300 rounded-xl p-5 flex items-center gap-4">
+                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-8 h-8 text-white" /></div>
+                <div><p className="text-2xl font-bold text-green-800">Payment Successful!</p><p className="text-green-600 text-lg">{currency}{calculateTotal().toFixed(0)} paid via {paymentMethod.toUpperCase()}</p></div>
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <Button variant="outline" onClick={() => printReceipt(orderData, businessSettings)} className="h-14 text-lg"><Printer className="w-5 h-5 mr-2" />Print</Button>
+              <Button variant="outline" onClick={downloadBillPDF} className="h-14 text-lg"><Download className="w-5 h-5 mr-2" />PDF</Button>
+              <Button variant="outline" onClick={() => setShowWhatsappModal(true)} className="h-14 text-lg border-green-500 text-green-600 hover:bg-green-50"><MessageCircle className="w-5 h-5 mr-2" />Share</Button>
+            </div>
+            {paymentCompleted && <Button variant="ghost" onClick={() => navigate('/orders')} className="w-full mt-4 h-12 text-lg">← Back to Orders</Button>}
+          </div>
+        </div>
+      </div>
+
+      {/* WhatsApp Modal */}
+      {showWhatsappModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold">Share via WhatsApp</h3>
+                <button onClick={() => setShowWhatsappModal(false)}><X className="w-6 h-6" /></button>
+              </div>
+              <Input placeholder="+91 9876543210" value={whatsappPhone} onChange={(e) => setWhatsappPhone(e.target.value)} className="mb-4 h-12 text-lg" />
+              <Button onClick={handleWhatsappShare} className="w-full h-12 bg-green-600 hover:bg-green-700 text-lg"><MessageCircle className="w-5 h-5 mr-2" />Send Receipt</Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </Layout>
   );
 };
