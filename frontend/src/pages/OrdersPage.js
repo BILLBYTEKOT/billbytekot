@@ -104,6 +104,18 @@ const OrdersPage = ({ user }) => {
   const navigate = useNavigate();
   const dataLoadedRef = useRef(false);
 
+  // Helper function to check if order is from today (using IST timezone)
+  const isToday = (dateString) => {
+    if (!dateString) return false;
+    const orderDate = new Date(dateString);
+    const now = new Date();
+    // Convert to IST (UTC+5:30)
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const orderIST = new Date(orderDate.getTime() + istOffset);
+    const nowIST = new Date(now.getTime() + istOffset);
+    return orderIST.toDateString() === nowIST.toDateString();
+  };
+
   // Get unique categories from menu items
   const categories = ['all', ...new Set(menuItems.map(item => item.category).filter(Boolean))];
 
@@ -957,7 +969,7 @@ const OrdersPage = ({ user }) => {
             <CheckCircle className="w-4 h-4" />
             Today's Bills
             <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'history' ? 'bg-violet-100 text-violet-700' : 'bg-gray-200'}`}>
-              {orders.filter(o => ['completed', 'cancelled'].includes(o.status)).length}
+              {orders.filter(o => ['completed', 'cancelled'].includes(o.status) && isToday(o.created_at)).length}
             </span>
           </button>
         </div>
@@ -1189,14 +1201,14 @@ const OrdersPage = ({ user }) => {
         {/* Today's Bills Tab (Completed & Cancelled) */}
         {activeTab === 'history' && (
           <div className="grid gap-3 sm:gap-4">
-            {orders.filter(order => ['completed', 'cancelled'].includes(order.status)).length === 0 && (
+            {orders.filter(order => ['completed', 'cancelled'].includes(order.status) && isToday(order.created_at)).length === 0 && (
               <Card className="p-8 text-center border-2 border-dashed border-gray-200">
                 <div className="text-4xl mb-3">📋</div>
                 <h3 className="text-lg font-semibold text-gray-700 mb-1">No Bills Today</h3>
                 <p className="text-gray-500 text-sm">Completed and cancelled orders will appear here</p>
               </Card>
             )}
-            {orders.filter(order => ['completed', 'cancelled'].includes(order.status)).map((order) => {
+            {orders.filter(order => ['completed', 'cancelled'].includes(order.status) && isToday(order.created_at)).map((order) => {
               const statusConfig = {
                 completed: { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-700', icon: '✅' },
                 cancelled: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-600', icon: '❌' }
