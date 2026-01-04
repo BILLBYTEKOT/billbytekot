@@ -90,7 +90,13 @@ const OrdersPage = ({ user }) => {
     upi_amount: 0,
     credit_amount: 0,
     use_split_payment: false,
-    tax_rate: 5 // Tax rate for this order
+    tax_rate: 5, // Tax rate for this order
+    // Discount support
+    discount_type: 'amount', // 'amount' or 'percent'
+    discount_value: 0,
+    // Manual item entry
+    manual_item_name: '',
+    manual_item_price: ''
   });
   const [editItems, setEditItems] = useState([]);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState({ open: false, order: null });
@@ -381,9 +387,45 @@ const OrdersPage = ({ user }) => {
       credit_amount: order.credit_amount || 0,
       use_split_payment: hasSplitPayment || order.payment_method === 'split',
       // Use order's stored tax_rate, fallback to calculating from tax/subtotal, then settings
-      tax_rate: order.tax_rate ?? (order.subtotal > 0 && order.tax !== undefined ? Math.round((order.tax / order.subtotal) * 100 * 100) / 100 : (businessSettings?.tax_rate ?? 5))
+      tax_rate: order.tax_rate ?? (order.subtotal > 0 && order.tax !== undefined ? Math.round((order.tax / order.subtotal) * 100 * 100) / 100 : (businessSettings?.tax_rate ?? 5)),
+      // Discount fields
+      discount_type: order.discount_type || 'amount',
+      discount_value: order.discount_value || 0,
+      // Manual item entry
+      manual_item_name: '',
+      manual_item_price: ''
     });
     setActionMenuOpen(null);
+  };
+
+  // Add manual item (not from menu)
+  const handleAddManualItem = () => {
+    const name = editOrderModal.manual_item_name?.trim();
+    const price = parseFloat(editOrderModal.manual_item_price) || 0;
+    
+    if (!name) {
+      toast.error('Enter item name');
+      return;
+    }
+    if (price <= 0) {
+      toast.error('Enter valid price');
+      return;
+    }
+    
+    setEditItems([...editItems, {
+      menu_item_id: `manual_${Date.now()}`,
+      name: name,
+      price: price,
+      quantity: 1,
+      notes: 'Manual entry'
+    }]);
+    
+    setEditOrderModal({ 
+      ...editOrderModal, 
+      manual_item_name: '', 
+      manual_item_price: '' 
+    });
+    toast.success(`Added: ${name}`);
   };
 
   // Update order items
@@ -401,11 +443,26 @@ const OrdersPage = ({ user }) => {
 
     try {
       const subtotal = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      
+      // Calculate discount
+      let discountAmount = 0;
+      const discountValue = parseFloat(editOrderModal.discount_value) || 0;
+      if (discountValue > 0) {
+        if (editOrderModal.discount_type === 'percent') {
+          discountAmount = (subtotal * discountValue) / 100;
+        } else {
+          discountAmount = discountValue;
+        }
+      }
+      
+      // Subtotal after discount
+      const subtotalAfterDiscount = Math.max(0, subtotal - discountAmount);
+      
       // Use the tax_rate from the edit modal (can be changed by user)
       const orderTaxRate = editOrderModal.tax_rate ?? editOrderModal.order?.tax_rate ?? businessSettings?.tax_rate ?? 5;
       const taxRate = orderTaxRate / 100;
-      const tax = subtotal * taxRate;
-      const total = subtotal + tax;
+      const tax = subtotalAfterDiscount * taxRate;
+      const total = subtotalAfterDiscount + tax;
 
       let paymentReceived, balanceAmount, isCredit, paymentMethod;
       let cashAmount = 0, cardAmount = 0, upiAmount = 0, creditAmount = 0;
@@ -445,7 +502,7 @@ const OrdersPage = ({ user }) => {
 
       await axios.put(`${API}/orders/${editOrderModal.order.id}`, {
         items: editItems,
-        subtotal,
+        subtotal: subtotalAfterDiscount,
         tax,
         tax_rate: orderTaxRate, // Store the tax rate used
         total,
@@ -458,7 +515,11 @@ const OrdersPage = ({ user }) => {
         cash_amount: cashAmount,
         card_amount: cardAmount,
         upi_amount: upiAmount,
-        credit_amount: creditAmount
+        credit_amount: creditAmount,
+        // Discount fields
+        discount_type: editOrderModal.discount_type || 'amount',
+        discount_value: discountValue,
+        discount_amount: discountAmount
       });
 
       toast.success('Order updated!');
@@ -476,7 +537,11 @@ const OrdersPage = ({ user }) => {
         upi_amount: 0,
         credit_amount: 0,
         use_split_payment: false,
-        tax_rate: 5
+        tax_rate: 5,
+        discount_type: 'amount',
+        discount_value: 0,
+        manual_item_name: '',
+        manual_item_price: ''
       });
       setEditItems([]);
       await fetchOrders();
@@ -1804,6 +1869,31 @@ const OrdersPage = ({ user }) => {
                       </button>
                     ))}
                   </div>
+                  
+                  {/* Manual Item Entry */}
+                  <div className="mt-2 flex gap-1">
+                    <Input
+                      placeholder="Item name"
+                      value={editOrderModal.manual_item_name || ''}
+                      onChange={(e) => setEditOrderModal({ ...editOrderModal, manual_item_name: e.target.value })}
+                      className="h-7 text-xs flex-1"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="₹"
+                      value={editOrderModal.manual_item_price || ''}
+                      onChange={(e) => setEditOrderModal({ ...editOrderModal, manual_item_price: e.target.value })}
+                      className="h-7 text-xs w-16"
+                      min="0"
+                    />
+                    <Button 
+                      size="sm" 
+                      onClick={handleAddManualItem}
+                      className="h-7 px-2 bg-green-600 hover:bg-green-700"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Items List */}
@@ -1831,6 +1921,34 @@ const OrdersPage = ({ user }) => {
 
               {/* Footer - Fixed */}
               <div className="border-t bg-white p-3 flex-shrink-0">
+                {/* Discount Section */}
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                  <span className="text-[10px] text-gray-500">Discount:</span>
+                  <select
+                    value={editOrderModal.discount_type}
+                    onChange={(e) => setEditOrderModal({ ...editOrderModal, discount_type: e.target.value })}
+                    className="text-xs px-1 py-0.5 border rounded bg-gray-50 w-14"
+                  >
+                    <option value="amount">₹</option>
+                    <option value="percent">%</option>
+                  </select>
+                  <Input
+                    type="number"
+                    value={editOrderModal.discount_value || ''}
+                    onChange={(e) => setEditOrderModal({ ...editOrderModal, discount_value: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="h-6 text-xs w-16 px-1"
+                    min="0"
+                  />
+                  {(editOrderModal.discount_value > 0) && (
+                    <span className="text-[10px] text-green-600 font-medium">
+                      -₹{editOrderModal.discount_type === 'percent' 
+                        ? ((editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * editOrderModal.discount_value) / 100).toFixed(0)
+                        : editOrderModal.discount_value}
+                    </span>
+                  )}
+                </div>
+                
                 {/* Tax Rate Selector */}
                 <div className="flex items-center justify-between mb-2 pb-2 border-b">
                   <span className="text-[10px] text-gray-500">Tax Rate:</span>
@@ -1848,11 +1966,30 @@ const OrdersPage = ({ user }) => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] text-gray-400">{editItems.reduce((sum, item) => sum + item.quantity, 0)} items • Tax {editOrderModal.tax_rate}%</p>
-                    <p className="text-lg font-bold text-blue-600">₹{(editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) * (1 + (editOrderModal.tax_rate || 0) / 100)).toFixed(0)}</p>
+                    {(() => {
+                      const subtotal = editItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                      const discountValue = parseFloat(editOrderModal.discount_value) || 0;
+                      const discountAmount = editOrderModal.discount_type === 'percent' 
+                        ? (subtotal * discountValue) / 100 
+                        : discountValue;
+                      const subtotalAfterDiscount = Math.max(0, subtotal - discountAmount);
+                      const tax = subtotalAfterDiscount * (editOrderModal.tax_rate || 0) / 100;
+                      const total = subtotalAfterDiscount + tax;
+                      
+                      return (
+                        <>
+                          <p className="text-[10px] text-gray-400">
+                            {editItems.reduce((sum, item) => sum + item.quantity, 0)} items 
+                            {discountAmount > 0 && <span className="text-green-600"> • Disc -₹{discountAmount.toFixed(0)}</span>}
+                            {' '}• Tax {editOrderModal.tax_rate}%
+                          </p>
+                          <p className="text-lg font-bold text-blue-600">₹{total.toFixed(0)}</p>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => { setEditOrderModal({ open: false, order: null, customer_name: '', customer_phone: '', payment_method: 'cash', is_credit: false, payment_received: 0, balance_amount: 0, tax_rate: 5 }); setEditItems([]); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setEditOrderModal({ open: false, order: null, customer_name: '', customer_phone: '', payment_method: 'cash', is_credit: false, payment_received: 0, balance_amount: 0, tax_rate: 5, discount_type: 'amount', discount_value: 0, manual_item_name: '', manual_item_price: '' }); setEditItems([]); }}>
                       Cancel
                     </Button>
                     <Button size="sm" onClick={handleUpdateOrder} className="bg-blue-600 px-5" disabled={editItems.length === 0}>
