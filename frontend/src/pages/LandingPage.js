@@ -153,9 +153,10 @@ const DesktopDownloadSection = () => {
   
   const handleDownloadWindows = () => {
     if (appVersions.windows?.download_url) {
-      // Navigate to downloads page for better UX
-      navigate('/downloads');
-      toast.success("Opening downloads page...");
+      // Use relative URL - Vercel proxies /api/* to backend
+      // This keeps the URL as billbytekot.in/api/app-download/...
+      window.location.href = appVersions.windows.download_url;
+      toast.success("Downloading BillByteKOT for Windows...");
     } else {
       toast.error("Windows app not available yet");
     }
@@ -163,9 +164,9 @@ const DesktopDownloadSection = () => {
   
   const handleDownloadAndroid = () => {
     if (appVersions.android?.download_url) {
-      // Navigate to downloads page for better UX
-      navigate('/downloads');
-      toast.success("Opening downloads page...");
+      // Use relative URL - Vercel proxies /api/* to backend
+      window.location.href = appVersions.android.download_url;
+      toast.success("Downloading BillByteKOT for Android...");
     } else {
       toast.error("Android app not available yet");
     }

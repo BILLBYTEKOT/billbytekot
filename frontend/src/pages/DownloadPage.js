@@ -66,10 +66,11 @@ const DownloadPage = () => {
     if (platform === "windows") {
       if (appVersions.windows?.download_url) {
         setDownloading('windows');
+        // Use billbytekot.in domain - Vercel proxies /api/* to backend
         let downloadUrl = appVersions.windows.download_url;
         if (downloadUrl.startsWith('/api/')) {
-          const backendUrl = API.replace('/api', '');
-          downloadUrl = backendUrl + downloadUrl;
+          // Keep relative URL - Vercel will proxy it
+          downloadUrl = downloadUrl;
         }
         window.location.href = downloadUrl;
         toast.success("Downloading BillByteKOT for Windows...");
@@ -80,10 +81,11 @@ const DownloadPage = () => {
     } else if (platform === "android") {
       if (appVersions.android?.download_url) {
         setDownloading('android');
+        // Use billbytekot.in domain - Vercel proxies /api/* to backend
         let downloadUrl = appVersions.android.download_url;
         if (downloadUrl.startsWith('/api/')) {
-          const backendUrl = API.replace('/api', '');
-          downloadUrl = backendUrl + downloadUrl;
+          // Keep relative URL - Vercel will proxy it
+          downloadUrl = downloadUrl;
         }
         window.location.href = downloadUrl;
         toast.success("Downloading BillByteKOT for Android...");
