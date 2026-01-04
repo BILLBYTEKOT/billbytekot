@@ -1,6 +1,6 @@
 {
   "name": "billbytekot",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "description": "BillByteKOT - Restaurant Billing & KOT Management System",
   "author": {
     "name": "BillByte",
@@ -124,7 +124,7 @@
   "build": {
     "appId": "in.billbytekot.desktop",
     "productName": "BillByteKOT",
-    "copyright": "Copyright © 2024 BillByteKOT",
+    "copyright": "Copyright © 2025 BillByteKOT",
     "directories": {
       "output": "dist-electron"
     },

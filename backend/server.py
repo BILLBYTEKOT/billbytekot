@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 import jwt
 import razorpay
 from dotenv import load_dotenv
-from fastapi import APIRouter, Body, Depends, FastAPI, File, HTTPException, UploadFile, status, Query
+from fastapi import APIRouter, Body, Depends, FastAPI, File, Form, HTTPException, UploadFile, status, Query
 from fastapi.responses import Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8635,8 +8635,8 @@ async def get_app_versions(username: str, password: str):
 @api_router.post("/super-admin/app-versions/upload")
 async def upload_app_file(
     file: UploadFile = File(...),
-    platform: str = Query(...),
-    version: str = Query(...),
+    platform: str = Form(...),
+    version: str = Form(...),
     username: str = Query(...),
     password: str = Query(...)
 ):
