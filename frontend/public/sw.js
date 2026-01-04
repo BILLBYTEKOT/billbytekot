@@ -1,7 +1,7 @@
 // BillByteKOT Service Worker - Offline Support & Caching
-const CACHE_NAME = 'billbytekot-v1.5.0';
-const STATIC_CACHE = 'billbytekot-static-v1.5.0';
-const DYNAMIC_CACHE = 'billbytekot-dynamic-v1.5.0';
+const CACHE_NAME = 'billbytekot-v1.6.0';
+const STATIC_CACHE = 'billbytekot-static-v1.6.0';
+const DYNAMIC_CACHE = 'billbytekot-dynamic-v1.6.0';
 
 // Files to cache for offline use
 const STATIC_FILES = [
@@ -166,39 +166,97 @@ async function syncOfflineOrders() {
   });
 }
 
-// Push notification support (for future use)
+// Push notification support - Marketing & Updates
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
+  console.log('[SW] Push notification received');
   
-  const data = event.data.json();
-  const options = {
-    body: data.body || 'New notification',
+  let data = {
+    title: 'BillByteKOT',
+    body: 'You have a new notification',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    vibrate: [100, 50, 100],
-    data: data.data || {}
+    tag: 'billbytekot-notification',
+    data: { url: '/' }
+  };
+  
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      data = {
+        title: payload.title || data.title,
+        body: payload.body || payload.message || data.body,
+        icon: payload.icon || data.icon,
+        badge: payload.badge || data.badge,
+        tag: payload.tag || data.tag,
+        image: payload.image || null,
+        data: {
+          url: payload.url || payload.action_url || '/',
+          type: payload.type || 'info',
+          notificationId: payload.notification_id || null
+        },
+        actions: payload.actions || [
+          { action: 'open', title: 'Open App' },
+          { action: 'dismiss', title: 'Dismiss' }
+        ],
+        requireInteraction: payload.priority === 'high',
+        vibrate: payload.priority === 'high' ? [200, 100, 200, 100, 200] : [100, 50, 100]
+      };
+    } catch (e) {
+      console.log('[SW] Error parsing push data:', e);
+      data.body = event.data.text();
+    }
+  }
+  
+  const options = {
+    body: data.body,
+    icon: data.icon,
+    badge: data.badge,
+    tag: data.tag,
+    image: data.image,
+    data: data.data,
+    actions: data.actions,
+    requireInteraction: data.requireInteraction,
+    vibrate: data.vibrate,
+    renotify: true
   };
   
   event.waitUntil(
-    self.registration.showNotification(data.title || 'BillByteKOT', options)
+    self.registration.showNotification(data.title, options)
   );
 });
 
 // Notification click handler
 self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event.action);
   event.notification.close();
   
+  if (event.action === 'dismiss') {
+    return;
+  }
+  
+  const urlToOpen = event.notification.data?.url || '/';
+  
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then(clients => {
-      // Focus existing window or open new one
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      // Try to focus existing window
       for (const client of clients) {
         if (client.url.includes('billbytekot') && 'focus' in client) {
-          return client.focus();
+          client.focus();
+          if (urlToOpen !== '/') {
+            client.navigate(urlToOpen);
+          }
+          return;
         }
       }
-      return self.clients.openWindow('/');
+      // Open new window
+      return self.clients.openWindow(urlToOpen);
     })
   );
+});
+
+// Notification close handler (for analytics)
+self.addEventListener('notificationclose', (event) => {
+  console.log('[SW] Notification closed');
 });
 
 console.log('[SW] Service worker loaded');

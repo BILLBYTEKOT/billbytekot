@@ -132,6 +132,7 @@ const SuperAdminPage = () => {
     expires_at: ''
   });
   const [sendingNotification, setSendingNotification] = useState(false);
+  const [pushStats, setPushStats] = useState({ active_subscriptions: 0, total_subscriptions: 0, recent_subscriptions: [] });
 
   // Generate invoice number with format: BBK/2025-26/INV/0001
   const generateInvoiceNumber = (existingInvoiceNo = null) => {
@@ -2844,11 +2845,38 @@ const SuperAdminPage = () => {
                       }
                       setSendingNotification(true);
                       try {
+                        // Send FCM push notification (real push like WhatsApp)
+                        const fcmResponse = await axios.post(
+                          `${API}/fcm/send?username=${credentials.username}&password=${credentials.password}`,
+                          {
+                            title: newNotification.title,
+                            body: newNotification.message,
+                            type: newNotification.type,
+                            priority: newNotification.priority,
+                            target: newNotification.target,
+                            url: newNotification.action_url || '/',
+                            image: newNotification.image || null
+                          }
+                        );
+                        
+                        // Also send in-app notification
                         const response = await axios.post(
                           `${API}/super-admin/notifications/send?username=${credentials.username}&password=${credentials.password}`,
                           newNotification
                         );
-                        toast.success(`Notification sent to ${response.data.target_users_count} users!`);
+                        
+                        const fcmCount = fcmResponse.data.sent_count || 0;
+                        const inAppCount = response.data.target_users_count || 0;
+                        
+                        if (fcmCount > 0) {
+                          toast.success(`📱 Push sent to ${fcmCount} devices! 💬 In-app: ${inAppCount} users`);
+                        } else {
+                          toast.success(`💬 In-app notification sent to ${inAppCount} users`);
+                          if (fcmResponse.data.message) {
+                            toast.info(fcmResponse.data.message);
+                          }
+                        }
+                        
                         setNewNotification({
                           title: '',
                           message: '',
@@ -2858,13 +2886,17 @@ const SuperAdminPage = () => {
                           action_url: '',
                           action_label: '',
                           priority: 'normal',
-                          expires_at: ''
+                          expires_at: '',
+                          image: ''
                         });
-                        // Refresh notifications list
-                        const notifResponse = await axios.get(
-                          `${API}/super-admin/notifications?username=${credentials.username}&password=${credentials.password}`
-                        );
+                        
+                        // Refresh stats
+                        const [notifResponse, fcmStatsRes] = await Promise.all([
+                          axios.get(`${API}/super-admin/notifications?username=${credentials.username}&password=${credentials.password}`),
+                          axios.get(`${API}/fcm/stats?username=${credentials.username}&password=${credentials.password}`).catch(() => ({ data: {} }))
+                        ]);
                         setNotifications(notifResponse.data.notifications || []);
+                        setPushStats(fcmStatsRes.data || {});
                       } catch (error) {
                         toast.error(error.response?.data?.detail || 'Failed to send notification');
                       }
@@ -2881,10 +2913,92 @@ const SuperAdminPage = () => {
                     ) : (
                       <>
                         <Send className="w-4 h-4 mr-2" />
-                        Send Notification
+                        📱 Send Push Notification (Like WhatsApp)
                       </>
                     )}
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Push Notification Subscribers Stats */}
+            <Card>
+              <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Smartphone className="w-5 h-5" />
+                    📱 Push Notification Devices (FCM)
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:bg-white/20"
+                    onClick={async () => {
+                      try {
+                        const response = await axios.get(
+                          `${API}/fcm/stats?username=${credentials.username}&password=${credentials.password}`
+                        );
+                        setPushStats(response.data);
+                        toast.success('Stats refreshed');
+                      } catch (error) {
+                        toast.error('Failed to load FCM stats');
+                      }
+                    }}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-green-50 rounded-xl p-4 text-center">
+                    <p className="text-3xl font-bold text-green-600">{pushStats?.active_devices || 0}</p>
+                    <p className="text-sm text-green-700">Active Devices</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 text-center">
+                    <p className="text-3xl font-bold text-gray-600">{pushStats?.total_devices || 0}</p>
+                    <p className="text-sm text-gray-700">Total Registered</p>
+                  </div>
+                </div>
+                
+                {/* Firebase Status */}
+                <div className={`p-3 rounded-lg mb-4 ${pushStats?.firebase_configured ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${pushStats?.firebase_configured ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                    <span className={`text-sm font-medium ${pushStats?.firebase_configured ? 'text-green-700' : 'text-amber-700'}`}>
+                      {pushStats?.firebase_configured ? '✅ Firebase Connected - Push Ready!' : '⚠️ Firebase Not Configured'}
+                    </span>
+                  </div>
+                  {!pushStats?.firebase_configured && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Add FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL to backend .env
+                    </p>
+                  )}
+                </div>
+                
+                {pushStats?.recent_registrations?.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Recent Devices:</p>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {pushStats.recent_registrations.map((sub, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
+                          <span className="text-gray-600">
+                            📱 {sub.device_info?.platform || 'Android'} - {sub.device_info?.userAgent?.substring(0, 25) || 'Device'}...
+                          </span>
+                          <span className="text-gray-400">
+                            {new Date(sub.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    <strong>📱 How it works:</strong> When users install the Android app and allow notifications, 
+                    they'll receive push notifications even when the app is closed - just like WhatsApp or Zomato!
+                  </p>
                 </div>
               </CardContent>
             </Card>

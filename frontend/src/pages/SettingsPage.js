@@ -10,6 +10,7 @@ import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, MessageCircle, Megaphone, Plus, Trash2, Calendar, Eye, EyeOff, Sparkles, Upload, Image, X } from 'lucide-react';
 import PrintCustomization from '../components/PrintCustomization';
+import BluetoothPrinterSettings from '../components/BluetoothPrinterSettings';
 import WhatsAppDesktop from '../components/WhatsAppDesktop';
 import ValidationAlert from '../components/ValidationAlert';
 
@@ -501,10 +502,16 @@ const SettingsPage = ({ user }) => {
 
         {/* Print Customization Tab */}
         {activeTab === 'print' && (
-          <PrintCustomization 
-            businessSettings={businessSettings} 
-            onUpdate={(updated) => setBusinessSettings(updated)}
-          />
+          <div className="space-y-6">
+            {/* Bluetooth Printer - Direct Print */}
+            <BluetoothPrinterSettings />
+            
+            {/* Print Themes */}
+            <PrintCustomization 
+              businessSettings={businessSettings} 
+              onUpdate={(updated) => setBusinessSettings(updated)}
+            />
+          </div>
         )}
 
         {/* WhatsApp Tab */}

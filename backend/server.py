@@ -8963,6 +8963,488 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# ============ PUSH NOTIFICATIONS API ============
+
+# Import Firebase push module
+try:
+    from firebase_push import (
+        is_firebase_configured, 
+        send_fcm_notification, 
+        send_fcm_to_topic,
+        send_fcm_to_multiple
+    )
+    FCM_AVAILABLE = True
+except ImportError:
+    FCM_AVAILABLE = False
+
+class PushSubscription(BaseModel):
+    subscription: dict  # Contains endpoint, keys (p256dh, auth)
+    user_id: Optional[str] = None
+    device_info: Optional[dict] = None
+
+class FCMTokenRegister(BaseModel):
+    fcm_token: str
+    user_id: Optional[str] = None
+    device_info: Optional[dict] = None
+
+class PushNotificationSend(BaseModel):
+    title: str
+    body: str
+    icon: Optional[str] = "/icon-192.png"
+    badge: Optional[str] = "/icon-192.png"
+    url: Optional[str] = "/"
+    type: Optional[str] = "info"  # info, success, warning, promo
+    image: Optional[str] = None
+    priority: Optional[str] = "normal"  # low, normal, high
+    target: Optional[str] = "all"  # all, subscribed, trial
+    tag: Optional[str] = None
+
+# FCM Token Registration - for real push notifications
+@api_router.post("/fcm/register")
+async def register_fcm_token(data: FCMTokenRegister):
+    """Register FCM token for push notifications (like WhatsApp/Zomato)"""
+    try:
+        fcm_token = data.fcm_token
+        
+        if not fcm_token:
+            raise HTTPException(status_code=400, detail="FCM token required")
+        
+        # Check if token already exists
+        existing = await db.fcm_tokens.find_one({"token": fcm_token})
+        
+        if existing:
+            # Update existing
+            await db.fcm_tokens.update_one(
+                {"token": fcm_token},
+                {"$set": {
+                    "user_id": data.user_id,
+                    "device_info": data.device_info,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "active": True
+                }}
+            )
+            return {"success": True, "message": "Token updated"}
+        
+        # Create new
+        token_doc = {
+            "token": fcm_token,
+            "user_id": data.user_id,
+            "device_info": data.device_info,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "active": True
+        }
+        
+        await db.fcm_tokens.insert_one(token_doc)
+        
+        total = await db.fcm_tokens.count_documents({"active": True})
+        
+        return {
+            "success": True,
+            "message": "FCM token registered",
+            "total_devices": total
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/fcm/unregister")
+async def unregister_fcm_token(token: str = Body(..., embed=True)):
+    """Unregister FCM token"""
+    try:
+        await db.fcm_tokens.update_one(
+            {"token": token},
+            {"$set": {"active": False, "unregistered_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/fcm/stats")
+async def get_fcm_stats(username: str, password: str):
+    """Get FCM statistics - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    total = await db.fcm_tokens.count_documents({})
+    active = await db.fcm_tokens.count_documents({"active": True})
+    
+    # Get recent registrations
+    recent = await db.fcm_tokens.find({"active": True}).sort("created_at", -1).limit(10).to_list(10)
+    for r in recent:
+        r.pop("_id", None)
+        r.pop("token", None)  # Don't expose tokens
+    
+    return {
+        "total_devices": total,
+        "active_devices": active,
+        "recent_registrations": recent,
+        "firebase_configured": FCM_AVAILABLE and is_firebase_configured() if FCM_AVAILABLE else False
+    }
+
+@api_router.post("/fcm/send")
+async def send_fcm_push(
+    notification: PushNotificationSend,
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Send FCM push notification to all devices - Super Admin Only
+    
+    This sends REAL push notifications like WhatsApp/Zomato that appear
+    even when the app is completely closed!
+    """
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    if not FCM_AVAILABLE:
+        # Store for later / in-app display
+        notif_doc = {
+            "title": notification.title,
+            "body": notification.body,
+            "type": notification.type,
+            "url": notification.url,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "sent_count": 0,
+            "status": "stored_only",
+            "note": "Firebase module not available"
+        }
+        await db.sent_push_notifications.insert_one(notif_doc)
+        return {"success": False, "message": "Firebase not configured", "sent_count": 0}
+    
+    if not is_firebase_configured():
+        notif_doc = {
+            "title": notification.title,
+            "body": notification.body,
+            "type": notification.type,
+            "url": notification.url,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "sent_count": 0,
+            "status": "stored_only",
+            "note": "Firebase credentials not set"
+        }
+        await db.sent_push_notifications.insert_one(notif_doc)
+        return {
+            "success": False, 
+            "message": "Firebase not configured. Add FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL to .env",
+            "sent_count": 0
+        }
+    
+    # Get all active FCM tokens
+    tokens_cursor = db.fcm_tokens.find({"active": True})
+    tokens = await tokens_cursor.to_list(10000)
+    
+    if not tokens:
+        return {"success": False, "message": "No registered devices", "sent_count": 0}
+    
+    # Send to all devices
+    token_list = [t["token"] for t in tokens]
+    
+    result = await send_fcm_to_multiple(
+        tokens=token_list,
+        title=notification.title,
+        body=notification.body,
+        image=notification.image,
+        data={
+            "type": notification.type,
+            "url": notification.url or "/",
+            "click_action": notification.url or "https://billbytekot.in"
+        }
+    )
+    
+    # Store notification record
+    notif_doc = {
+        "title": notification.title,
+        "body": notification.body,
+        "type": notification.type,
+        "image": notification.image,
+        "url": notification.url,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "sent_count": result.get("success", 0),
+        "failed_count": result.get("failed", 0),
+        "status": "sent"
+    }
+    await db.sent_push_notifications.insert_one(notif_doc)
+    
+    return {
+        "success": True,
+        "message": f"Push notification sent to {result.get('success', 0)} devices",
+        "sent_count": result.get("success", 0),
+        "failed_count": result.get("failed", 0),
+        "total_devices": len(tokens)
+    }
+
+@api_router.post("/fcm/send-topic")
+async def send_fcm_topic_push(
+    topic: str,
+    notification: PushNotificationSend,
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Send FCM push to a topic (all users subscribed to that topic)"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    if not FCM_AVAILABLE or not is_firebase_configured():
+        return {"success": False, "message": "Firebase not configured"}
+    
+    result = await send_fcm_to_topic(
+        topic=topic,
+        title=notification.title,
+        body=notification.body,
+        image=notification.image,
+        data={"type": notification.type, "url": notification.url}
+    )
+    
+    return result
+
+@api_router.get("/fcm/history")
+async def get_fcm_history(username: str, password: str, limit: int = 50):
+    """Get FCM push notification history"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    notifications = await db.sent_push_notifications.find().sort("created_at", -1).limit(limit).to_list(limit)
+    for n in notifications:
+        n.pop("_id", None)
+    
+    return {"notifications": notifications}
+
+@api_router.post("/push/subscribe")
+async def subscribe_to_push(data: PushSubscription):
+    """Subscribe a device to push notifications"""
+    try:
+        subscription = data.subscription
+        endpoint = subscription.get("endpoint")
+        
+        if not endpoint:
+            raise HTTPException(status_code=400, detail="Invalid subscription: missing endpoint")
+        
+        # Check if subscription already exists
+        existing = await db.push_subscriptions.find_one({"endpoint": endpoint})
+        
+        if existing:
+            # Update existing subscription
+            await db.push_subscriptions.update_one(
+                {"endpoint": endpoint},
+                {"$set": {
+                    "subscription": subscription,
+                    "user_id": data.user_id,
+                    "device_info": data.device_info,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            return {"success": True, "message": "Subscription updated"}
+        
+        # Create new subscription
+        sub_doc = {
+            "endpoint": endpoint,
+            "subscription": subscription,
+            "user_id": data.user_id,
+            "device_info": data.device_info,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "active": True
+        }
+        
+        await db.push_subscriptions.insert_one(sub_doc)
+        
+        # Update total count
+        total = await db.push_subscriptions.count_documents({"active": True})
+        
+        return {
+            "success": True,
+            "message": "Subscribed to push notifications",
+            "total_subscribers": total
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/push/unsubscribe")
+async def unsubscribe_from_push(endpoint: str = Body(..., embed=True)):
+    """Unsubscribe a device from push notifications"""
+    try:
+        result = await db.push_subscriptions.update_one(
+            {"endpoint": endpoint},
+            {"$set": {"active": False, "unsubscribed_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        return {"success": True, "message": "Unsubscribed from push notifications"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/push/stats")
+async def get_push_stats(username: str, password: str):
+    """Get push notification statistics - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    total = await db.push_subscriptions.count_documents({})
+    active = await db.push_subscriptions.count_documents({"active": True})
+    
+    # Get recent subscriptions
+    recent = await db.push_subscriptions.find({"active": True}).sort("created_at", -1).limit(10).to_list(10)
+    for r in recent:
+        r.pop("_id", None)
+        r.pop("subscription", None)  # Don't expose keys
+    
+    return {
+        "total_subscriptions": total,
+        "active_subscriptions": active,
+        "recent_subscriptions": recent
+    }
+
+@api_router.post("/push/send")
+async def send_push_notification(
+    notification: PushNotificationSend,
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Send push notification to all subscribers - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    try:
+        # Get VAPID keys from environment
+        vapid_private_key = os.getenv("VAPID_PRIVATE_KEY")
+        vapid_public_key = os.getenv("VAPID_PUBLIC_KEY")
+        vapid_email = os.getenv("VAPID_EMAIL", "mailto:support@billbytekot.in")
+        
+        if not vapid_private_key or not vapid_public_key:
+            # Return success but note that VAPID not configured
+            # Store notification for in-app display
+            notif_doc = {
+                "title": notification.title,
+                "body": notification.body,
+                "type": notification.type,
+                "url": notification.url,
+                "priority": notification.priority,
+                "target": notification.target,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "sent_count": 0,
+                "failed_count": 0,
+                "status": "stored_only",
+                "note": "VAPID keys not configured - notification stored for in-app display only"
+            }
+            await db.sent_notifications.insert_one(notif_doc)
+            
+            return {
+                "success": True,
+                "message": "Notification stored for in-app display (VAPID not configured for push)",
+                "sent_count": 0,
+                "stored": True
+            }
+        
+        # Import pywebpush
+        try:
+            from pywebpush import webpush, WebPushException
+        except ImportError:
+            # Store notification for in-app display
+            notif_doc = {
+                "title": notification.title,
+                "body": notification.body,
+                "type": notification.type,
+                "url": notification.url,
+                "priority": notification.priority,
+                "target": notification.target,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "sent_count": 0,
+                "status": "stored_only",
+                "note": "pywebpush not installed"
+            }
+            await db.sent_notifications.insert_one(notif_doc)
+            
+            return {
+                "success": True,
+                "message": "Notification stored (pywebpush not installed)",
+                "sent_count": 0
+            }
+        
+        # Get active subscriptions
+        subscriptions = await db.push_subscriptions.find({"active": True}).to_list(10000)
+        
+        if not subscriptions:
+            return {"success": False, "message": "No active subscribers", "sent_count": 0}
+        
+        # Prepare notification payload
+        payload = json.dumps({
+            "title": notification.title,
+            "body": notification.body,
+            "icon": notification.icon,
+            "badge": notification.badge,
+            "url": notification.url,
+            "type": notification.type,
+            "image": notification.image,
+            "priority": notification.priority,
+            "tag": notification.tag or f"billbytekot-{datetime.now().timestamp()}",
+            "notification_id": str(uuid.uuid4())
+        })
+        
+        vapid_claims = {
+            "sub": vapid_email
+        }
+        
+        sent_count = 0
+        failed_count = 0
+        failed_endpoints = []
+        
+        for sub in subscriptions:
+            try:
+                subscription_info = sub.get("subscription", {})
+                webpush(
+                    subscription_info=subscription_info,
+                    data=payload,
+                    vapid_private_key=vapid_private_key,
+                    vapid_claims=vapid_claims
+                )
+                sent_count += 1
+            except WebPushException as e:
+                failed_count += 1
+                # If subscription is invalid, mark as inactive
+                if e.response and e.response.status_code in [404, 410]:
+                    await db.push_subscriptions.update_one(
+                        {"endpoint": sub.get("endpoint")},
+                        {"$set": {"active": False, "error": str(e)}}
+                    )
+                    failed_endpoints.append(sub.get("endpoint"))
+            except Exception as e:
+                failed_count += 1
+        
+        # Store notification record
+        notif_doc = {
+            "title": notification.title,
+            "body": notification.body,
+            "type": notification.type,
+            "url": notification.url,
+            "priority": notification.priority,
+            "target": notification.target,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+            "status": "sent"
+        }
+        await db.sent_notifications.insert_one(notif_doc)
+        
+        return {
+            "success": True,
+            "message": f"Notification sent to {sent_count} devices",
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+            "total_subscribers": len(subscriptions)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/push/history")
+async def get_push_history(username: str, password: str, limit: int = 50):
+    """Get push notification history - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    notifications = await db.sent_notifications.find().sort("created_at", -1).limit(limit).to_list(limit)
+    for n in notifications:
+        n.pop("_id", None)
+    
+    return {"notifications": notifications}
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()

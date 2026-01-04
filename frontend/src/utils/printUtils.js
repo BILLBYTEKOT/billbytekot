@@ -425,14 +425,48 @@ const showMobilePrintOptions = (order, businessOverride) => new Promise((resolve
 
 // ============ MAIN EXPORTS ============
 
-export const printReceipt = (order, businessOverride = null) => {
-  try { return printThermal(generateReceiptHTML(order, businessOverride), getPrintSettings().paper_width); }
-  catch (e) { toast.error('Print failed'); return false; }
+export const printReceipt = async (order, businessOverride = null) => {
+  try {
+    // Try Bluetooth direct print first (no dialog)
+    if (isBluetoothPrinterConnected()) {
+      try {
+        const { printReceipt: btPrint } = await import('./bluetoothPrint');
+        await btPrint(order, businessOverride || getBusinessSettings());
+        toast.success('Receipt printed!');
+        return true;
+      } catch (btError) {
+        console.log('Bluetooth print failed, falling back:', btError);
+      }
+    }
+    
+    // Fallback to window print
+    return printThermal(generateReceiptHTML(order, businessOverride), getPrintSettings().paper_width);
+  } catch (e) { 
+    toast.error('Print failed'); 
+    return false; 
+  }
 };
 
-export const printKOT = (order, businessOverride = null) => {
-  try { return printThermal(generateKOTHTML(order, businessOverride), getPrintSettings().paper_width); }
-  catch (e) { toast.error('Print failed'); return false; }
+export const printKOT = async (order, businessOverride = null) => {
+  try {
+    // Try Bluetooth direct print first (no dialog)
+    if (isBluetoothPrinterConnected()) {
+      try {
+        const { printKOT: btPrintKOT } = await import('./bluetoothPrint');
+        await btPrintKOT(order, businessOverride || getBusinessSettings());
+        toast.success('KOT printed!');
+        return true;
+      } catch (btError) {
+        console.log('Bluetooth KOT print failed, falling back:', btError);
+      }
+    }
+    
+    // Fallback to window print
+    return printThermal(generateKOTHTML(order, businessOverride), getPrintSettings().paper_width);
+  } catch (e) { 
+    toast.error('Print failed'); 
+    return false; 
+  }
 };
 
 export const printDocument = (content, title = 'Print') => {

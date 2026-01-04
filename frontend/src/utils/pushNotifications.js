@@ -1,49 +1,70 @@
-// Push Notification Service for BillByteKOT
-import { toast } from 'sonner';
+// Push Notification Utility for BillByteKOT
+import axios from 'axios';
 
-const VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
+const API = process.env.REACT_APP_API_URL || 'https://restro-ai.onrender.com/api';
+
+// VAPID public key - this should match the backend
+// Generate with: npx web-push generate-vapid-keys
+const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || 'BLBx-hf5WZXjMYkPqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXEqPXE';
+
+// Convert VAPID key to Uint8Array
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 // Check if push notifications are supported
-export const isPushSupported = () => {
+export function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-};
+}
 
-// Get notification permission status
-export const getNotificationPermission = () => {
+// Get current notification permission status
+export function getNotificationPermission() {
   if (!('Notification' in window)) return 'unsupported';
-  return Notification.permission;
-};
+  return Notification.permission; // 'granted', 'denied', or 'default'
+}
 
 // Request notification permission
-export const requestNotificationPermission = async () => {
-  if (!isPushSupported()) {
-    toast.error('Push notifications not supported on this device');
-    return false;
+export async function requestNotificationPermission() {
+  if (!('Notification' in window)) {
+    return { success: false, error: 'Notifications not supported' };
   }
-
+  
   try {
     const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      toast.success('Notifications enabled!');
-      return true;
-    } else {
-      toast.error('Notification permission denied');
-      return false;
-    }
+    return { success: permission === 'granted', permission };
   } catch (error) {
-    console.error('Permission request failed:', error);
-    return false;
+    return { success: false, error: error.message };
   }
-};
+}
 
 // Subscribe to push notifications
-export const subscribeToPush = async (API) => {
-  if (!isPushSupported()) return null;
-
+export async function subscribeToPush(userId = null) {
+  if (!isPushSupported()) {
+    return { success: false, error: 'Push notifications not supported' };
+  }
+  
   try {
+    // Request permission first
+    const permResult = await requestNotificationPermission();
+    if (!permResult.success) {
+      return { success: false, error: 'Permission denied' };
+    }
+    
+    // Get service worker registration
     const registration = await navigator.serviceWorker.ready;
     
-    // Check existing subscription
+    // Check for existing subscription
     let subscription = await registration.pushManager.getSubscription();
     
     if (!subscription) {
@@ -53,56 +74,80 @@ export const subscribeToPush = async (API) => {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
       });
     }
-
+    
     // Send subscription to backend
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.id) {
-      await fetch(`${API}/notifications/subscribe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: user.id,
-          subscription: subscription.toJSON()
-        })
-      });
-    }
-
-    return subscription;
+    const response = await axios.post(`${API}/push/subscribe`, {
+      subscription: subscription.toJSON(),
+      user_id: userId,
+      device_info: {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language
+      }
+    });
+    
+    return { success: true, subscription, response: response.data };
   } catch (error) {
-    console.error('Push subscription failed:', error);
-    return null;
+    console.error('Push subscription error:', error);
+    return { success: false, error: error.message };
   }
-};
+}
 
-// Unsubscribe from push
-export const unsubscribeFromPush = async () => {
+// Unsubscribe from push notifications
+export async function unsubscribeFromPush() {
+  if (!isPushSupported()) {
+    return { success: false, error: 'Push notifications not supported' };
+  }
+  
   try {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
+    
     if (subscription) {
+      // Notify backend
+      await axios.post(`${API}/push/unsubscribe`, {
+        endpoint: subscription.endpoint
+      }).catch(() => {}); // Ignore errors
+      
+      // Unsubscribe locally
       await subscription.unsubscribe();
     }
-    return true;
+    
+    return { success: true };
   } catch (error) {
-    console.error('Unsubscribe failed:', error);
+    console.error('Push unsubscribe error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Check if user is subscribed
+export async function isSubscribedToPush() {
+  if (!isPushSupported()) return false;
+  
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    return !!subscription;
+  } catch {
     return false;
   }
-};
+}
 
-// Show local notification (for in-app notifications)
-export const showLocalNotification = (title, options = {}) => {
-  if (Notification.permission !== 'granted') return;
-
+// Show local notification (for testing)
+export function showLocalNotification(title, options = {}) {
+  if (Notification.permission !== 'granted') {
+    console.log('Notification permission not granted');
+    return;
+  }
+  
   const defaultOptions = {
-    icon: '/logo192.png',
-    badge: '/logo192.png',
-    vibrate: [200, 100, 200],
-    tag: 'billbytekot-notification',
-    renotify: true,
-    requireInteraction: false,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [100, 50, 100],
+    tag: 'billbytekot-local',
     ...options
   };
-
+  
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready.then(registration => {
       registration.showNotification(title, defaultOptions);
@@ -110,187 +155,68 @@ export const showLocalNotification = (title, options = {}) => {
   } else {
     new Notification(title, defaultOptions);
   }
-};
-
-// Helper function
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
 }
 
-// In-App Notification System (doesn't require permission)
-let notificationContainer = null;
+// Start polling for in-app notifications
+let pollingInterval = null;
 
-const createNotificationContainer = () => {
-  if (notificationContainer) return notificationContainer;
-  
-  const container = document.createElement('div');
-  container.id = 'app-notifications';
-  container.style.cssText = `
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    left: 16px;
-    z-index: 99999;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    pointer-events: none;
-  `;
-  document.body.appendChild(container);
-  notificationContainer = container;
-  return container;
-};
-
-export const showInAppNotification = ({ title, message, type = 'info', duration = 5000, action = null }) => {
-  const container = createNotificationContainer();
-  
-  const colors = {
-    info: { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', icon: '📢' },
-    success: { bg: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', icon: '✅' },
-    warning: { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', icon: '⚠️' },
-    error: { bg: 'linear-gradient(135deg, #eb3349 0%, #f45c43 100%)', icon: '❌' },
-    order: { bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', icon: '🍽️' },
-    promo: { bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', icon: '🎉' }
-  };
-  
-  const { bg, icon } = colors[type] || colors.info;
-  
-  const notification = document.createElement('div');
-  notification.style.cssText = `
-    background: ${bg};
-    color: white;
-    padding: 16px;
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    pointer-events: auto;
-    transform: translateX(120%);
-    transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    cursor: pointer;
-    max-width: 400px;
-    margin-left: auto;
-  `;
-  
-  notification.innerHTML = `
-    <div style="font-size: 28px; line-height: 1;">${icon}</div>
-    <div style="flex: 1; min-width: 0;">
-      <div style="font-weight: 700; font-size: 15px; margin-bottom: 4px;">${title}</div>
-      <div style="font-size: 13px; opacity: 0.9; line-height: 1.4;">${message}</div>
-      ${action ? `<button style="margin-top: 8px; background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">${action.label}</button>` : ''}
-    </div>
-    <button style="background: none; border: none; color: white; opacity: 0.7; cursor: pointer; padding: 0; font-size: 18px; line-height: 1;">×</button>
-  `;
-  
-  container.appendChild(notification);
-  
-  // Animate in
-  requestAnimationFrame(() => {
-    notification.style.transform = 'translateX(0)';
-  });
-  
-  // Play sound
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) {
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-    }
-  } catch (e) {}
-  
-  // Vibrate on mobile
-  if ('vibrate' in navigator) {
-    navigator.vibrate([100, 50, 100]);
+export function startNotificationPolling(apiUrl, interval = 60000) {
+  // Clear any existing interval
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
   }
-  
-  const dismiss = () => {
-    notification.style.transform = 'translateX(120%)';
-    setTimeout(() => notification.remove(), 400);
-  };
-  
-  // Close button
-  notification.querySelector('button:last-child').onclick = (e) => {
-    e.stopPropagation();
-    dismiss();
-  };
-  
-  // Action button
-  if (action) {
-    notification.querySelector('button:first-of-type').onclick = (e) => {
-      e.stopPropagation();
-      action.onClick?.();
-      dismiss();
-    };
-  }
-  
-  // Click to dismiss
-  notification.onclick = dismiss;
-  
-  // Auto dismiss
-  if (duration > 0) {
-    setTimeout(dismiss, duration);
-  }
-  
-  return { dismiss };
-};
-
-// Poll for notifications from backend
-let pollInterval = null;
-
-export const startNotificationPolling = (API, interval = 30000) => {
-  if (pollInterval) return;
   
   const checkNotifications = async () => {
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      if (!user.id) return;
+      const token = localStorage.getItem('token');
+      if (!token) return;
       
-      const lastCheck = localStorage.getItem('lastNotificationCheck') || '0';
-      const response = await fetch(`${API}/notifications/check?user_id=${user.id}&since=${lastCheck}`);
+      const response = await axios.get(`${apiUrl}/notifications/unread`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       
-      if (response.ok) {
-        const data = await response.json();
-        if (data.notifications?.length > 0) {
-          data.notifications.forEach(notif => {
-            showInAppNotification({
-              title: notif.title,
-              message: notif.message,
-              type: notif.type || 'info',
-              duration: 8000
-            });
-          });
-        }
-        localStorage.setItem('lastNotificationCheck', Date.now().toString());
+      const notifications = response.data?.notifications || [];
+      
+      // Show notification for new unread items
+      if (notifications.length > 0 && Notification.permission === 'granted') {
+        const latest = notifications[0];
+        showLocalNotification(latest.title || 'New Notification', {
+          body: latest.message || latest.body,
+          tag: `notification-${latest.id}`,
+          data: { url: latest.action_url || '/' }
+        });
       }
     } catch (error) {
-      // Silent fail
+      // Silently fail - don't spam console
     }
   };
   
+  // Check immediately, then at interval
   checkNotifications();
-  pollInterval = setInterval(checkNotifications, interval);
-};
+  pollingInterval = setInterval(checkNotifications, interval);
+  
+  return () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+  };
+}
 
-export const stopNotificationPolling = () => {
-  if (pollInterval) {
-    clearInterval(pollInterval);
-    pollInterval = null;
+export function stopNotificationPolling() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
   }
+}
+
+export default {
+  isPushSupported,
+  getNotificationPermission,
+  requestNotificationPermission,
+  subscribeToPush,
+  unsubscribeFromPush,
+  isSubscribedToPush,
+  showLocalNotification,
+  startNotificationPolling,
+  stopNotificationPolling
 };

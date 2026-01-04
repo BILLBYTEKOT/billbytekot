@@ -567,7 +567,7 @@ function App() {
     // Register service worker for offline support
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
-        .then(registration => {
+        .then(async (registration) => {
           console.log('Service Worker registered:', registration.scope);
           
           // Check for updates
@@ -579,6 +579,18 @@ function App() {
               }
             });
           });
+          
+          // Subscribe to push notifications if permission granted
+          if (Notification.permission === 'granted') {
+            try {
+              const { subscribeToPush } = await import('./utils/pushNotifications');
+              const userId = localStorage.getItem('userId') || null;
+              await subscribeToPush(userId);
+              console.log('Push notifications subscribed');
+            } catch (e) {
+              console.log('Push subscription skipped:', e.message);
+            }
+          }
         })
         .catch(err => console.log('Service Worker registration failed:', err));
     }
