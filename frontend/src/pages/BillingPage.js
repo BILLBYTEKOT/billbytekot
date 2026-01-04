@@ -423,126 +423,110 @@ const BillingPage = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-6xl mx-auto pb-6 px-2 lg:px-4">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <button 
-            onClick={() => navigate('/orders')} 
-            className="p-2 hover:bg-gray-100 rounded-full"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold">Bill #{order.invoice_number || order.id.slice(0, 6)}</h1>
-            <p className="text-sm text-gray-500">
-              {order.table_number ? `Table ${order.table_number}` : 'Counter'} • {new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-            </p>
-          </div>
-        </div>
-
+      <div className="max-w-6xl mx-auto pb-2 px-2 lg:px-4">
         {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
           {/* Left Column - Items */}
           <div>
             {/* Order Items */}
             <Card className="border-0 shadow-lg h-fit">
-          <CardContent className="p-4">
-            {/* Add Item Section */}
-            <div className="mb-3 pb-3 border-b border-dashed">
+          <CardContent className="p-3 lg:p-4">
+            {/* Add Item Section - Compact */}
+            <div className="mb-2 pb-2 border-b border-dashed">
               {/* Menu Item Search/Dropdown */}
-              <div className="relative mb-2" ref={dropdownRef}>
+              <div className="relative mb-1.5" ref={dropdownRef}>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Search menu items..."
+                    placeholder="Search menu..."
                     value={menuSearch}
                     onChange={(e) => {
                       setMenuSearch(e.target.value);
                       setShowMenuDropdown(true);
                     }}
                     onFocus={() => setShowMenuDropdown(true)}
-                    className="pl-9 h-10 text-sm"
+                    className="pl-8 h-9 text-sm"
                   />
                 </div>
                 
                 {/* Menu Dropdown */}
                 {showMenuDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {menuItems
                       .filter(item => item.name.toLowerCase().includes(menuSearch.toLowerCase()))
-                      .slice(0, 15)
+                      .slice(0, 10)
                       .map(item => (
                         <button
                           key={item.id}
                           onClick={() => handleAddMenuItem(item)}
-                          className="w-full px-3 py-2.5 text-left hover:bg-violet-50 flex justify-between items-center text-sm border-b last:border-b-0"
+                          className="w-full px-2 py-2 text-left hover:bg-violet-50 flex justify-between items-center text-sm border-b last:border-b-0"
                         >
-                          <span className="font-medium">{item.name}</span>
-                          <span className="text-violet-600 font-bold">{currency}{item.price}</span>
+                          <span className="font-medium truncate">{item.name}</span>
+                          <span className="text-violet-600 font-bold ml-2">{currency}{item.price}</span>
                         </button>
                       ))}
                     {menuItems.filter(item => item.name.toLowerCase().includes(menuSearch.toLowerCase())).length === 0 && (
-                      <div className="px-3 py-2 text-gray-500 text-sm">No items found</div>
+                      <div className="px-2 py-2 text-gray-500 text-sm">No items found</div>
                     )}
                   </div>
                 )}
               </div>
               
               {/* Manual Item Entry */}
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 <Input
-                  placeholder="Custom item name"
+                  placeholder="Custom item"
                   value={manualItemName}
                   onChange={(e) => setManualItemName(e.target.value)}
-                  className="flex-1 h-10 text-sm"
+                  className="flex-1 h-9 text-sm"
                 />
                 <Input
                   type="number"
                   placeholder="₹"
                   value={manualItemPrice}
                   onChange={(e) => setManualItemPrice(e.target.value)}
-                  className="w-24 h-10 text-sm"
+                  className="w-16 h-9 text-sm"
                   min="0"
                 />
                 <Button 
                   size="sm" 
                   onClick={handleAddManualItem}
-                  className="h-10 px-4 bg-green-600 hover:bg-green-700"
+                  className="h-9 px-3 bg-green-600 hover:bg-green-700"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
             </div>
             
-            {/* Items List - Scrollable */}
-            <div className="space-y-3 max-h-[40vh] lg:max-h-[50vh] overflow-y-auto pr-1">
+            {/* Items List - Compact & Scrollable */}
+            <div className="space-y-1.5 max-h-[28vh] lg:max-h-[45vh] overflow-y-auto pr-1">
               {orderItems.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center py-1">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div className="flex items-center gap-1 shrink-0">
+                <div key={idx} className="flex justify-between items-center py-0.5">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-0.5 shrink-0">
                       <button 
                         onClick={() => handleItemQuantityChange(idx, -1)}
-                        className="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center"
+                        className="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="w-8 h-8 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center text-sm font-bold">
+                      <span className="w-6 h-6 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center text-xs font-bold">
                         {item.quantity}
                       </span>
                       <button 
                         onClick={() => handleItemQuantityChange(idx, 1)}
-                        className="w-7 h-7 bg-violet-600 hover:bg-violet-700 text-white rounded flex items-center justify-center"
+                        className="w-6 h-6 bg-violet-600 hover:bg-violet-700 text-white rounded flex items-center justify-center"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
                     <span className="font-medium text-sm truncate">{item.name}</span>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-semibold">{currency}{(item.price * item.quantity).toFixed(0)}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="font-semibold text-sm">{currency}{(item.price * item.quantity).toFixed(0)}</span>
                     <button 
                       onClick={() => handleRemoveItem(idx)}
-                      className="text-red-400 hover:text-red-600 p-1"
+                      className="text-red-400 hover:text-red-600 p-0.5"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -551,8 +535,8 @@ const BillingPage = ({ user }) => {
               ))}
             </div>
             
-            {/* Totals */}
-            <div className="mt-4 pt-4 border-t border-dashed space-y-2">
+            {/* Totals - Compact */}
+            <div className="mt-2 pt-2 border-t border-dashed space-y-1 text-sm">
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal</span>
                 <span>{currency}{calculateSubtotal().toFixed(0)}</span>
@@ -564,12 +548,12 @@ const BillingPage = ({ user }) => {
                 </div>
               )}
               <div className="flex justify-between items-center text-gray-600">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <span>Tax</span>
                   <select
                     value={customTaxRate !== null ? customTaxRate : getEffectiveTaxRate()}
                     onChange={(e) => setCustomTaxRate(Number(e.target.value))}
-                    className="text-xs px-2 py-1 border rounded bg-gray-50"
+                    className="text-xs px-1.5 py-0.5 border rounded bg-gray-50"
                   >
                     <option value="0">0%</option>
                     <option value="5">5%</option>
@@ -580,7 +564,7 @@ const BillingPage = ({ user }) => {
                 </div>
                 <span>{currency}{calculateTax().toFixed(0)}</span>
               </div>
-              <div className="flex justify-between text-xl font-bold pt-2 border-t">
+              <div className="flex justify-between text-lg font-bold pt-1 border-t">
                 <span>Total</span>
                 <span className="text-violet-600">{currency}{calculateTotal().toFixed(0)}</span>
               </div>
@@ -590,182 +574,157 @@ const BillingPage = ({ user }) => {
           </div>
 
           {/* Right Column - Payment & Actions */}
-          <div className="space-y-4">
-            {/* Discount Section */}
+          <div className="space-y-2 lg:space-y-4">
+            {/* Discount + Payment Combined on Mobile */}
             <Card className="border-0 shadow-lg">
-              <CardContent className="p-4">
-                <p className="text-sm font-medium text-gray-700 mb-3">Discount</p>
-          
-          {/* Custom Discount Input */}
-          <div className="flex gap-2 mb-3">
-            <select
-              value={discountType}
-              onChange={(e) => {
-                setDiscountType(e.target.value);
-                setDiscountValue('');
-              }}
-              className="h-10 px-3 border rounded-lg bg-white text-sm font-medium"
-            >
-              <option value="amount">₹ Amount</option>
-              <option value="percent">% Percent</option>
-            </select>
-            <Input
-              type="number"
-              placeholder={discountType === 'percent' ? 'Enter %' : 'Enter ₹'}
-              value={discountValue}
-              onChange={(e) => setDiscountValue(e.target.value)}
-              className="flex-1 h-10"
-              min="0"
-              max={discountType === 'percent' ? 100 : undefined}
-            />
-            {discountValue && (
-              <button
-                onClick={() => setDiscountValue('')}
-                className="h-10 px-3 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm font-medium"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          
-          {/* Quick Discount Buttons */}
-          <div className="flex gap-2">
-            {[0, 5, 10, 15, 20].map(pct => (
-              <button
-                key={pct}
+              <CardContent className="p-3 lg:p-4">
+                {/* Discount Row */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-700 shrink-0">Discount:</span>
+                  <select
+                    value={discountType}
+                    onChange={(e) => {
+                      setDiscountType(e.target.value);
+                      setDiscountValue('');
+                    }}
+                    className="h-8 px-2 border rounded bg-white text-sm"
+                  >
+                    <option value="amount">₹</option>
+                    <option value="percent">%</option>
+                  </select>
+                  <Input
+                    type="number"
+                    placeholder={discountType === 'percent' ? '%' : '₹'}
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    className="flex-1 h-8 text-sm"
+                    min="0"
+                    max={discountType === 'percent' ? 100 : undefined}
+                  />
+                  {/* Quick Discount Buttons - Inline */}
+                  <div className="hidden sm:flex gap-1">
+                    {[5, 10, 15].map(pct => (
+                      <button
+                        key={pct}
+                        onClick={() => {
+                          setDiscountType('percent');
+                          setDiscountValue(pct.toString());
+                        }}
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          discountType === 'percent' && discountValue === pct.toString()
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-100 hover:bg-gray-200'
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment Methods - Horizontal */}
+                <div className="flex gap-2 mb-2">
+                  {[
+                    { id: 'cash', icon: Wallet, label: 'Cash', color: '#22c55e' },
+                    { id: 'card', icon: CreditCard, label: 'Card', color: '#3b82f6' },
+                    { id: 'upi', icon: Smartphone, label: 'UPI', color: '#8b5cf6' }
+                  ].map(method => (
+                    <button
+                      key={method.id}
+                      onClick={() => setPaymentMethod(method.id)}
+                      className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                        paymentMethod === method.id
+                          ? 'text-white shadow-md'
+                          : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
+                      style={paymentMethod === method.id ? { backgroundColor: method.color } : {}}
+                    >
+                      <method.icon className="w-4 h-4" />
+                      <span className="text-sm font-medium">{method.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Pay Button */}
+                {!paymentCompleted ? (
+                  <Button
+                    onClick={handlePayment}
+                    disabled={loading}
+                    className="w-full h-12 text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-lg shadow-lg"
+                  >
+                    {loading ? (
+                      <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                    ) : (
+                      <>Pay {currency}{calculateTotal().toFixed(0)}</>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                        <Check className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-green-800 text-sm">Payment Done!</p>
+                        <p className="text-xs text-green-600">{currency}{calculateTotal().toFixed(0)} via {paymentMethod}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Action Buttons - Compact */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
                 onClick={() => {
-                  if (pct === 0) {
-                    setDiscountValue('');
-                    setDiscountType('amount');
-                  } else {
-                    setDiscountType('percent');
-                    setDiscountValue(pct.toString());
-                  }
+                  const discountAmt = calculateDiscountAmount();
+                  const updatedOrder = { 
+                    ...order, 
+                    items: orderItems, 
+                    subtotal: calculateSubtotal(), 
+                    tax: calculateTax(), 
+                    total: calculateTotal(),
+                    discount: discountAmt,
+                    discount_amount: discountAmt,
+                    tax_rate: getEffectiveTaxRate()
+                  };
+                  printReceipt(updatedOrder, businessSettings);
                 }}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  (pct === 0 && !discountValue) || (discountType === 'percent' && discountValue === pct.toString())
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-100 hover:bg-gray-200'
-                }`}
+                className="flex-1 h-10"
               >
-                {pct === 0 ? 'None' : `${pct}%`}
-              </button>
-            ))}
-          </div>
-          
-          {/* Show calculated discount */}
-          {calculateDiscountAmount() > 0 && (
-            <p className="text-sm text-green-600 mt-3 text-center font-medium">
-              Discount: -{currency}{calculateDiscountAmount().toFixed(0)}
-            </p>
-          )}
-              </CardContent>
-            </Card>
-
-        {/* Payment Methods */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-4">
-                <p className="text-sm font-medium text-gray-700 mb-3">Payment Method</p>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { id: 'cash', icon: Wallet, label: 'Cash', color: 'green' },
-              { id: 'card', icon: CreditCard, label: 'Card', color: 'blue' },
-              { id: 'upi', icon: Smartphone, label: 'UPI', color: 'purple' }
-            ].map(method => (
-              <button
-                key={method.id}
-                onClick={() => setPaymentMethod(method.id)}
-                className={`p-4 rounded-xl flex flex-col items-center gap-2 transition-all ${
-                  paymentMethod === method.id
-                    ? `bg-${method.color}-500 text-white shadow-lg scale-105`
-                    : 'bg-gray-100 hover:bg-gray-200'
-                }`}
-                style={paymentMethod === method.id ? {
-                  backgroundColor: method.color === 'green' ? '#22c55e' : method.color === 'blue' ? '#3b82f6' : '#8b5cf6'
-                } : {}}
+                <Printer className="w-4 h-4 mr-1" />
+                Print
+              </Button>
+              <Button
+                variant="outline"
+                onClick={downloadBillPDF}
+                className="flex-1 h-10"
               >
-                <method.icon className="w-6 h-6" />
-                <span className="text-sm font-medium">{method.label}</span>
-              </button>
-            ))}
-          </div>
-              </CardContent>
-            </Card>
-
-        {/* Pay Button */}
-        {!paymentCompleted ? (
-          <Button
-            onClick={handlePayment}
-            disabled={loading}
-            className="w-full h-14 text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl shadow-lg"
-          >
-            {loading ? (
-              <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-            ) : (
-              <>Pay {currency}{calculateTotal().toFixed(0)}</>
-            )}
-          </Button>
-        ) : (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-            <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Check className="w-6 h-6 text-white" />
+                <Download className="w-4 h-4 mr-1" />
+                PDF
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowWhatsappModal(true)}
+                className="flex-1 h-10 border-green-500 text-green-600 hover:bg-green-50"
+              >
+                <MessageCircle className="w-4 h-4 mr-1" />
+                Share
+              </Button>
             </div>
-            <p className="font-bold text-green-800">Payment Successful!</p>
-            <p className="text-sm text-green-600">{currency}{calculateTotal().toFixed(0)} paid via {paymentMethod}</p>
-          </div>
-        )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              const discountAmt = calculateDiscountAmount();
-              const updatedOrder = { 
-                ...order, 
-                items: orderItems, 
-                subtotal: calculateSubtotal(), 
-                tax: calculateTax(), 
-                total: calculateTotal(),
-                discount: discountAmt,
-                discount_amount: discountAmt,
-                tax_rate: getEffectiveTaxRate()
-              };
-              printReceipt(updatedOrder, businessSettings);
-            }}
-            className="flex-1 h-12"
-          >
-            <Printer className="w-4 h-4 mr-2" />
-            Print
-          </Button>
-          <Button
-            variant="outline"
-            onClick={downloadBillPDF}
-            className="flex-1 h-12"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            PDF
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setShowWhatsappModal(true)}
-            className="flex-1 h-12 border-green-500 text-green-600 hover:bg-green-50"
-          >
-            <MessageCircle className="w-4 h-4 mr-2" />
-            Share
-          </Button>
-        </div>
-
-        {/* Back to Orders */}
-        {paymentCompleted && (
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/orders')}
-            className="w-full"
-          >
-            ← Back to Orders
-          </Button>
-        )}
+            {/* Back to Orders */}
+            {paymentCompleted && (
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/orders')}
+                className="w-full h-9"
+              >
+                ← Back to Orders
+              </Button>
+            )}
           </div>
         </div>
 
