@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Eye, Printer, CreditCard, MessageCircle, X, Receipt, Minus, Search, Edit, Trash2, Ban, MoreVertical, AlertTriangle, ArrowLeft, ShoppingCart, Clock, CheckCircle, Wallet, DollarSign } from 'lucide-react';
+import { Plus, Eye, Printer, CreditCard, MessageCircle, X, Receipt, Search, Edit, Trash2, Ban, MoreVertical, AlertTriangle, ArrowLeft, ShoppingCart, Clock, CheckCircle, Wallet, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import TrialBanner from '../components/TrialBanner';
 import { printKOT as printKOTUtil, printReceipt as printReceiptUtil } from '../utils/printUtils';
@@ -182,17 +182,6 @@ const OrdersPage = ({ user }) => {
     } catch (error) {
       console.error('Failed to fetch tables', error);
       setTables([]);
-    }
-  };
-
-  const fetchMenuItems = async () => {
-    try {
-      const response = await axios.get(`${API}/menu`);
-      const items = Array.isArray(response.data) ? response.data : [];
-      setMenuItems(items.filter(item => item.available));
-    } catch (error) {
-      console.error('Failed to fetch menu', error);
-      setMenuItems([]);
     }
   };
 
@@ -1284,99 +1273,64 @@ const OrdersPage = ({ user }) => {
 
         {/* Active Orders Tab */}
         {activeTab === 'active' && (
-          <div className="grid gap-3 sm:gap-4">
+          <div className="space-y-3">
             {orders.filter(order => !['completed', 'cancelled'].includes(order.status)).length === 0 && (
-              <Card className="p-8 text-center border-2 border-dashed border-gray-200">
-                <div className="text-4xl mb-3">🍽️</div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-1">No Active Orders</h3>
-                <p className="text-gray-500 text-sm">All tables are clear. Create a new order to get started!</p>
-              </Card>
+              <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
+                <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">🍽️</span>
+                </div>
+                <h3 className="text-lg font-bold text-gray-800 mb-1">No Active Orders</h3>
+                <p className="text-gray-500 text-sm">All clear! Tap "New Order" to get started</p>
+              </div>
             )}
             {orders.filter(order => !['completed', 'cancelled'].includes(order.status)).map((order) => {
               const statusConfig = {
-                pending: { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-700', icon: '⏳' },
-                preparing: { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700', icon: '👨‍🍳' },
-                ready: { bg: 'bg-emerald-50', border: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-700', icon: '✅' },
-                completed: { bg: 'bg-gray-50', border: 'border-gray-200', badge: 'bg-gray-100 text-gray-600', icon: '🎉' },
-                cancelled: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-600', icon: '❌' }
+                pending: { color: 'amber', icon: '⏳', label: 'Pending', bg: 'bg-amber-500' },
+                preparing: { color: 'blue', icon: '👨‍🍳', label: 'Cooking', bg: 'bg-blue-500' },
+                ready: { color: 'emerald', icon: '✅', label: 'Ready', bg: 'bg-emerald-500' }
               };
               const config = statusConfig[order.status] || statusConfig.pending;
               
               return (
-                <Card key={order.id} className={`border-2 ${config.border} ${config.bg} shadow-sm hover:shadow-md transition-all overflow-hidden`} data-testid={`order-card-${order.id}`}>
-                  {/* Status Bar */}
-                  <div className={`h-1 ${order.status === 'preparing' ? 'bg-gradient-to-r from-blue-400 to-blue-600 animate-pulse' : order.status === 'ready' ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : order.status === 'pending' ? 'bg-gradient-to-r from-amber-400 to-amber-600' : 'bg-gray-300'}`} />
-                  
-                  <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-lg">{config.icon}</span>
-                          <CardTitle className="text-base sm:text-lg font-bold">Order #{order.id.slice(0, 8)}</CardTitle>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <span className="w-5 h-5 bg-violet-100 rounded-full flex items-center justify-center text-[10px]">🍽️</span>
-                            Table {order.table_number}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-[10px]">👤</span>
-                            {order.waiter_name}
-                          </span>
-                        </div>
-                        {order.customer_name && (
-                          <p className="text-xs sm:text-sm text-gray-500 mt-1 flex items-center gap-1">
-                            <span className="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center text-[10px]">📱</span>
-                            {order.customer_name}
-                            {order.customer_phone && <span className="text-gray-400">• {order.customer_phone}</span>}
-                          </p>
-                        )}
-                        <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
-                          {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}, {new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" data-testid={`order-card-${order.id}`}>
+                  {/* Header Row */}
+                  <div className="flex items-center justify-between p-3 border-b border-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 ${config.bg} rounded-xl flex items-center justify-center text-white text-lg shadow-sm`}>
+                        {config.icon}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-800">#{order.id.slice(0, 6)}</p>
+                        <p className="text-xs text-gray-500">
+                          {order.table_number > 0 ? `Table ${order.table_number}` : 'Counter'} • {new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${config.badge} shadow-sm`}>
-                          {order.status}
-                        </span>
-                        {/* Action Menu for Edit/Cancel/Delete */}
-                        {['admin', 'cashier'].includes(user?.role) && order.status !== 'completed' && (
-                          <div className="relative">
-                            <button
-                              onClick={() => setActionMenuOpen(actionMenuOpen === order.id ? null : order.id)}
-                              className="p-1.5 rounded-lg hover:bg-white/80 transition-colors"
-                            >
-                              <MoreVertical className="w-4 h-4 text-gray-500" />
-                            </button>
-                            {actionMenuOpen === order.id && (
-                              <>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold bg-${config.color}-100 text-${config.color}-700`}>
+                        {config.label}
+                      </span>
+                      {['admin', 'cashier'].includes(user?.role) && (
+                        <div className="relative">
+                          <button
+                            onClick={() => setActionMenuOpen(actionMenuOpen === order.id ? null : order.id)}
+                            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center"
+                          >
+                            <MoreVertical className="w-4 h-4 text-gray-400" />
+                          </button>
+                          {actionMenuOpen === order.id && (
+                            <>
                               <div className="fixed inset-0 z-10" onClick={() => setActionMenuOpen(null)} />
-                              <div className="absolute right-0 top-8 z-20 w-40 bg-white rounded-xl shadow-xl border py-1.5">
-                                {order.status !== 'cancelled' && (
-                                  <>
-                                    <button
-                                      onClick={() => handleEditOrder(order)}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 transition-colors"
-                                    >
-                                      <Edit className="w-4 h-4 text-blue-600" />
-                                      <span>Edit Order</span>
-                                    </button>
-                                    <button
-                                      onClick={() => { setCancelConfirmModal({ open: true, order }); setActionMenuOpen(null); }}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600 transition-colors"
-                                    >
-                                      <Ban className="w-4 h-4" />
-                                      <span>Cancel Order</span>
-                                    </button>
-                                  </>
-                                )}
+                              <div className="absolute right-0 top-10 z-20 w-36 bg-white rounded-xl shadow-lg border py-1">
+                                <button onClick={() => handleEditOrder(order)} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
+                                  <Edit className="w-3.5 h-3.5 text-blue-500" /> Edit
+                                </button>
+                                <button onClick={() => { setCancelConfirmModal({ open: true, order }); setActionMenuOpen(null); }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-orange-600">
+                                  <Ban className="w-3.5 h-3.5" /> Cancel
+                                </button>
                                 {user?.role === 'admin' && (
-                                  <button
-                                    onClick={() => { setDeleteConfirmModal({ open: true, order }); setActionMenuOpen(null); }}
-                                    className="w-full px-3 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    <span>Delete Order</span>
+                                  <button onClick={() => { setDeleteConfirmModal({ open: true, order }); setActionMenuOpen(null); }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600">
+                                    <Trash2 className="w-3.5 h-3.5" /> Delete
                                   </button>
                                 )}
                               </div>
@@ -1386,340 +1340,189 @@ const OrdersPage = ({ user }) => {
                       )}
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4 pt-0">
-                  <div className="space-y-3">
-                    {/* Items - Enhanced styling */}
-                    <div className="bg-white/60 rounded-xl p-2.5 sm:p-3 space-y-1.5 max-h-28 sm:max-h-36 overflow-y-auto">
+                  
+                  {/* Customer Info */}
+                  {order.customer_name && (
+                    <div className="px-3 py-2 bg-gray-50 flex items-center gap-2 text-sm">
+                      <span className="text-gray-500">👤</span>
+                      <span className="font-medium text-gray-700">{order.customer_name}</span>
+                      {order.customer_phone && <span className="text-gray-400 text-xs">• {order.customer_phone}</span>}
+                    </div>
+                  )}
+                  
+                  {/* Items */}
+                  <div className="p-3">
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto">
                       {order.items.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-xs sm:text-sm py-1 border-b border-gray-100 last:border-0">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="w-6 h-6 bg-violet-100 text-violet-700 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0">
-                              {item.quantity}x
-                            </span>
-                            <span className="truncate font-medium">{item.name}</span>
+                        <div key={idx} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 bg-violet-100 text-violet-600 rounded-md flex items-center justify-center text-xs font-bold">{item.quantity}</span>
+                            <span className="text-gray-700">{item.name}</span>
                           </div>
-                          <span className="font-semibold text-gray-700 ml-2 flex-shrink-0">₹{(item.price * item.quantity).toFixed(0)}</span>
+                          <span className="font-medium text-gray-600">₹{(item.price * item.quantity).toFixed(0)}</span>
                         </div>
                       ))}
                     </div>
                     
-                    {/* Totals - Enhanced styling */}
-                    <div className="bg-white rounded-xl p-3 shadow-sm space-y-1">
-                      <div className="flex justify-between text-xs sm:text-sm text-gray-600">
-                        <span>Subtotal:</span>
-                        <span className="font-medium">₹{order.subtotal.toFixed(0)}</span>
-                      </div>
-                      <div className="flex justify-between text-[10px] sm:text-xs text-gray-400">
-                        <span>Tax ({order.tax_rate ?? (order.subtotal > 0 ? Math.round((order.tax / order.subtotal) * 100) : 5)}%):</span>
-                        <span>₹{order.tax.toFixed(0)}</span>
-                      </div>
-                      <div className="flex justify-between text-base sm:text-lg font-bold pt-1.5 border-t border-dashed border-gray-200">
-                        <span className="text-gray-700">Total:</span>
-                        <span className="text-violet-600">₹{order.total.toFixed(0)}</span>
-                      </div>
-                    </div>
-                    
-                    {/* Action Buttons - Enhanced styling */}
-                    <div className="flex gap-1.5 sm:gap-2 flex-wrap pt-1">
-                      {['admin', 'kitchen'].includes(user?.role) && order.status === 'pending' && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleStatusChange(order.id, 'preparing')} 
-                          className="text-xs sm:text-sm h-9 sm:h-10 px-3 sm:px-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-md"
-                          data-testid={`status-preparing-${order.id}`}
-                        >
-                          👨‍🍳 Start Cooking
-                        </Button>
-                      )}
-                      {['admin', 'kitchen'].includes(user?.role) && order.status === 'preparing' && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleStatusChange(order.id, 'ready')} 
-                          className="text-xs sm:text-sm h-9 sm:h-10 px-3 sm:px-4 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 shadow-md"
-                          data-testid={`status-ready-${order.id}`}
-                        >
-                          ✅ Ready
-                        </Button>
-                      )}
-                      {['admin', 'waiter', 'cashier'].includes(user?.role) && order.status !== 'completed' && order.status !== 'cancelled' && (
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => handlePrintKOT(order)} 
-                          className="text-xs sm:text-sm h-9 sm:h-10 px-2.5 sm:px-3 border-2 hover:bg-gray-50"
-                          data-testid={`print-kot-${order.id}`}
-                        >
-                          <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1.5" />
-                          <span className="hidden sm:inline">Print KOT</span>
-                        </Button>
-                      )}
-                      {['admin', 'cashier'].includes(user?.role) && ['ready', 'preparing'].includes(order.status) && (
-                        <Button
-                          size="sm"
-                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-xs sm:text-sm h-9 sm:h-10 px-3 sm:px-4 shadow-md"
-                          onClick={() => navigate(`/billing/${order.id}`)}
-                          data-testid={`billing-${order.id}`}
-                        >
-                          <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
-                          <span>Bill</span>
-                        </Button>
-                      )}
-                      {order.status === 'completed' && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleViewOrder(order)}
-                            className="text-xs sm:text-sm h-9 sm:h-10 px-2.5 sm:px-3 border-2"
-                            data-testid={`view-${order.id}`}
-                          >
-                            <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handlePrintReceipt(order)}
-                            disabled={printLoading}
-                            className="text-xs sm:text-sm h-9 sm:h-10 px-2.5 sm:px-3 border-2"
-                            data-testid={`print-receipt-${order.id}`}
-                          >
-                            <Receipt className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-2 border-green-500 text-green-600 hover:bg-green-50 text-xs sm:text-sm h-9 sm:h-10 px-2.5 sm:px-3"
-                            onClick={() => setWhatsappModal({ open: true, orderId: order.id, customerName: order.customer_name || 'Guest' })}
-                            data-testid={`whatsapp-${order.id}`}
-                          >
-                            <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </Button>
-                        </>
-                      )}
+                    {/* Total */}
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-dashed border-gray-200">
+                      <span className="text-gray-500 text-sm">Total</span>
+                      <span className="text-xl font-bold text-violet-600">₹{order.total.toFixed(0)}</span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  
+                  {/* Actions */}
+                  <div className="px-3 pb-3 flex gap-2">
+                    {['admin', 'kitchen'].includes(user?.role) && order.status === 'pending' && (
+                      <button onClick={() => handleStatusChange(order.id, 'preparing')} className="flex-1 h-10 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5">
+                        👨‍🍳 Start Cooking
+                      </button>
+                    )}
+                    {['admin', 'kitchen'].includes(user?.role) && order.status === 'preparing' && (
+                      <button onClick={() => handleStatusChange(order.id, 'ready')} className="flex-1 h-10 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5">
+                        ✅ Mark Ready
+                      </button>
+                    )}
+                    {['admin', 'waiter', 'cashier'].includes(user?.role) && order.status !== 'completed' && (
+                      <button onClick={() => handlePrintKOT(order)} className="h-10 px-4 border border-gray-200 hover:bg-gray-50 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 text-gray-600">
+                        <Printer className="w-4 h-4" /> KOT
+                      </button>
+                    )}
+                    {['admin', 'cashier'].includes(user?.role) && ['ready', 'preparing', 'pending'].includes(order.status) && (
+                      <button onClick={() => navigate(`/billing/${order.id}`)} className="flex-1 h-10 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5">
+                        <CreditCard className="w-4 h-4" /> Bill & Pay
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
-        {/* Today's Bills Tab (Completed & Cancelled) */}
+        {/* Today's Bills Tab */}
         {activeTab === 'history' && (
-          <div className="grid gap-3 sm:gap-4">
+          <div className="space-y-3">
             {orders.filter(order => ['completed', 'cancelled'].includes(order.status) && isToday(order.created_at)).length === 0 && (
-              <Card className="p-8 text-center border-2 border-dashed border-gray-200">
-                <div className="text-4xl mb-3">📋</div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-1">No Bills Today</h3>
-                <p className="text-gray-500 text-sm">Completed and cancelled orders will appear here</p>
-              </Card>
+              <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">📋</span>
+                </div>
+                <h3 className="text-lg font-bold text-gray-800 mb-1">No Bills Today</h3>
+                <p className="text-gray-500 text-sm">Completed orders will appear here</p>
+              </div>
             )}
             {orders.filter(order => ['completed', 'cancelled'].includes(order.status) && isToday(order.created_at)).map((order) => {
-              const statusConfig = {
-                completed: { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-700', icon: '✅' },
-                cancelled: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-600', icon: '❌' }
-              };
-              const config = statusConfig[order.status] || statusConfig.completed;
+              const isCompleted = order.status === 'completed';
+              const isCancelled = order.status === 'cancelled';
+              const hasCredit = order.is_credit || order.credit_amount > 0;
               
               return (
-                <Card key={order.id} className={`border-2 ${config.border} ${config.bg} shadow-sm hover:shadow-md transition-all overflow-hidden`}>
-                  <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-lg">{config.icon}</span>
-                          <CardTitle className="text-base sm:text-lg font-bold">Bill #{order.id.slice(0, 8)}</CardTitle>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <span className="w-5 h-5 bg-violet-100 rounded-full flex items-center justify-center text-[10px]">🍽️</span>
-                            Table {order.table_number}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-[10px]">👤</span>
-                            {order.waiter_name}
-                          </span>
-                        </div>
-                        {order.customer_name && (
-                          <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                            {order.customer_name}
-                            {order.customer_phone && <span className="text-gray-400"> • {order.customer_phone}</span>}
-                          </p>
-                        )}
-                        <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
+                <div key={order.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden ${isCancelled ? 'border-red-200 opacity-75' : hasCredit ? 'border-orange-200' : 'border-gray-100'}`}>
+                  {/* Header */}
+                  <div className="flex items-center justify-between p-3 border-b border-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg shadow-sm ${isCancelled ? 'bg-red-500' : hasCredit ? 'bg-orange-500' : 'bg-emerald-500'}`}>
+                        {isCancelled ? '❌' : hasCredit ? '⚠️' : '✅'}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-800">#{order.id.slice(0, 6)}</p>
+                        <p className="text-xs text-gray-500">
                           {new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                          {order.is_credit || order.credit_amount > 0 ? (
-                            <span className="ml-2 text-orange-600 font-medium">• ⚠️ Credit (₹{(order.balance_amount || order.credit_amount || 0).toFixed(0)} due)</span>
-                          ) : order.payment_method === 'split' ? (
-                            <span className="ml-2">• Split Payment</span>
-                          ) : order.payment_method && (
-                            <span className="ml-2">• Paid via {order.payment_method}</span>
+                          {order.payment_method && !isCancelled && (
+                            <span className="ml-1">• {order.payment_method === 'split' ? 'Split' : order.payment_method}</span>
                           )}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {(order.is_credit || order.credit_amount > 0) && (
-                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 shadow-sm">
-                            Credit
-                          </span>
-                        )}
-                        {order.payment_method === 'split' && !order.is_credit && !order.credit_amount && (
-                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 shadow-sm">
-                            Split
-                          </span>
-                        )}
-                        <span className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${config.badge} shadow-sm`}>
-                          {order.status}
-                        </span>
-                        {/* Action Menu for completed/cancelled orders */}
-                        {['admin', 'cashier'].includes(user?.role) && (
-                          <div className="relative">
-                            <button
-                              onClick={() => setActionMenuOpen(actionMenuOpen === order.id ? null : order.id)}
-                              className="p-1.5 rounded-lg hover:bg-white/80 transition-colors"
-                            >
-                              <MoreVertical className="w-4 h-4 text-gray-500" />
-                            </button>
-                            {actionMenuOpen === order.id && (
-                              <>
-                                <div className="fixed inset-0 z-10" onClick={() => setActionMenuOpen(null)} />
-                                <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-xl shadow-xl border py-1.5">
-                                  <button
-                                    onClick={() => handleViewOrder(order)}
-                                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                                  >
-                                    <Eye className="w-4 h-4 text-gray-600" />
-                                    <span>View Details</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handlePrintReceipt(order)}
-                                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                                  >
-                                    <Receipt className="w-4 h-4 text-gray-600" />
-                                    <span>Print Receipt</span>
-                                  </button>
-                                  {order.status === 'completed' && !order.is_credit && (
-                                    <button
-                                      onClick={() => handleMarkAsCredit(order)}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600 transition-colors"
-                                    >
-                                      <Wallet className="w-4 h-4" />
-                                      <span>Mark as Credit</span>
-                                    </button>
-                                  )}
-                                  {order.status === 'completed' && order.is_credit && (
-                                    <button
-                                      onClick={() => handleMarkAsPaid(order)}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-green-50 flex items-center gap-2 text-green-600 transition-colors"
-                                    >
-                                      <DollarSign className="w-4 h-4" />
-                                      <span>Mark as Paid</span>
-                                    </button>
-                                  )}
-                                  {order.status === 'completed' && (
-                                    <button
-                                      onClick={() => handleEditOrder(order)}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 transition-colors"
-                                    >
-                                      <Edit className="w-4 h-4 text-blue-600" />
-                                      <span>Edit Bill</span>
-                                    </button>
-                                  )}
-                                  {order.status === 'completed' && (
-                                    <button
-                                      onClick={() => { setCancelConfirmModal({ open: true, order }); setActionMenuOpen(null); }}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600 transition-colors"
-                                    >
-                                      <Ban className="w-4 h-4" />
-                                      <span>Cancel Bill</span>
-                                    </button>
-                                  )}
-                                  {user?.role === 'admin' && (
-                                    <button
-                                      onClick={() => { setDeleteConfirmModal({ open: true, order }); setActionMenuOpen(null); }}
-                                      className="w-full px-3 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                      <span>Delete Bill</span>
-                                    </button>
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-4 pt-0">
-                    <div className="space-y-3">
-                      {/* Items - Compact view */}
-                      <div className="bg-white/60 rounded-xl p-2.5 sm:p-3 space-y-1.5 max-h-24 overflow-y-auto">
-                        {order.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-xs sm:text-sm">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <span className="w-5 h-5 bg-violet-100 text-violet-700 rounded flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                {item.quantity}
-                              </span>
-                              <span className="truncate">{item.name}</span>
-                            </div>
-                            <span className="font-medium text-gray-700 ml-2 flex-shrink-0">₹{(item.price * item.quantity).toFixed(0)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {/* Total */}
-                      <div className="flex justify-between items-center pt-2 border-t border-dashed">
-                        <span className="text-sm text-gray-600">Total</span>
-                        <span className="text-xl font-bold text-violet-600">₹{order.total.toFixed(0)}</span>
-                      </div>
-                      
-                      {/* Credit Bill Balance Info */}
-                      {order.is_credit && (
-                        <div className="flex justify-between items-center text-sm text-orange-600 font-medium">
-                          <span>Balance Due</span>
-                          <span>₹{(order.balance_amount || order.total).toFixed(0)}</span>
+                    <div className="flex items-center gap-2">
+                      {hasCredit && !isCancelled && (
+                        <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">
+                          ₹{(order.balance_amount || order.credit_amount || 0).toFixed(0)} due
+                        </span>
+                      )}
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isCancelled ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {isCancelled ? 'Cancelled' : 'Paid'}
+                      </span>
+                      {['admin', 'cashier'].includes(user?.role) && (
+                        <div className="relative">
+                          <button onClick={() => setActionMenuOpen(actionMenuOpen === order.id ? null : order.id)} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center">
+                            <MoreVertical className="w-4 h-4 text-gray-400" />
+                          </button>
+                          {actionMenuOpen === order.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setActionMenuOpen(null)} />
+                              <div className="absolute right-0 top-10 z-20 w-36 bg-white rounded-xl shadow-lg border py-1">
+                                <button onClick={() => handleViewOrder(order)} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
+                                  <Eye className="w-3.5 h-3.5 text-gray-500" /> View
+                                </button>
+                                {isCompleted && (
+                                  <button onClick={() => handleEditOrder(order)} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
+                                    <Edit className="w-3.5 h-3.5 text-blue-500" /> Edit
+                                  </button>
+                                )}
+                                <button onClick={() => handlePrintReceipt(order)} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
+                                  <Receipt className="w-3.5 h-3.5 text-gray-500" /> Print
+                                </button>
+                                {isCompleted && !hasCredit && (
+                                  <button onClick={() => handleMarkAsCredit(order)} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-orange-600">
+                                    <Wallet className="w-3.5 h-3.5" /> Mark Credit
+                                  </button>
+                                )}
+                                {isCompleted && hasCredit && (
+                                  <button onClick={() => handleMarkAsPaid(order)} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-green-600">
+                                    <DollarSign className="w-3.5 h-3.5" /> Mark Paid
+                                  </button>
+                                )}
+                                {user?.role === 'admin' && (
+                                  <button onClick={() => { setDeleteConfirmModal({ open: true, order }); setActionMenuOpen(null); }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600">
+                                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                                  </button>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
-                      
-                      {/* Quick Actions */}
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewOrder(order)}
-                          className="flex-1 text-xs h-9"
-                        >
-                          <Eye className="w-3.5 h-3.5 mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handlePrintReceipt(order)}
-                          className="flex-1 text-xs h-9"
-                        >
-                          <Receipt className="w-3.5 h-3.5 mr-1" />
-                          Print
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setWhatsappModal({ open: true, orderId: order.id, customerName: order.customer_name || '' });
-                            setWhatsappPhone(order.customer_phone || '');
-                          }}
-                          className="flex-1 text-xs h-9"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5 mr-1" />
-                          Share
-                        </Button>
-                      </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  
+                  {/* Customer */}
+                  {order.customer_name && (
+                    <div className="px-3 py-2 bg-gray-50 flex items-center gap-2 text-sm">
+                      <span className="text-gray-500">👤</span>
+                      <span className="font-medium text-gray-700">{order.customer_name}</span>
+                    </div>
+                  )}
+                  
+                  {/* Compact Items + Total */}
+                  <div className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <span className="w-6 h-6 bg-violet-100 text-violet-600 rounded-md flex items-center justify-center text-xs font-bold">
+                          {order.items.reduce((sum, item) => sum + item.quantity, 0)}
+                        </span>
+                        <span>{order.items.length} item{order.items.length > 1 ? 's' : ''}</span>
+                      </div>
+                      <span className={`text-xl font-bold ${isCancelled ? 'text-gray-400 line-through' : 'text-violet-600'}`}>
+                        ₹{order.total.toFixed(0)}
+                      </span>
+                    </div>
+                    
+                    {/* Quick Actions */}
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => handleViewOrder(order)} className="flex-1 h-9 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 text-gray-600">
+                        <Eye className="w-3.5 h-3.5" /> View
+                      </button>
+                      <button onClick={() => handlePrintReceipt(order)} className="flex-1 h-9 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 text-gray-600">
+                        <Receipt className="w-3.5 h-3.5" /> Print
+                      </button>
+                      <button onClick={() => { setWhatsappModal({ open: true, orderId: order.id, customerName: order.customer_name || '' }); setWhatsappPhone(order.customer_phone || ''); }} className="flex-1 h-9 border border-green-200 hover:bg-green-50 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 text-green-600">
+                        <MessageCircle className="w-3.5 h-3.5" /> Share
+                      </button>
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
