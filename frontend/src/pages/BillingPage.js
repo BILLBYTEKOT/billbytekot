@@ -30,6 +30,7 @@ const BillingPage = ({ user }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);
   const priceInputRef = useRef(null);
+  const isSelectingRef = useRef(false);
 
   useEffect(() => {
     fetchOrder();
@@ -39,12 +40,20 @@ const BillingPage = ({ user }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Don't close if we're in the middle of selecting
+      if (isSelectingRef.current) {
+        isSelectingRef.current = false;
+        return;
+      }
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowMenuDropdown(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    // Use click instead of mousedown - fires after touch events complete
+    document.addEventListener('click', handleClickOutside, true);
+    return () => {
+      document.removeEventListener('click', handleClickOutside, true);
+    };
   }, []);
 
   const fetchOrder = async () => {
@@ -464,50 +473,49 @@ const BillingPage = ({ user }) => {
                 )}
               </div>
               
-              {/* Fixed Position Dropdown for Mobile - Ensures it's always clickable */}
+              {/* Suggested Items - Large touch targets */}
               {showMenuDropdown && searchQuery.trim() && hasMatches && (
-                <div className="fixed inset-x-0 top-auto bottom-0 z-[100] bg-white border-t-2 border-violet-300 shadow-2xl rounded-t-2xl max-h-[50vh] overflow-hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-                  {/* Header with close */}
-                  <div className="sticky top-0 bg-violet-600 text-white px-4 py-3 flex justify-between items-center">
-                    <span className="font-bold">Select Item ({filteredMenuItems.length} found)</span>
+                <div className="mt-2 bg-white border-2 border-violet-400 rounded-2xl overflow-hidden shadow-xl">
+                  <div className="bg-violet-600 text-white px-4 py-2.5 text-sm font-semibold flex justify-between items-center">
+                    <span>👆 Tap to add ({filteredMenuItems.length})</span>
                     <button 
-                      onClick={() => setShowMenuDropdown(false)}
-                      className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
+                      onClick={() => setShowMenuDropdown(false)} 
+                      className="bg-white/20 rounded-full w-7 h-7 flex items-center justify-center"
+                    >✕</button>
                   </div>
-                  {/* Items List */}
-                  <div className="overflow-y-auto max-h-[40vh]">
-                    {filteredMenuItems.slice(0, 10).map((item, index) => (
+                  <div className="max-h-64 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    {filteredMenuItems.slice(0, 6).map((item, idx) => (
                       <div 
-                        key={item.id} 
-                        className={`px-4 py-4 flex justify-between items-center border-b border-gray-100 active:bg-violet-100 ${index === 0 ? 'bg-violet-50' : ''}`}
-                        onClick={() => handleAddMenuItem(item)}
-                        onTouchEnd={(e) => { e.preventDefault(); handleAddMenuItem(item); }}
+                        key={item.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          isSelectingRef.current = true;
+                          handleAddMenuItem(item);
+                        }}
+                        onTouchStart={() => { isSelectingRef.current = true; }}
+                        onTouchEnd={(e) => {
+                          e.preventDefault();
+                          handleAddMenuItem(item);
+                        }}
+                        className={`w-full flex items-center justify-between px-4 py-5 border-b-2 border-gray-100 cursor-pointer select-none ${idx === 0 ? 'bg-violet-50 border-violet-200' : 'bg-white'} active:bg-violet-200`}
+                        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'rgba(139, 92, 246, 0.3)', minHeight: '60px' }}
                       >
-                        <div className="flex items-center gap-3">
-                          {index === 0 && <span className="text-xs bg-violet-600 text-white px-2 py-0.5 rounded">⏎</span>}
-                          <span className={`font-medium ${index === 0 ? 'text-violet-700' : 'text-gray-800'}`}>{item.name}</span>
-                        </div>
-                        <span className="text-violet-600 font-bold text-lg">{currency}{item.price}</span>
+                        <span className={`font-semibold text-lg ${idx === 0 ? 'text-violet-700' : 'text-gray-800'}`}>
+                          {idx === 0 && '⏎ '}{item.name}
+                        </span>
+                        <span className="bg-violet-600 text-white px-4 py-2 rounded-xl font-bold text-base ml-2">
+                          {currency}{item.price}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
               
-              {/* Backdrop when dropdown is open */}
-              {showMenuDropdown && searchQuery.trim() && hasMatches && (
-                <div 
-                  className="fixed inset-0 bg-black/30 z-[99]" 
-                  onClick={() => setShowMenuDropdown(false)}
-                />
-              )}
-              
               {/* No match message */}
               {showMenuDropdown && searchQuery.trim() && !hasMatches && (
-                <div className="absolute z-20 w-full mt-1 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <div className="mt-2 bg-orange-50 border border-orange-200 rounded-lg p-3">
                   <p className="text-orange-700 text-sm">
                     No match. Enter price → <span className="font-bold">{searchQuery}</span>
                   </p>
@@ -655,15 +663,24 @@ const BillingPage = ({ user }) => {
                 <div className="absolute z-20 w-full mt-1 bg-white border rounded-xl shadow-2xl max-h-80 overflow-y-auto" style={{ touchAction: 'pan-y' }}>
                   {hasMatches ? (
                     filteredMenuItems.slice(0, 12).map(item => (
-                      <button 
-                        key={item.id} 
-                        onClick={() => handleAddMenuItem(item)} 
-                        onTouchEnd={(e) => { e.preventDefault(); handleAddMenuItem(item); }}
+                      <div 
+                        key={item.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          isSelectingRef.current = true;
+                          handleAddMenuItem(item);
+                        }}
+                        onTouchStart={() => { isSelectingRef.current = true; }}
+                        onTouchEnd={(e) => {
+                          e.preventDefault();
+                          handleAddMenuItem(item);
+                        }}
                         className="w-full px-4 py-4 text-left hover:bg-violet-50 active:bg-violet-100 flex justify-between items-center text-lg border-b last:border-0 cursor-pointer select-none"
                         style={{ touchAction: 'manipulation' }}
                       >
                         <span className="font-medium">{item.name}</span><span className="text-violet-600 font-bold">{currency}{item.price}</span>
-                      </button>
+                      </div>
                     ))
                   ) : (
                     <div className="px-4 py-3 text-gray-500">
