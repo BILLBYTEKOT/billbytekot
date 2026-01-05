@@ -104,6 +104,8 @@ const OrdersPage = ({ user }) => {
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
   // State for 2-step order flow
   const [showMenuPage, setShowMenuPage] = useState(false);
+  // Cart expanded state for drag-up
+  const [cartExpanded, setCartExpanded] = useState(false);
   // Tab state for Active Orders vs Today's Bills
   const [activeTab, setActiveTab] = useState('active'); // 'active' or 'history'
   const [loading, setLoading] = useState(true);
@@ -903,26 +905,92 @@ const OrdersPage = ({ user }) => {
               )}
             </div>
 
-            {/* Fixed Bottom Cart - Sleek Design */}
-            <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-[60]">
+            {/* Fixed Bottom Cart - Expandable Drag-Up Design */}
+            <div 
+              className={`fixed left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-[60] transition-all duration-300 ease-out ${
+                cartExpanded ? 'bottom-0 rounded-t-2xl' : 'bottom-16'
+              }`}
+              style={{ maxHeight: cartExpanded ? '70vh' : 'auto' }}
+            >
               {selectedItems.length > 0 ? (
-                <div className="p-2">
-                  {/* Horizontal scrollable items */}
-                  <div className="flex gap-1.5 mb-2 overflow-x-auto pb-1 scrollbar-hide">
-                    {selectedItems.map((item, index) => (
-                      <div key={index} className="flex items-center gap-1.5 bg-violet-50 border border-violet-100 rounded-full pl-1 pr-2 py-1 flex-shrink-0">
-                        <span className="w-5 h-5 bg-violet-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">{item.quantity}</span>
-                        <span className="text-[11px] font-medium text-gray-700 max-w-[60px] truncate">{item.name}</span>
-                        <span className="text-[11px] font-bold text-violet-600">₹{(item.price * item.quantity).toFixed(0)}</span>
-                        <button onClick={() => handleRemoveItem(index)} className="w-4 h-4 bg-red-100 rounded-full flex items-center justify-center">
-                          <X className="w-2.5 h-2.5 text-red-500" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex flex-col h-full">
+                  {/* Drag Handle - Tap to expand/collapse */}
+                  <button 
+                    onClick={() => setCartExpanded(!cartExpanded)}
+                    className="w-full py-2 flex flex-col items-center"
+                  >
+                    <div className="w-10 h-1 bg-gray-300 rounded-full mb-1"></div>
+                    <p className="text-[10px] text-gray-400">
+                      {cartExpanded ? 'Tap to minimize' : 'Tap to see all items'}
+                    </p>
+                  </button>
                   
-                  {/* Total Bar - Compact */}
-                  <div className="flex items-center justify-between bg-violet-600 rounded-xl px-3 py-2">
+                  {/* Expanded View - Full Item List */}
+                  {cartExpanded ? (
+                    <div className="flex-1 overflow-y-auto px-3 pb-2" style={{ maxHeight: 'calc(70vh - 120px)' }}>
+                      <div className="space-y-2">
+                        {selectedItems.map((item, index) => (
+                          <div key={index} className="flex items-center justify-between bg-gray-50 rounded-xl p-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="w-8 h-8 bg-violet-600 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">{item.quantity}</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-gray-800 text-sm truncate">{item.name}</p>
+                                <p className="text-xs text-gray-500">₹{item.price} each</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="flex items-center gap-1 bg-white rounded-full border px-1 py-0.5">
+                                <button
+                                  onClick={() => {
+                                    if (item.quantity === 1) {
+                                      handleRemoveItem(index);
+                                    } else {
+                                      playSound('remove');
+                                      handleQuantityChange(index, item.quantity - 1);
+                                    }
+                                  }}
+                                  className="w-6 h-6 flex items-center justify-center bg-red-50 text-red-500 rounded-full text-sm font-bold"
+                                >
+                                  −
+                                </button>
+                                <span className="w-6 text-center font-bold text-sm">{item.quantity}</span>
+                                <button
+                                  onClick={() => {
+                                    playSound('add');
+                                    handleQuantityChange(index, item.quantity + 1);
+                                  }}
+                                  className="w-6 h-6 flex items-center justify-center bg-violet-600 text-white rounded-full text-sm font-bold"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <span className="font-bold text-violet-600 w-16 text-right">₹{(item.price * item.quantity).toFixed(0)}</span>
+                              <button onClick={() => handleRemoveItem(index)} className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
+                                <X className="w-3 h-3 text-red-500" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Collapsed View - Horizontal scroll */
+                    <div className="flex gap-1.5 px-2 pb-2 overflow-x-auto scrollbar-hide">
+                      {selectedItems.map((item, index) => (
+                        <div key={index} className="flex items-center gap-1.5 bg-violet-50 border border-violet-100 rounded-full pl-1 pr-2 py-1 flex-shrink-0">
+                          <span className="w-5 h-5 bg-violet-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">{item.quantity}</span>
+                          <span className="text-[11px] font-medium text-gray-700 max-w-[60px] truncate">{item.name}</span>
+                          <span className="text-[11px] font-bold text-violet-600">₹{(item.price * item.quantity).toFixed(0)}</span>
+                          <button onClick={() => handleRemoveItem(index)} className="w-4 h-4 bg-red-100 rounded-full flex items-center justify-center">
+                            <X className="w-2.5 h-2.5 text-red-500" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Total Bar - Always visible */}
+                  <div className={`flex items-center justify-between bg-violet-600 mx-2 mb-2 rounded-xl px-3 py-2 ${cartExpanded ? 'mb-4' : ''}`}>
                     <div className="flex items-center gap-2 text-white">
                       <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
                         <ShoppingCart className="w-4 h-4" />
