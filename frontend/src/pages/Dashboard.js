@@ -19,11 +19,22 @@ const Dashboard = ({ user }) => {
   const [chatResponse, setChatResponse] = useState('');
   const [recommendations, setRecommendations] = useState('');
   const [loading, setLoading] = useState(false);
+  const [restaurantName, setRestaurantName] = useState('');
 
   useEffect(() => {
     fetchStats();
     fetchRecommendations();
+    fetchBusinessSettings();
   }, []);
+
+  const fetchBusinessSettings = async () => {
+    try {
+      const response = await axios.get(`${API}/business/settings`);
+      setRestaurantName(response.data.business_settings?.restaurant_name || '');
+    } catch (error) {
+      console.error('Failed to fetch business settings', error);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -77,7 +88,7 @@ const Dashboard = ({ user }) => {
         <TrialBanner user={user} />
 
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Welcome back, {user?.username}!</h1>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Welcome back, {restaurantName || user?.username}!</h1>
           <p className="text-gray-600 mt-2">Here's what's happening with your restaurant today</p>
         </div>
 
