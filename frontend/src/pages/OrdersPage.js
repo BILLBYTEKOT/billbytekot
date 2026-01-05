@@ -720,46 +720,45 @@ const OrdersPage = ({ user }) => {
               </div>
             </div>
 
-            {/* Search and Categories */}
-            <div className="bg-white shadow-sm px-3 py-3 space-y-2 border-b">
-              <div className="relative">
+            {/* Search and Categories - Enhanced */}
+            <div className="bg-white px-3 py-2 border-b border-gray-100">
+              <div className="relative mb-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
-                  placeholder="Search menu items..."
+                  placeholder="Search items..."
                   value={menuSearch}
                   onChange={(e) => setMenuSearch(e.target.value)}
-                  className="pl-10 h-11 text-base rounded-xl border-gray-200 focus:border-violet-400 bg-gray-50 focus:bg-white"
+                  className="pl-9 h-10 text-sm rounded-full border-gray-200 focus:border-violet-400 bg-gray-50 focus:bg-white"
                 />
                 {menuSearch && (
                   <button 
                     onClick={() => setMenuSearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-300"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 bg-gray-300 rounded-full flex items-center justify-center text-white hover:bg-gray-400"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 )}
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {categories.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
-                    style={{ minWidth: 'fit-content' }}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                       activeCategory === cat
-                        ? 'bg-violet-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-gray-100 text-gray-600 active:bg-gray-200'
                     }`}
                   >
-                    {cat === 'all' ? 'All' : cat}
+                    {cat === 'all' ? '🍽️ All' : cat}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Menu Grid - Round Plate Style */}
-            <div className="flex-1 overflow-y-auto px-2 py-3 bg-gray-50" style={{ paddingBottom: '180px' }}>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+            {/* Menu Grid - Enhanced Round Plate Style */}
+            <div className="flex-1 overflow-y-auto px-2 py-2 bg-gray-50" style={{ paddingBottom: '160px' }}>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
                 {menuItems
                   .filter(item => {
                     const matchesSearch = item.name.toLowerCase().includes(menuSearch.toLowerCase());
@@ -770,61 +769,83 @@ const OrdersPage = ({ user }) => {
                     const selectedItem = selectedItems.find(si => si.menu_item_id === item.id);
                     const quantity = selectedItem?.quantity || 0;
                     
+                    // Generate consistent color based on item name
+                    const colors = ['bg-rose-50', 'bg-orange-50', 'bg-amber-50', 'bg-lime-50', 'bg-emerald-50', 'bg-cyan-50', 'bg-blue-50', 'bg-violet-50', 'bg-pink-50'];
+                    const colorIndex = item.name.charCodeAt(0) % colors.length;
+                    const bgColor = colors[colorIndex];
+                    
                     return (
                       <div
                         key={item.id}
-                        className="flex flex-col items-center"
+                        className="flex flex-col items-center py-1"
                       >
-                        {/* Round Plate */}
+                        {/* Round Plate with tap animation */}
                         <div
-                          onClick={() => quantity === 0 && handleAddItem(item)}
-                          className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-full cursor-pointer select-none transition-all ${
-                            quantity > 0 
-                              ? 'ring-3 ring-violet-500 ring-offset-2 scale-105' 
-                              : 'hover:scale-105 active:scale-95'
+                          onClick={() => {
+                            if (quantity === 0) {
+                              handleAddItem(item);
+                            } else {
+                              playSound('add');
+                              const idx = selectedItems.findIndex(si => si.menu_item_id === item.id);
+                              handleQuantityChange(idx, quantity + 1);
+                            }
+                          }}
+                          className={`relative w-[72px] h-[72px] sm:w-20 sm:h-20 rounded-full cursor-pointer select-none transition-transform duration-150 active:scale-90 ${
+                            quantity > 0 ? 'ring-2 ring-violet-500 ring-offset-1' : ''
                           }`}
                         >
-                          {/* Plate Background with Image or Gradient */}
+                          {/* Plate Background */}
                           {item.image_url ? (
                             <img 
                               src={item.image_url} 
                               alt={item.name}
-                              className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
+                              className="w-full h-full rounded-full object-cover border-3 border-white shadow-md"
+                              loading="lazy"
                             />
                           ) : (
-                            <div className={`w-full h-full rounded-full border-4 border-white shadow-lg flex items-center justify-center text-2xl ${
-                              item.category === 'BEVERAGES' ? 'bg-blue-100' :
-                              item.category === 'SNACKS' ? 'bg-orange-100' :
-                              item.category === 'Pizza' ? 'bg-red-100' :
-                              item.category === 'Burger' ? 'bg-yellow-100' :
-                              'bg-violet-100'
-                            }`}>
-                              {item.category === 'BEVERAGES' ? '🥤' :
-                               item.category === 'SNACKS' ? '🍟' :
-                               item.category === 'Pizza' ? '🍕' :
-                               item.category === 'Burger' ? '🍔' :
-                               '🍽️'}
+                            <div className={`w-full h-full rounded-full border-3 border-white shadow-md flex items-center justify-center ${bgColor}`}>
+                              <span className="text-2xl sm:text-3xl">
+                                {item.category?.toLowerCase().includes('beverage') ? '🥤' :
+                                 item.category?.toLowerCase().includes('snack') ? '🍟' :
+                                 item.category?.toLowerCase().includes('pizza') ? '🍕' :
+                                 item.category?.toLowerCase().includes('burger') ? '🍔' :
+                                 item.category?.toLowerCase().includes('rice') ? '🍚' :
+                                 item.category?.toLowerCase().includes('noodle') ? '🍜' :
+                                 item.category?.toLowerCase().includes('soup') ? '🍲' :
+                                 item.category?.toLowerCase().includes('dessert') ? '🍰' :
+                                 item.category?.toLowerCase().includes('ice') ? '🍨' :
+                                 item.category?.toLowerCase().includes('coffee') ? '☕' :
+                                 item.category?.toLowerCase().includes('tea') ? '🍵' :
+                                 item.category?.toLowerCase().includes('juice') ? '🧃' :
+                                 item.category?.toLowerCase().includes('salad') ? '🥗' :
+                                 item.category?.toLowerCase().includes('sandwich') ? '🥪' :
+                                 item.category?.toLowerCase().includes('chicken') ? '🍗' :
+                                 item.category?.toLowerCase().includes('fish') ? '🐟' :
+                                 item.category?.toLowerCase().includes('egg') ? '🍳' :
+                                 item.category?.toLowerCase().includes('bread') ? '🍞' :
+                                 '🍽️'}
+                              </span>
                             </div>
                           )}
                           
                           {/* Quantity Badge */}
                           {quantity > 0 && (
-                            <div className="absolute -top-1 -right-1 w-7 h-7 bg-violet-600 text-white rounded-full flex items-center justify-center text-sm font-bold shadow-lg border-2 border-white">
+                            <div className="absolute -top-0.5 -right-0.5 w-6 h-6 bg-violet-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow border-2 border-white animate-bounce-once">
                               {quantity}
                             </div>
                           )}
                           
-                          {/* Quick Add Overlay */}
+                          {/* Tap indicator for unselected */}
                           {quantity === 0 && (
-                            <div className="absolute inset-0 rounded-full bg-black/0 hover:bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-all">
-                              <Plus className="w-8 h-8 text-white drop-shadow-lg" />
+                            <div className="absolute bottom-0 right-0 w-5 h-5 bg-violet-600 rounded-full flex items-center justify-center shadow border border-white">
+                              <Plus className="w-3 h-3 text-white" />
                             </div>
                           )}
                         </div>
                         
                         {/* Quantity Controls (when selected) */}
                         {quantity > 0 && (
-                          <div className="flex items-center gap-1 mt-1 bg-white rounded-full shadow px-1 py-0.5" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-0.5 mt-0.5 bg-white rounded-full shadow-sm border border-gray-100 px-0.5 py-0.5" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => {
                                 const idx = selectedItems.findIndex(si => si.menu_item_id === item.id);
@@ -835,27 +856,26 @@ const OrdersPage = ({ user }) => {
                                   handleQuantityChange(idx, quantity - 1);
                                 }
                               }}
-                              className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded-full text-gray-600 font-bold text-sm active:scale-90"
+                              className="w-6 h-6 flex items-center justify-center bg-red-50 text-red-500 rounded-full text-sm font-bold active:scale-90"
                             >
                               −
                             </button>
-                            <span className="font-bold text-violet-600 text-sm w-5 text-center">{quantity}</span>
                             <button
                               onClick={() => {
                                 playSound('add');
                                 const idx = selectedItems.findIndex(si => si.menu_item_id === item.id);
                                 handleQuantityChange(idx, quantity + 1);
                               }}
-                              className="w-6 h-6 flex items-center justify-center bg-violet-600 rounded-full text-white font-bold text-sm active:scale-90"
+                              className="w-6 h-6 flex items-center justify-center bg-violet-600 rounded-full text-white text-sm font-bold active:scale-90"
                             >
                               +
                             </button>
                           </div>
                         )}
                         
-                        {/* Item Name & Price */}
-                        <p className="text-xs font-medium text-gray-700 text-center mt-1 line-clamp-1 w-full px-1">{item.name}</p>
-                        <p className="text-sm font-bold text-violet-600">₹{item.price}</p>
+                        {/* Item Name & Price - Compact */}
+                        <p className="text-[10px] font-medium text-gray-600 text-center mt-0.5 line-clamp-1 w-full leading-tight">{item.name}</p>
+                        <p className="text-xs font-bold text-violet-600">₹{item.price}</p>
                       </div>
                     );
                   })}
@@ -883,56 +903,39 @@ const OrdersPage = ({ user }) => {
               )}
             </div>
 
-            {/* Fixed Bottom Cart - Clean Professional Design */}
-            <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-300 shadow-xl z-[60]">
+            {/* Fixed Bottom Cart - Sleek Design */}
+            <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-[60]">
               {selectedItems.length > 0 ? (
-                <div className="p-3">
-                  {/* Items in horizontal scroll or compact list */}
-                  {selectedItems.length <= 3 ? (
-                    <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
-                      {selectedItems.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-lg px-2 py-1.5 flex-shrink-0">
-                          <span className="w-5 h-5 bg-violet-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">{item.quantity}</span>
-                          <span className="text-xs font-medium text-gray-700 max-w-[80px] truncate">{item.name}</span>
-                          <span className="text-xs font-bold text-violet-600">₹{(item.price * item.quantity).toFixed(0)}</span>
-                          <button onClick={() => handleRemoveItem(index)} className="text-red-400 hover:text-red-600">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="max-h-20 overflow-y-auto mb-2 bg-gray-50 rounded-lg p-2 space-y-1">
-                      {selectedItems.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between text-xs bg-white rounded px-2 py-1 border border-gray-100">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="w-5 h-5 bg-violet-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0">{item.quantity}</span>
-                            <span className="truncate font-medium text-gray-700">{item.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="font-bold text-violet-600">₹{(item.price * item.quantity).toFixed(0)}</span>
-                            <button onClick={() => handleRemoveItem(index)} className="text-red-400 hover:text-red-600">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <div className="p-2">
+                  {/* Horizontal scrollable items */}
+                  <div className="flex gap-1.5 mb-2 overflow-x-auto pb-1 scrollbar-hide">
+                    {selectedItems.map((item, index) => (
+                      <div key={index} className="flex items-center gap-1.5 bg-violet-50 border border-violet-100 rounded-full pl-1 pr-2 py-1 flex-shrink-0">
+                        <span className="w-5 h-5 bg-violet-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold">{item.quantity}</span>
+                        <span className="text-[11px] font-medium text-gray-700 max-w-[60px] truncate">{item.name}</span>
+                        <span className="text-[11px] font-bold text-violet-600">₹{(item.price * item.quantity).toFixed(0)}</span>
+                        <button onClick={() => handleRemoveItem(index)} className="w-4 h-4 bg-red-100 rounded-full flex items-center justify-center">
+                          <X className="w-2.5 h-2.5 text-red-500" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                   
-                  {/* Total Bar */}
-                  <div className="flex items-center justify-between bg-violet-600 rounded-xl px-4 py-2.5">
-                    <div className="flex items-center gap-3 text-white">
-                      <ShoppingCart className="w-5 h-5" />
+                  {/* Total Bar - Compact */}
+                  <div className="flex items-center justify-between bg-violet-600 rounded-xl px-3 py-2">
+                    <div className="flex items-center gap-2 text-white">
+                      <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                        <ShoppingCart className="w-4 h-4" />
+                      </div>
                       <div>
                         <p className="text-[10px] text-violet-200">{selectedItems.reduce((sum, item) => sum + item.quantity, 0)} items</p>
-                        <p className="text-lg font-bold">₹{selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(0)}</p>
+                        <p className="text-base font-bold leading-tight">₹{selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(0)}</p>
                       </div>
                     </div>
                     <button 
                       onClick={() => { playSound('success'); handleSubmitOrder(); }}
                       disabled={loading || selectedItems.length === 0}
-                      className="bg-white text-violet-600 font-bold px-5 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 active:scale-95 transition-transform"
+                      className="bg-white text-violet-600 font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-50 active:scale-95 transition-transform text-sm"
                     >
                       {loading ? (
                         <>
@@ -942,18 +945,15 @@ const OrdersPage = ({ user }) => {
                       ) : (
                         <>
                           <CheckCircle className="w-4 h-4" />
-                          Create Order
+                          Create
                         </>
                       )}
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-3">
-                  <div className="flex items-center justify-center gap-2 text-gray-400 py-2">
-                    <ShoppingCart className="w-5 h-5" />
-                    <p className="text-sm">Tap items to add to order</p>
-                  </div>
+                <div className="py-3 text-center">
+                  <p className="text-gray-400 text-sm">👆 Tap items to add</p>
                 </div>
               )}
             </div>
