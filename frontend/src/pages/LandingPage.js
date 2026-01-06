@@ -12,6 +12,7 @@ import {
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import LeadCapturePopup from "../components/LeadCapturePopup";
+import MobileAppLeadPopup from "../components/MobileAppLeadPopup";
 import SaleBanner from "../components/SaleBanner";
 import TopBanner from "../components/TopBanner";
 import {
@@ -42,6 +43,7 @@ import {
   Apple,
   MessageCircle,
   Mail,
+  ShoppingCart,
 } from "lucide-react";
 
 // Custom hook for scroll animations
@@ -1073,12 +1075,118 @@ const LandingPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 py-20 md:py-32">
+      <section className="relative overflow-hidden bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 py-16 md:py-24">
         <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
         {/* Animated background elements */}
         <div className="absolute top-20 left-10 w-72 h-72 bg-violet-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-float-slow"></div>
         <div className="absolute top-40 right-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-float" style={{animationDelay: '1s'}}></div>
         <div className="absolute bottom-20 left-1/3 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-float-slow" style={{animationDelay: '2s'}}></div>
+        
+        {/* Left Side - Dashboard Screen - More centered & visible */}
+        <div className="absolute left-4 md:left-12 lg:left-20 top-1/2 -translate-y-1/2 opacity-30 md:opacity-40 pointer-events-none">
+          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden transform scale-[0.55] md:scale-[0.65] -rotate-6 border border-gray-200">
+            <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-white/20 rounded-lg"></div>
+                <span className="text-white text-xs font-bold">Dashboard</span>
+              </div>
+            </div>
+            <div className="bg-gray-50 p-3" style={{ width: '200px', height: '140px' }}>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg p-2 text-white">
+                  <p className="text-[8px] opacity-80">Sales</p>
+                  <p className="text-sm font-bold">₹12K</p>
+                </div>
+                <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg p-2 text-white">
+                  <p className="text-[8px] opacity-80">Orders</p>
+                  <p className="text-sm font-bold">24</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-2 h-14 shadow-sm"></div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Right Side - Orders Screen - More centered & visible */}
+        <div className="absolute right-4 md:right-12 lg:right-20 top-1/2 -translate-y-1/2 opacity-30 md:opacity-40 pointer-events-none">
+          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden transform scale-[0.55] md:scale-[0.65] rotate-6 border border-gray-200">
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-white/20 rounded-lg"></div>
+                <span className="text-white text-xs font-bold">Orders</span>
+              </div>
+            </div>
+            <div className="bg-gray-50 p-3" style={{ width: '200px', height: '140px' }}>
+              <div className="space-y-2">
+                <div className="bg-white rounded-lg p-2 flex items-center gap-2 shadow-sm">
+                  <div className="w-5 h-5 bg-amber-100 rounded"></div>
+                  <div className="flex-1">
+                    <div className="h-2 bg-gray-200 rounded w-10"></div>
+                  </div>
+                  <div className="px-1.5 py-0.5 bg-amber-100 rounded text-[7px] text-amber-700 font-medium">Pending</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 flex items-center gap-2 shadow-sm">
+                  <div className="w-5 h-5 bg-blue-100 rounded"></div>
+                  <div className="flex-1">
+                    <div className="h-2 bg-gray-200 rounded w-12"></div>
+                  </div>
+                  <div className="px-1.5 py-0.5 bg-blue-100 rounded text-[7px] text-blue-700 font-medium">Cooking</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 flex items-center gap-2 shadow-sm">
+                  <div className="w-5 h-5 bg-green-100 rounded"></div>
+                  <div className="flex-1">
+                    <div className="h-2 bg-gray-200 rounded w-8"></div>
+                  </div>
+                  <div className="px-1.5 py-0.5 bg-green-100 rounded text-[7px] text-green-700 font-medium">Ready</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Top - Menu Screen (Desktop only) */}
+        <div className="absolute left-1/4 top-8 opacity-25 pointer-events-none hidden lg:block">
+          <div className="bg-white rounded-xl shadow-xl overflow-hidden transform scale-50 -rotate-12 border border-gray-200">
+            <div className="bg-gradient-to-r from-pink-500 to-rose-500 px-2 py-1.5">
+              <span className="text-white text-[10px] font-bold">Menu</span>
+            </div>
+            <div className="bg-gray-50 p-2" style={{ width: '120px', height: '80px' }}>
+              <div className="grid grid-cols-2 gap-1">
+                <div className="bg-white rounded p-1 text-center shadow-sm">
+                  <div className="w-5 h-5 bg-orange-100 rounded-full mx-auto"></div>
+                </div>
+                <div className="bg-white rounded p-1 text-center shadow-sm">
+                  <div className="w-5 h-5 bg-green-100 rounded-full mx-auto"></div>
+                </div>
+                <div className="bg-white rounded p-1 text-center shadow-sm">
+                  <div className="w-5 h-5 bg-blue-100 rounded-full mx-auto"></div>
+                </div>
+                <div className="bg-white rounded p-1 text-center shadow-sm">
+                  <div className="w-5 h-5 bg-purple-100 rounded-full mx-auto"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Bottom - Kitchen Screen (Desktop only) */}
+        <div className="absolute right-1/4 bottom-8 opacity-25 pointer-events-none hidden lg:block">
+          <div className="bg-gray-900 rounded-xl shadow-xl overflow-hidden transform scale-50 rotate-12 border border-gray-700">
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-1.5">
+              <span className="text-white text-[10px] font-bold">Kitchen</span>
+            </div>
+            <div className="bg-gray-800 p-2" style={{ width: '120px', height: '80px' }}>
+              <div className="space-y-1">
+                <div className="bg-amber-500/30 rounded p-1.5 border border-amber-500/40">
+                  <div className="h-1.5 bg-amber-400 rounded w-8"></div>
+                </div>
+                <div className="bg-blue-500/30 rounded p-1.5 border border-blue-500/40">
+                  <div className="h-1.5 bg-blue-400 rounded w-10"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
@@ -1090,7 +1198,7 @@ const LandingPage = () => {
             </div>
 
             <h1
-              className="text-5xl md:text-7xl font-bold mb-6 leading-tight animate-fade-in-up"
+              className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight animate-fade-in-up"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
               Smart Restaurant
@@ -1099,45 +1207,45 @@ const LandingPage = () => {
               </span>
             </h1>
 
-            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-2xl mx-auto font-light animate-fade-in-up delay-200">
+            <p className="text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto font-light animate-fade-in-up delay-200">
               AI-powered POS system trusted by 500+ restaurants.
               {pricing?.campaign_active && (
                 <span className="font-semibold text-red-600"> {pricing?.campaign_discount_percent || 10}% OFF!</span>
               )}
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fade-in-up delay-400">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center mb-10 animate-fade-in-up delay-400">
               <Button
                 size="lg"
-                className={`h-14 px-8 text-lg btn-animate hover-lift ${pricing?.campaign_active ? 'bg-gradient-to-r from-red-500 to-orange-500 animate-pulse-glow' : 'bg-gradient-to-r from-violet-600 to-purple-600'}`}
+                className={`h-12 px-6 text-base btn-animate hover-lift ${pricing?.campaign_active ? 'bg-gradient-to-r from-red-500 to-orange-500 animate-pulse-glow' : 'bg-gradient-to-r from-violet-600 to-purple-600'}`}
                 onClick={handleGetStarted}
               >
                 {pricing?.campaign_active ? (
                   <>
-                    <Gift className="w-5 h-5 mr-2" />
-                    Get {pricing?.campaign_price_display || '₹1799'}/Year Deal
+                    <Gift className="w-4 h-4 mr-2" />
+                    Get {pricing?.campaign_price_display || '₹1799'}/Year
                   </>
                 ) : (
                   <>
-                    <Rocket className="w-5 h-5 mr-2" />
+                    <Rocket className="w-4 h-4 mr-2" />
                     Start Free Trial
                   </>
                 )}
-                <ArrowRight className="w-5 h-5 ml-2" />
+                <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 text-lg hover-lift"
+                className="h-12 px-6 text-base hover-lift"
                 onClick={() => navigate("/contact")}
               >
-                <MessageCircle className="w-5 h-5 mr-2" />
+                <MessageCircle className="w-4 h-4 mr-2" />
                 Book a Demo
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 text-lg hover-lift"
+                className="h-12 px-6 text-base hover-lift"
                 onClick={() =>
                   document
                     .getElementById("demo")
@@ -1148,16 +1256,14 @@ const LandingPage = () => {
               </Button>
             </div>
 
-
-
-            {/* Stats with animated counters */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto animate-fade-in-up delay-600">
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto animate-fade-in-up delay-600">
               {stats.map((stat, index) => (
                 <div key={index} className="text-center hover-scale">
-                  <div className="text-3xl md:text-4xl font-bold text-violet-600 mb-1">
+                  <div className="text-2xl md:text-3xl font-bold text-violet-600 mb-0.5">
                     {stat.value}
                   </div>
-                  <div className="text-sm text-gray-600">{stat.label}</div>
+                  <div className="text-xs text-gray-500">{stat.label}</div>
                 </div>
               ))}
             </div>
