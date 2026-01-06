@@ -682,6 +682,7 @@ const LandingPage = () => {
   const [email, setEmail] = useState("");
   const [saleOffer, setSaleOffer] = useState(null);
   const [pricing, setPricing] = useState(null);
+  const [showMobileAppPopup, setShowMobileAppPopup] = useState(false);
   
   // Initialize scroll animations
   useScrollAnimation();
@@ -914,8 +915,6 @@ const LandingPage = () => {
 
   const pricingPlans = getPricingPlans();
 
-  const [earlyAccessEmail, setEarlyAccessEmail] = useState("");
-
   const stats = [
     { value: "10,000+", label: "Active Restaurants" },
     { value: "1M+", label: "Bills Generated" },
@@ -930,6 +929,9 @@ const LandingPage = () => {
       
       {/* Lead Capture Popup */}
       <LeadCapturePopup />
+      
+      {/* Mobile App Early Access Popup */}
+      <MobileAppLeadPopup isOpen={showMobileAppPopup} onClose={() => setShowMobileAppPopup(false)} />
       
       {/* Header/Navbar */}
       <header className="sticky top-0 z-[60] bg-white/95 backdrop-blur-sm border-b border-gray-200">
@@ -1193,7 +1195,7 @@ const LandingPage = () => {
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 rounded-full mb-6 animate-fade-in-down">
               <Sparkles className="w-4 h-4 text-violet-600 animate-pulse" aria-hidden="true" />
               <span className="text-sm font-medium text-violet-600">
-                AI-Powered Restaurant Management
+                #1 Restaurant Billing Software India 2025
               </span>
             </div>
 
@@ -1201,14 +1203,14 @@ const LandingPage = () => {
               className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight animate-fade-in-up"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
-              Smart Restaurant
+              Best Restaurant Billing
               <span className="block bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 bg-clip-text text-transparent text-gradient-animate">
-                Billing Made Simple
+                Software in India
               </span>
             </h1>
 
             <p className="text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto font-light animate-fade-in-up delay-200">
-              AI-powered POS system trusted by 500+ restaurants.
+              AI-powered POS system with KOT, thermal printing & WhatsApp integration. Trusted by 500+ restaurants. Better than Petpooja at ₹1999/year!
               {pricing?.campaign_active && (
                 <span className="font-semibold text-red-600"> {pricing?.campaign_discount_percent || 10}% OFF!</span>
               )}
@@ -1541,7 +1543,7 @@ const LandingPage = () => {
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-green-500 to-emerald-500 h-14 px-8 text-lg hover-lift"
-                onClick={() => navigate("/download")}
+                onClick={() => setShowMobileAppPopup(true)}
               >
                 <Download className="w-5 h-5 mr-2" />
                 Download Android App
@@ -1588,11 +1590,205 @@ const LandingPage = () => {
         <SaleBanner position="side" />
       )}
 
-      {/* SEO Content Section - Main Homepage Content */}
-      <section className="py-16 bg-white">
+      {/* SEO Content Section - Comprehensive Restaurant Billing Software Guide */}
+      <section className="py-16 bg-gradient-to-br from-gray-50 to-white">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="my-8 p-6 bg-gray-50 rounded-lg">
+          <div className="max-w-5xl mx-auto">
+            {/* Main SEO Heading */}
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+                Best Restaurant Billing Software in India 2025
+              </h2>
+              <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                BillByteKOT is the #1 rated restaurant POS software trusted by 500+ restaurants across India. 
+                Better features than Petpooja at just ₹1999/year!
+              </p>
+            </div>
+
+            {/* SEO Rich Content Grid */}
+            <div className="grid md:grid-cols-2 gap-8 mb-12">
+              {/* Why BillByteKOT */}
+              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <span className="text-2xl">🏆</span>
+                  Why Choose BillByteKOT Over Petpooja?
+                </h3>
+                <ul className="space-y-3 text-gray-700">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span><strong>50% Lower Cost:</strong> ₹1999/year vs Petpooja's higher pricing</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span><strong>AI-Powered:</strong> Smart recommendations increase sales by 25%</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span><strong>6 Receipt Themes:</strong> More customization than any competitor</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span><strong>Offline Mode:</strong> Works without internet - Petpooja doesn't!</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span><strong>WhatsApp Integration:</strong> Send bills directly to customers</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Restaurant Types */}
+              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <span className="text-2xl">🍽️</span>
+                  Perfect For All Restaurant Types
+                </h3>
+                <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                  {[
+                    "Fine Dining Restaurants",
+                    "Casual Dining",
+                    "Cafes & Coffee Shops",
+                    "Cloud Kitchens",
+                    "Food Trucks",
+                    "QSR & Fast Food",
+                    "Bars & Pubs",
+                    "Bakeries",
+                    "Sweet Shops",
+                    "Dhabas",
+                    "Canteens",
+                    "Food Courts",
+                    "Ice Cream Parlors",
+                    "Juice Bars",
+                    "Pizza Shops",
+                    "Multi-Outlet Chains"
+                  ].map((type, i) => (
+                    <div key={i} className="flex items-center gap-1 p-1">
+                      <span className="text-violet-500">✓</span>
+                      <span>{type}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* City-wise SEO Content */}
+            <div className="bg-gradient-to-r from-violet-50 to-purple-50 p-6 rounded-2xl mb-12">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">
+                🇮🇳 Available Across All Major Cities in India
+              </h3>
+              <p className="text-gray-600 text-center mb-4">
+                BillByteKOT restaurant billing software is used by restaurants in:
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {[
+                  "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", 
+                  "Kolkata", "Pune", "Ahmedabad", "Jaipur", "Lucknow",
+                  "Chandigarh", "Indore", "Bhopal", "Nagpur", "Surat",
+                  "Kochi", "Coimbatore", "Vizag", "Goa", "Noida", "Gurgaon"
+                ].map((city, i) => (
+                  <span key={i} className="px-3 py-1 bg-white rounded-full text-sm text-gray-700 shadow-sm">
+                    {city}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Feature Comparison Table */}
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 mb-12 overflow-x-auto">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
+                📊 BillByteKOT vs Other Restaurant Software Comparison
+              </h3>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-2">Feature</th>
+                    <th className="text-center py-3 px-2 bg-violet-50 text-violet-700">BillByteKOT</th>
+                    <th className="text-center py-3 px-2">Petpooja</th>
+                    <th className="text-center py-3 px-2">POSist</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-700">
+                  <tr className="border-b">
+                    <td className="py-2 px-2">Annual Price</td>
+                    <td className="text-center py-2 px-2 bg-violet-50 font-bold text-green-600">₹1999</td>
+                    <td className="text-center py-2 px-2">₹12000+</td>
+                    <td className="text-center py-2 px-2">₹15000+</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-2">Free Trial</td>
+                    <td className="text-center py-2 px-2 bg-violet-50">✅ 7 Days</td>
+                    <td className="text-center py-2 px-2">❌ Demo Only</td>
+                    <td className="text-center py-2 px-2">❌ Demo Only</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-2">AI Recommendations</td>
+                    <td className="text-center py-2 px-2 bg-violet-50">✅ GPT-4</td>
+                    <td className="text-center py-2 px-2">❌</td>
+                    <td className="text-center py-2 px-2">❌</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-2">Receipt Themes</td>
+                    <td className="text-center py-2 px-2 bg-violet-50 font-bold">6 Themes</td>
+                    <td className="text-center py-2 px-2">2 Themes</td>
+                    <td className="text-center py-2 px-2">3 Themes</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-2">WhatsApp Integration</td>
+                    <td className="text-center py-2 px-2 bg-violet-50">✅ Cloud API</td>
+                    <td className="text-center py-2 px-2">✅ Basic</td>
+                    <td className="text-center py-2 px-2">✅ Basic</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-2">Offline Mode</td>
+                    <td className="text-center py-2 px-2 bg-violet-50">✅ Full</td>
+                    <td className="text-center py-2 px-2">❌</td>
+                    <td className="text-center py-2 px-2">⚠️ Limited</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-2">Desktop App</td>
+                    <td className="text-center py-2 px-2 bg-violet-50">✅ Windows</td>
+                    <td className="text-center py-2 px-2">❌ Web Only</td>
+                    <td className="text-center py-2 px-2">❌ Web Only</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-2">GST Compliant</td>
+                    <td className="text-center py-2 px-2 bg-violet-50">✅</td>
+                    <td className="text-center py-2 px-2">✅</td>
+                    <td className="text-center py-2 px-2">✅</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Keywords Cloud for SEO */}
+            <div className="text-center mb-12">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Popular Searches</h3>
+              <div className="flex flex-wrap justify-center gap-2 text-sm">
+                {[
+                  "restaurant billing software",
+                  "restaurant POS India",
+                  "KOT software",
+                  "petpooja alternative",
+                  "best restaurant software 2025",
+                  "thermal printer billing",
+                  "GST billing software",
+                  "WhatsApp billing",
+                  "restaurant management system",
+                  "cafe billing software",
+                  "hotel billing software",
+                  "free restaurant software",
+                  "cloud kitchen software",
+                  "food delivery software"
+                ].map((keyword, i) => (
+                  <span key={i} className="px-3 py-1 bg-gray-100 rounded-full text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition-colors cursor-default">
+                    {keyword}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Related Resources */}
+            <div className="p-6 bg-gray-50 rounded-2xl">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Related Resources</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <a href="/blog" className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-shadow">
@@ -1606,33 +1802,34 @@ const LandingPage = () => {
                   <Download className="w-6 h-6 text-blue-600 flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-gray-900">Download Desktop App</div>
-                    <div className="text-sm text-gray-600">Windows, Mac & Linux</div>
+                    <div className="text-sm text-gray-600">Windows & Android Apps</div>
                   </div>
                 </a>
-                <a href="/contact" className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-shadow">
+                <a href="https://wa.me/918310832669" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-shadow">
                   <MessageCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
                   <div>
-                    <div className="font-semibold text-gray-900">Contact Support</div>
-                    <div className="text-sm text-gray-600">Get help from our team</div>
+                    <div className="font-semibold text-gray-900">WhatsApp Support</div>
+                    <div className="text-sm text-gray-600">Chat with us 24/7</div>
                   </div>
                 </a>
                 <a href="/privacy" className="flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition-shadow">
                   <Shield className="w-6 h-6 text-purple-600 flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-gray-900">Privacy & Security</div>
-                    <div className="text-sm text-gray-600">Your data is safe with us</div>
+                    <div className="text-sm text-gray-600">Bank-grade encryption</div>
                   </div>
                 </a>
               </div>
             </div>
 
+            {/* CTA Buttons */}
             <div className="flex flex-wrap gap-4 mt-8 justify-center">
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-violet-600 to-purple-600 h-12 px-6"
                 onClick={handleGetStarted}
               >
-                Start Free Trial Now
+                Start Free 7-Day Trial
               </Button>
               <Button
                 size="lg"
@@ -1640,15 +1837,16 @@ const LandingPage = () => {
                 className="h-12 px-6"
                 onClick={() => navigate("/pricing")}
               >
-                View Pricing
+                View Pricing - ₹1999/Year
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 className="h-12 px-6"
-                onClick={() => navigate("/contact")}
+                onClick={() => window.open("https://wa.me/918310832669", "_blank")}
               >
-                Contact Sales
+                <MessageCircle className="w-4 h-4 mr-2" />
+                WhatsApp Demo
               </Button>
             </div>
           </div>
@@ -1910,41 +2108,61 @@ const LandingPage = () => {
       {/* Features Section */}
       <section
         id="features"
-        className="py-20 bg-gradient-to-br from-gray-50 to-gray-100"
+        className="py-20 bg-gradient-to-br from-gray-50 to-white"
       >
         <div className="container mx-auto px-4">
           <div className="text-center mb-16 animate-on-scroll">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 rounded-full mb-4">
+              <Zap className="w-4 h-4 text-violet-600" />
+              <span className="text-sm font-medium text-violet-600">Powerful Features</span>
+            </div>
             <h2
               className="text-4xl md:text-5xl font-bold mb-4"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
-              Restaurant Billing Software Features
+              Everything You Need to
+              <span className="block bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                Run Your Restaurant
+              </span>
             </h2>
-            <p className="text-xl text-gray-600">
-              Everything you need to run your restaurant efficiently
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              From billing to kitchen management, we've got you covered with smart features
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
-              <Card
+              <div
                 key={index}
-                className={`border-0 shadow-lg card-hover animate-on-scroll`}
+                className="group relative bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100 animate-on-scroll"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <CardHeader>
-                  <div
-                    className={`w-12 h-12 bg-gradient-to-br ${feature.color} rounded-xl flex items-center justify-center mb-4 hover-rotate`}
-                  >
-                    <feature.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 text-sm">{feature.description}</p>
-                </CardContent>
-              </Card>
+                {/* Gradient overlay on hover */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-5 rounded-2xl transition-opacity`}></div>
+                
+                <div className={`w-14 h-14 bg-gradient-to-br ${feature.color} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg`}>
+                  <feature.icon className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-violet-600 transition-colors">{feature.title}</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">{feature.description}</p>
+                
+                {/* Bottom accent line */}
+                <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${feature.color} rounded-b-2xl opacity-0 group-hover:opacity-100 transition-opacity`}></div>
+              </div>
             ))}
+          </div>
+          
+          {/* Feature highlight */}
+          <div className="mt-16 bg-gradient-to-r from-violet-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white text-center">
+            <h3 className="text-2xl md:text-3xl font-bold mb-4">Ready to Transform Your Restaurant?</h3>
+            <p className="text-violet-100 mb-6 max-w-2xl mx-auto">Join 500+ restaurants already using BillByteKOT to streamline their operations</p>
+            <Button 
+              size="lg" 
+              className="bg-white text-violet-600 hover:bg-gray-100 h-12 px-8 font-bold"
+              onClick={handleGetStarted}
+            >
+              Start Free Trial <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
           </div>
         </div>
       </section>
@@ -2186,51 +2404,111 @@ const LandingPage = () => {
       </section>
 
       {/* Testimonials Section */}
-      <section id="testimonials" className="py-20 bg-white">
-        <div className="container mx-auto px-4">
+      <section id="testimonials" className="py-20 bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute top-0 left-0 w-96 h-96 bg-violet-200/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-200/30 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+        
+        <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 rounded-full mb-4">
+              <Star className="w-4 h-4 text-yellow-600 fill-yellow-500" />
+              <span className="text-sm font-medium text-yellow-700">Customer Reviews</span>
+            </div>
             <h2
               className="text-4xl md:text-5xl font-bold mb-4"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
-              Restaurant Billing Software Reviews & Testimonials
+              Loved by
+              <span className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent"> Restaurant Owners</span>
             </h2>
-            <p className="text-xl text-gray-600">
-              Join thousands of happy restaurant owners
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Join thousands of happy restaurant owners who transformed their business with BillByteKOT
             </p>
+          </div>
+
+          {/* Rating summary */}
+          <div className="flex flex-wrap justify-center gap-8 mb-12">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+                ))}
+              </div>
+              <p className="text-3xl font-bold text-gray-900">4.9/5</p>
+              <p className="text-sm text-gray-500">Average Rating</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-gray-900">500+</p>
+              <p className="text-sm text-gray-500">Happy Customers</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-gray-900">50K+</p>
+              <p className="text-sm text-gray-500">Bills Generated</p>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
-              <Card key={index} className="border-0 shadow-xl">
-                <CardHeader>
-                  <div className="flex items-center gap-4 mb-4">
+              <div 
+                key={index} 
+                className="group relative bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100"
+              >
+                {/* Quote icon */}
+                <div className="absolute -top-4 left-6 w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-white text-2xl font-serif">"</span>
+                </div>
+                
+                {/* Rating */}
+                <div className="flex gap-1 mb-4 pt-2">
+                  {[...Array(testimonial.rating)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className="w-5 h-5 fill-yellow-400 text-yellow-400"
+                    />
+                  ))}
+                </div>
+                
+                {/* Testimonial text */}
+                <p className="text-gray-700 mb-6 leading-relaxed">"{testimonial.text}"</p>
+                
+                {/* Author */}
+                <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
+                  <div className="relative">
                     <img
                       src={testimonial.image}
                       alt={testimonial.name}
-                      className="w-16 h-16 rounded-full"
+                      className="w-14 h-14 rounded-full ring-2 ring-violet-100"
                     />
-                    <div>
-                      <div className="font-semibold">{testimonial.name}</div>
-                      <div className="text-sm text-gray-600">
-                        {testimonial.role}
-                      </div>
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+                      <CheckCircle className="w-3 h-3 text-white" />
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className="w-4 h-4 fill-yellow-400 text-yellow-400"
-                      />
-                    ))}
+                  <div>
+                    <div className="font-bold text-gray-900">{testimonial.name}</div>
+                    <div className="text-sm text-violet-600 font-medium">
+                      {testimonial.role}
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 italic">"{testimonial.text}"</p>
-                </CardContent>
-              </Card>
+                </div>
+                
+                {/* Hover accent */}
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-500 to-purple-600 rounded-b-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </div>
             ))}
+          </div>
+          
+          {/* CTA */}
+          <div className="text-center mt-12">
+            <p className="text-gray-600 mb-4">Ready to join our happy customers?</p>
+            <Button
+              size="lg"
+              className="bg-gradient-to-r from-violet-600 to-purple-600 h-12 px-8"
+              onClick={handleGetStarted}
+            >
+              Start Your Free Trial
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
           </div>
         </div>
       </section>
@@ -2238,122 +2516,209 @@ const LandingPage = () => {
       {/* Pricing Section */}
       <section
         id="pricing"
-        className="py-20 bg-gradient-to-br from-violet-50 to-purple-50"
+        className="py-20 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50"
       >
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 rounded-full mb-4">
+              <DollarSign className="w-4 h-4 text-green-600" />
+              <span className="text-sm font-medium text-green-600">Simple Pricing</span>
+            </div>
             <h2
               className="text-4xl md:text-5xl font-bold mb-4"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
-              Restaurant POS Software Pricing India
+              One Plan, All Features
+              <span className="block text-2xl md:text-3xl text-gray-500 font-normal mt-2">No hidden charges, ever</span>
             </h2>
-            <p className="text-xl text-gray-600">
-              Start free, upgrade when you grow
-            </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             {pricingPlans.map((plan, index) => (
-              <Card
+              <div
                 key={index}
-                className={`border-0 shadow-2xl relative ${plan.popular ? "ring-2 ring-violet-600" : ""}`}
+                className={`relative bg-white rounded-3xl overflow-hidden transition-all duration-300 hover:scale-105 ${plan.popular ? "ring-4 ring-violet-500 shadow-2xl shadow-violet-500/20" : "shadow-xl border border-gray-100"}`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium">
-                      Most Popular
-                    </span>
+                  <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-violet-600 to-purple-600 text-white text-center py-2 text-sm font-bold">
+                    ⭐ MOST POPULAR - BEST VALUE
                   </div>
                 )}
-                <CardHeader className="text-center pb-8">
-                  <CardTitle className="text-2xl mb-4">{plan.name}</CardTitle>
-                  <div className="mb-2">
+                <div className={`p-8 ${plan.popular ? 'pt-14' : ''}`}>
+                  <div className="text-center mb-6">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                     {plan.originalPrice && (
-                      <div className="flex items-center justify-center gap-2 mb-1">
+                      <div className="flex items-center justify-center gap-2 mb-2">
                         <span className="text-xl text-gray-400 line-through">{plan.originalPrice}</span>
-                        <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-sm font-bold">{plan.badge}</span>
+                        <span className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">{plan.badge}</span>
                       </div>
                     )}
-                    <span className="text-5xl font-bold">{plan.price}</span>
-                    <span className="text-gray-600 ml-2">{plan.period}</span>
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-5xl md:text-6xl font-black bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">{plan.price}</span>
+                      <span className="text-gray-500 text-lg">{plan.period}</span>
+                    </div>
+                    {plan.popular && (
+                      <p className="text-green-600 text-sm font-medium mt-2">✓ 7-Day Free Trial Included</p>
+                    )}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3 mb-8">
+                  
+                  <div className="space-y-3 mb-8">
                     {plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-start gap-3">
-                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <div key={idx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-violet-50 transition-colors">
+                        <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                        </div>
                         <span className="text-gray-700">{feature}</span>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
+                  
                   <Button
-                    className={`w-full h-12 ${plan.popular ? "bg-gradient-to-r from-violet-600 to-purple-600" : ""}`}
+                    className={`w-full h-14 text-lg font-bold rounded-xl ${plan.popular ? "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-lg shadow-violet-500/30" : "border-2"}`}
                     variant={plan.popular ? "default" : "outline"}
                     onClick={handleGetStarted}
                   >
                     {plan.cta}
+                    <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
-                </CardContent>
-              </Card>
+                  
+                  {plan.popular && (
+                    <p className="text-center text-gray-500 text-xs mt-4">No credit card required • Cancel anytime</p>
+                  )}
+                </div>
+              </div>
             ))}
+          </div>
+          
+          {/* Trust badges */}
+          <div className="flex flex-wrap justify-center gap-6 mt-12">
+            <div className="flex items-center gap-2 text-gray-600">
+              <Shield className="w-5 h-5 text-green-600" />
+              <span className="text-sm">Secure Payments</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <span className="text-sm">7-Day Free Trial</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Zap className="w-5 h-5 text-green-600" />
+              <span className="text-sm">Instant Setup</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Users className="w-5 h-5 text-green-600" />
+              <span className="text-sm">500+ Happy Customers</span>
+            </div>
           </div>
         </div>
       </section>
 
       {/* FAQ Section */}
-      <section id="faq" className="py-20 bg-white">
-        <div className="container mx-auto px-4 max-w-4xl">
+      <section id="faq" className="py-20 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute top-1/2 left-0 w-72 h-72 bg-violet-200/40 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2"></div>
+        <div className="absolute top-1/2 right-0 w-72 h-72 bg-purple-200/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        
+        <div className="container mx-auto px-4 max-w-4xl relative z-10">
           <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 rounded-full mb-4">
+              <MessageCircle className="w-4 h-4 text-violet-600" />
+              <span className="text-sm font-medium text-violet-600">Got Questions?</span>
+            </div>
             <h2
               className="text-4xl md:text-5xl font-bold mb-4"
               style={{ fontFamily: "Space Grotesk, sans-serif" }}
             >
-              Restaurant Billing Software FAQ
+              Frequently Asked
+              <span className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent"> Questions</span>
             </h2>
+            <p className="text-xl text-gray-600">
+              Everything you need to know about BillByteKOT
+            </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             {[
               {
                 q: "How does the free trial work?",
                 a: `You get ${pricing?.trial_days || 7} days of full access to all premium features, completely free. No credit card required. After the trial, upgrade to Premium for just ${pricing?.regular_price_display || '₹1999'}/year.`,
+                icon: "🎁"
               },
               {
                 q: "Can I use my own Razorpay account?",
                 a: "Yes! You can configure your own Razorpay keys in Settings. This means payments go directly to your account.",
+                icon: "💳"
               },
               {
                 q: "Which thermal printers are supported?",
                 a: "We support all ESC/POS standard thermal printers (58mm & 80mm). Choose from 6 professional receipt themes including Classic, Modern, Elegant, and more.",
+                icon: "🖨️"
               },
               {
                 q: "Can I add multiple staff members?",
                 a: "Yes! Add unlimited staff with roles: Admin, Cashier, Waiter, and Kitchen. Each role has specific permissions.",
+                icon: "👥"
               },
               {
                 q: "Is my data secure?",
                 a: "Absolutely! We use bank-grade encryption, secure MongoDB storage, and HTTPS. Your data is completely safe with 99.9% uptime guarantee.",
+                icon: "🔒"
               },
               {
                 q: "Can I use BillByteKOT AI on mobile?",
                 a: "Yes! It works on any device. Download our Android app now through Early Access - available for direct download!",
+                icon: "📱"
               },
               {
                 q: "What's included in the Premium plan?",
                 a: `Unlimited bills, 6 thermal print formats, advanced AI analytics, priority 24/7 support, multi-currency, WhatsApp integration, and all future features. Just ${pricing?.regular_price_display || '₹1999'}/year.`,
+                icon: "⭐"
               },
             ].map((faq, index) => (
-              <Card key={index} className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-lg">{faq.q}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">{faq.a}</p>
-                </CardContent>
-              </Card>
+              <div 
+                key={index} 
+                className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
+              >
+                <div className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-violet-100 to-purple-100 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl group-hover:scale-110 transition-transform">
+                      {faq.icon}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-violet-600 transition-colors">
+                        {faq.q}
+                      </h3>
+                      <p className="text-gray-600 leading-relaxed">{faq.a}</p>
+                    </div>
+                  </div>
+                </div>
+                {/* Bottom accent line */}
+                <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </div>
             ))}
+          </div>
+          
+          {/* Contact CTA */}
+          <div className="mt-12 text-center bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Still have questions?</h3>
+            <p className="text-gray-600 mb-6">Our team is here to help you 24/7</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a
+                href="https://wa.me/918310832669"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600 transition-colors"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Chat on WhatsApp
+              </a>
+              <a
+                href="mailto:support@billbytekot.in"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-violet-100 text-violet-700 rounded-xl font-semibold hover:bg-violet-200 transition-colors"
+              >
+                <Mail className="w-5 h-5" />
+                Email Support
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -2416,30 +2781,20 @@ const LandingPage = () => {
                 <div className="bg-white p-6 rounded-2xl shadow-xl border border-green-100">
                   <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
                     <Smartphone className="w-5 h-5 text-green-600" />
-                    Join Early Access Waitlist
+                    Get Early Access Now
                   </h4>
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    if (earlyAccessEmail) {
-                      toast.success("🎉 You're on the list! We'll notify you when the app launches.");
-                      setEarlyAccessEmail("");
-                    }
-                  }} className="space-y-3">
-                    <Input
-                      type="email"
-                      placeholder="Enter your email address"
-                      value={earlyAccessEmail}
-                      onChange={(e) => setEarlyAccessEmail(e.target.value)}
-                      className="h-12"
-                      required
-                    />
-                    <Button type="submit" className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 text-lg">
-                      <Download className="w-5 h-5 mr-2" />
-                      Join Early Access
-                    </Button>
-                  </form>
+                  <p className="text-gray-600 text-sm mb-4">
+                    Enter your details and our team will contact you with the download link.
+                  </p>
+                  <Button 
+                    onClick={() => setShowMobileAppPopup(true)}
+                    className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 text-lg"
+                  >
+                    <Download className="w-5 h-5 mr-2" />
+                    Request Early Access
+                  </Button>
                   <p className="text-xs text-gray-500 mt-3 text-center">
-                    🔒 No spam. We'll only notify you about the app launch.
+                    🔒 We'll contact you within 24 hours
                   </p>
                 </div>
               </div>

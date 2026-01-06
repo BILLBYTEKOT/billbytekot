@@ -1,58 +1,39 @@
-# BillByteKOT - Restaurant Billing Software
+# BillByteKOT - Best Restaurant Billing Software India
 # https://billbytekot.in
 
 User-agent: *
 Allow: /
 
-# Public pages - explicitly allow
-Allow: /blog/
-Allow: /blog/*
-Allow: /download/
-Allow: /contact/
-Allow: /help/
-Allow: /pricing/
-Allow: /features/
-Allow: /restaurant-billing-software/
-Allow: /kot-software/
-Allow: /pos-software-for-restaurants/
-Allow: /privacy-policy/
-Allow: /terms/
-Allow: /signup/
-
-# Disallow private/admin areas
-Disallow: /dashboard/
-Disallow: /admin/
-Disallow: /super-admin-panel-secret/
-Disallow: /setup/
-Disallow: /settings/
-Disallow: /orders/
-Disallow: /menu/
-Disallow: /kitchen/
-Disallow: /inventory/
-Disallow: /reports/
-Disallow: /billing/
-Disallow: /tables/
-Disallow: /staff/
-Disallow: /subscription/
-Disallow: /track/
-Disallow: /order/
-Disallow: /customer-order/
-
-# Disallow API endpoints
-Disallow: /api/
-
-# Sitemap location
+# Sitemap
 Sitemap: https://billbytekot.in/sitemap.xml
 
-# Crawl delay for politeness
-Crawl-delay: 1
-
-# Googlebot specific
+# Allow all search engines
 User-agent: Googlebot
 Allow: /
-Crawl-delay: 0
 
-# Bingbot specific
 User-agent: Bingbot
 Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+# Disallow admin and private pages
+Disallow: /super-admin
+Disallow: /api/
+Disallow: /*.json$
+
+# Allow important pages for SEO
+Allow: /sitemap.xml
+Allow: /manifest.json
+
+# Crawl-delay for politeness
 Crawl-delay: 1
