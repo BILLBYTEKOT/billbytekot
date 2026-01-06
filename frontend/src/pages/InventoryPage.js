@@ -225,7 +225,8 @@ const InventoryPage = ({ user }) => {
     setFormData({ name: item.name, quantity: item.quantity, unit: item.unit,
       min_quantity: item.min_quantity, max_quantity: item.max_quantity || '',
       price_per_unit: item.price_per_unit, cost_price: item.cost_price || '',
-      category_id: item.category_id || '', supplier_id: item.supplier_id || '',
+      category_id: item.category_id ? String(item.category_id) : '', 
+      supplier_id: item.supplier_id ? String(item.supplier_id) : '',
       sku: item.sku || '', barcode: item.barcode || '', description: item.description || '',
       location: item.location || '', expiry_date: item.expiry_date || '',
       batch_number: item.batch_number || '', reorder_point: item.reorder_point || '',
@@ -288,7 +289,10 @@ const InventoryPage = ({ user }) => {
           (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (item.barcode && item.barcode.includes(searchTerm));
         const matchesLowStock = filterLowStock ? item.quantity <= item.min_quantity : true;
-        const matchesCategory = filterCategory && filterCategory !== 'all' ? item.category_id === filterCategory : true;
+        // Compare as strings to handle type mismatches
+        const matchesCategory = filterCategory && filterCategory !== 'all' 
+          ? String(item.category_id) === String(filterCategory) 
+          : true;
         return matchesSearch && matchesLowStock && matchesCategory;
       })
       .sort((a, b) => {
@@ -361,8 +365,8 @@ const InventoryPage = ({ user }) => {
     const lowStockCount = inventory.filter(item => item.quantity <= item.min_quantity).length;
     const healthyStock = totalItems - lowStockCount;
     const categoryBreakdown = categories.map(cat => ({
-      ...cat, count: inventory.filter(i => i.category_id === cat.id).length,
-      value: inventory.filter(i => i.category_id === cat.id).reduce((s, i) => s + (i.quantity * i.price_per_unit), 0)
+      ...cat, count: inventory.filter(i => String(i.category_id) === String(cat.id)).length,
+      value: inventory.filter(i => String(i.category_id) === String(cat.id)).reduce((s, i) => s + (i.quantity * i.price_per_unit), 0)
     }));
     return { totalItems, totalValue, lowStockCount, healthyStock, categoryBreakdown };
   }, [inventory, categories]);
@@ -477,7 +481,7 @@ const InventoryPage = ({ user }) => {
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
                     {categories.map(cat => (
-                      <SelectItem key={cat.id} value={cat.id.toString()}>
+                      <SelectItem key={cat.id} value={String(cat.id)}>
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }}></div>
                           {cat.name}
@@ -534,8 +538,8 @@ const InventoryPage = ({ user }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredAndSortedInventory.map((item) => {
                   const isLowStock = item.quantity <= item.min_quantity;
-                  const category = categories.find(c => c.id === item.category_id);
-                  const supplier = suppliers.find(s => s.id === item.supplier_id);
+                  const category = categories.find(c => String(c.id) === String(item.category_id));
+                  const supplier = suppliers.find(s => String(s.id) === String(item.supplier_id));
                   const totalValue = item.quantity * item.price_per_unit;
                   return (
                     <Card key={item.id} className={`border-0 shadow-lg hover:shadow-xl transition-all ${isLowStock ? 'border-l-4 border-l-orange-500' : ''}`}>
@@ -696,8 +700,8 @@ const InventoryPage = ({ user }) => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {categories.map((category) => {
-                const itemCount = inventory.filter(i => i.category_id === category.id).length;
-                const categoryValue = inventory.filter(i => i.category_id === category.id)
+                const itemCount = inventory.filter(i => String(i.category_id) === String(category.id)).length;
+                const categoryValue = inventory.filter(i => String(i.category_id) === String(category.id))
                   .reduce((sum, i) => sum + (i.quantity * i.price_per_unit), 0);
                 return (
                   <Card key={category.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
@@ -786,7 +790,7 @@ const InventoryPage = ({ user }) => {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {stockMovements.slice(0, 20).map((movement, i) => {
-                        const item = inventory.find(inv => inv.id === movement.item_id);
+                        const item = inventory.find(inv => String(inv.id) === String(movement.item_id));
                         return (
                           <tr key={i} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm">{new Date(movement.created_at).toLocaleDateString()}</td>
@@ -831,18 +835,20 @@ const InventoryPage = ({ user }) => {
                   <div><Label>Item Name *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="e.g., Tomatoes" /></div>
                   <div><Label>SKU</Label><Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} placeholder="e.g., TOM-001" /></div>
                   <div><Label>Category</Label>
-                    <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
+                    <Select value={formData.category_id || ''} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
                       <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                       <SelectContent>
-                        {categories.map(cat => (<SelectItem key={cat.id} value={cat.id.toString()}>{cat.name}</SelectItem>))}
+                        <SelectItem value="">None</SelectItem>
+                        {categories.map(cat => (<SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div><Label>Supplier</Label>
-                    <Select value={formData.supplier_id} onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}>
+                    <Select value={formData.supplier_id || ''} onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}>
                       <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
                       <SelectContent>
-                        {suppliers.map(sup => (<SelectItem key={sup.id} value={sup.id.toString()}>{sup.name}</SelectItem>))}
+                        <SelectItem value="">None</SelectItem>
+                        {suppliers.map(sup => (<SelectItem key={sup.id} value={String(sup.id)}>{sup.name}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -966,10 +972,10 @@ const InventoryPage = ({ user }) => {
             </DialogHeader>
             <form onSubmit={handleMovementSubmit} className="space-y-4">
               <div><Label>Item *</Label>
-                <Select value={movementFormData.item_id} onValueChange={(value) => setMovementFormData({ ...movementFormData, item_id: value })}>
+                <Select value={movementFormData.item_id || ''} onValueChange={(value) => setMovementFormData({ ...movementFormData, item_id: value })}>
                   <SelectTrigger><SelectValue placeholder="Select item" /></SelectTrigger>
                   <SelectContent>
-                    {inventory.map(item => (<SelectItem key={item.id} value={item.id.toString()}>{item.name} ({item.quantity} {item.unit})</SelectItem>))}
+                    {inventory.map(item => (<SelectItem key={item.id} value={String(item.id)}>{item.name} ({item.quantity} {item.unit})</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>

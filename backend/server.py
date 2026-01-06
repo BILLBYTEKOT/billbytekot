@@ -3971,6 +3971,23 @@ async def update_supplier(
     return updated
 
 
+@api_router.delete("/inventory/suppliers/{supplier_id}")
+async def delete_supplier(
+    supplier_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user["role"] not in ["admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    user_org_id = get_secure_org_id(current_user)
+    result = await db.suppliers.delete_one(
+        {"id": supplier_id, "organization_id": user_org_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    return {"message": "Supplier deleted successfully"}
+
+
 # Category models and routes
 class CategoryCreate(BaseModel):
     name: str
@@ -4030,6 +4047,23 @@ async def update_category(
         {"id": category_id, "organization_id": user_org_id}, {"_id": 0}
     )
     return updated
+
+
+@api_router.delete("/inventory/categories/{category_id}")
+async def delete_category(
+    category_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user["role"] not in ["admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    user_org_id = get_secure_org_id(current_user)
+    result = await db.categories.delete_one(
+        {"id": category_id, "organization_id": user_org_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"message": "Category deleted successfully"}
 
 
 # Stock Movement models and routes
