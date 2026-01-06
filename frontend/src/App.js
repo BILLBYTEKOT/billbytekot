@@ -36,6 +36,7 @@ import POSSoftwarePage from './pages/POSSoftwarePage';
 import PublicMenuPage from './pages/PublicMenuPage';
 import NotFound from './pages/NotFound';
 import PWAHomePage from './pages/PWAHomePage';
+import AIAnalyticsPage from './pages/AIAnalyticsPage';
 import DesktopInfo from './components/DesktopInfo';
 import UpdateBanner from './components/UpdateBanner';
 import { Toaster } from './components/ui/sonner';
@@ -769,6 +770,14 @@ function App() {
             element={
               <PrivateRoute isAuthChecking={isAuthChecking}>
                 <ReportsPage user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/ai-analytics"
+            element={
+              <PrivateRoute isAuthChecking={isAuthChecking}>
+                <AIAnalyticsPage user={user} />
               </PrivateRoute>
             }
           />

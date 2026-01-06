@@ -4285,6 +4285,254 @@ async def sales_forecast(current_user: dict = Depends(get_current_user)):
         }
 
 
+# ============================================
+# POWERFUL AI ENDPOINTS - Enhanced Analytics
+# ============================================
+
+@api_router.post("/ai/smart-insights")
+async def get_smart_insights(current_user: dict = Depends(get_current_user)):
+    """Get comprehensive AI-powered business insights"""
+    try:
+        user_org_id = get_secure_org_id(current_user)
+        
+        orders = await db.orders.find({
+            "status": "completed",
+            "organization_id": user_org_id
+        }).to_list(500)
+        
+        menu_items = await db.menu_items.find({
+            "organization_id": user_org_id
+        }).to_list(1000)
+        
+        inventory = await db.inventory.find({
+            "organization_id": user_org_id
+        }).to_list(500)
+        
+        if not orders:
+            return {
+                "success": True,
+                "insights": {
+                    "summary": "Start taking orders to unlock AI insights!",
+                    "top_items": [],
+                    "slow_items": [],
+                    "peak_hours": [],
+                    "revenue_trend": "neutral",
+                    "suggestions": ["Add menu items", "Start taking orders", "Configure your restaurant settings"]
+                }
+            }
+        
+        from collections import Counter, defaultdict
+        
+        item_sales = Counter()
+        item_revenue = defaultdict(float)
+        hourly_orders = defaultdict(int)
+        daily_revenue = defaultdict(float)
+        order_types = Counter()
+        
+        for order in orders:
+            for item in order.get("items", []):
+                item_name = item.get("name", "Unknown")
+                qty = item.get("quantity", 1)
+                price = item.get("price", 0)
+                item_sales[item_name] += qty
+                item_revenue[item_name] += price * qty
+            
+            created_at = order.get("created_at")
+            if created_at:
+                if isinstance(created_at, str):
+                    try:
+                        created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    except:
+                        created_at = datetime.now(timezone.utc)
+                hour = created_at.hour
+                hourly_orders[hour] += 1
+                day_key = created_at.strftime("%Y-%m-%d")
+                daily_revenue[day_key] += order.get("total", 0)
+            
+            order_type = order.get("order_type", "dine_in")
+            order_types[order_type] += 1
+        
+        total_revenue = sum(order.get("total", 0) for order in orders)
+        avg_order_value = total_revenue / len(orders) if orders else 0
+        
+        top_items = item_sales.most_common(5)
+        all_items = list(item_sales.items())
+        slow_items = sorted(all_items, key=lambda x: x[1])[:5] if len(all_items) > 5 else []
+        peak_hours = sorted(hourly_orders.items(), key=lambda x: x[1], reverse=True)[:3]
+        
+        sorted_days = sorted(daily_revenue.items())
+        if len(sorted_days) >= 2:
+            recent_avg = sum(v for k, v in sorted_days[-7:]) / min(7, len(sorted_days))
+            older_avg = sum(v for k, v in sorted_days[:-7]) / max(1, len(sorted_days) - 7) if len(sorted_days) > 7 else recent_avg
+            if recent_avg > older_avg * 1.1:
+                revenue_trend = "growing"
+            elif recent_avg < older_avg * 0.9:
+                revenue_trend = "declining"
+            else:
+                revenue_trend = "stable"
+        else:
+            revenue_trend = "insufficient_data"
+        
+        suggestions = []
+        low_stock_items = [inv for inv in inventory if inv.get("quantity", 0) <= inv.get("min_quantity", 5)]
+        if low_stock_items:
+            suggestions.append(f"⚠️ {len(low_stock_items)} items are low on stock!")
+        if peak_hours:
+            peak_hour = peak_hours[0][0]
+            suggestions.append(f"📈 Peak hour: {peak_hour}:00-{peak_hour+1}:00")
+        if slow_items:
+            suggestions.append(f"🔄 Promote slow items: {', '.join([s[0] for s in slow_items[:3]])}")
+        if order_types:
+            top_order_type = order_types.most_common(1)[0]
+            suggestions.append(f"🍽️ Top order type: {top_order_type[0].replace('_', ' ').title()}")
+        if revenue_trend == "declining":
+            suggestions.append("📉 Revenue declining - consider promotions!")
+        elif revenue_trend == "growing":
+            suggestions.append("🚀 Revenue growing - great job!")
+        
+        ai_summary = None
+        if _LLM_AVAILABLE and len(orders) >= 10:
+            try:
+                chat = LlmChat(
+                    api_key=os.environ.get("LLM_API_KEY"),
+                    session_id=str(uuid.uuid4()),
+                    system_message="You are a restaurant analyst. Give 2-3 brief actionable insights.",
+                ).with_model("openai", "gpt-4o-mini")
+                prompt = f"Orders: {len(orders)}, Revenue: ₹{total_revenue:.0f}, Avg: ₹{avg_order_value:.0f}, Top: {top_items[:3]}, Trend: {revenue_trend}. Give insights."
+                user_msg = UserMessage(text=prompt)
+                ai_summary = await chat.send_message(user_msg)
+            except Exception as e:
+                print(f"AI summary error: {e}")
+        
+        return {
+            "success": True,
+            "insights": {
+                "summary": ai_summary or f"Based on {len(orders)} orders with ₹{total_revenue:.0f} revenue. Avg: ₹{avg_order_value:.0f}",
+                "top_items": [{"name": name, "count": count, "revenue": item_revenue.get(name, 0)} for name, count in top_items],
+                "slow_items": [{"name": name, "count": count} for name, count in slow_items],
+                "peak_hours": [{"hour": f"{h}:00", "orders": c} for h, c in peak_hours],
+                "revenue_trend": revenue_trend,
+                "order_types": dict(order_types),
+                "suggestions": suggestions,
+                "stats": {"total_orders": len(orders), "total_revenue": total_revenue, "avg_order_value": avg_order_value}
+            }
+        }
+    except Exception as e:
+        print(f"Smart insights error: {str(e)}")
+        return {"success": False, "error": str(e), "insights": {"summary": "Error generating insights", "suggestions": []}}
+
+
+@api_router.post("/ai/menu-optimizer")
+async def optimize_menu(current_user: dict = Depends(get_current_user)):
+    """AI-powered menu optimization"""
+    try:
+        user_org_id = get_secure_org_id(current_user)
+        
+        orders = await db.orders.find({"status": "completed", "organization_id": user_org_id}).to_list(500)
+        menu_items = await db.menu_items.find({"organization_id": user_org_id}).to_list(1000)
+        
+        if not orders or not menu_items:
+            return {"success": True, "optimization": {"combo_suggestions": [], "price_suggestions": [], "summary": "Add menu items and orders to get suggestions!"}}
+        
+        from collections import Counter, defaultdict
+        
+        item_sales = Counter()
+        item_revenue = defaultdict(float)
+        item_pairs = Counter()
+        
+        for order in orders:
+            items_in_order = []
+            for item in order.get("items", []):
+                name = item.get("name", "Unknown")
+                qty = item.get("quantity", 1)
+                price = item.get("price", 0)
+                item_sales[name] += qty
+                item_revenue[name] += price * qty
+                items_in_order.append(name)
+            
+            for i, item1 in enumerate(items_in_order):
+                for item2 in items_in_order[i+1:]:
+                    pair = tuple(sorted([item1, item2]))
+                    item_pairs[pair] += 1
+        
+        menu_prices = {item.get("name"): item.get("price", 0) for item in menu_items}
+        
+        combo_suggestions = []
+        for pair, count in item_pairs.most_common(5):
+            if count >= 3:
+                item1, item2 = pair
+                price1 = menu_prices.get(item1, 0)
+                price2 = menu_prices.get(item2, 0)
+                combo_price = (price1 + price2) * 0.9
+                combo_suggestions.append({
+                    "items": list(pair), "times_together": count,
+                    "individual_total": price1 + price2, "combo_price": round(combo_price, 0)
+                })
+        
+        price_suggestions = []
+        avg_order = sum(o.get("total", 0) for o in orders) / len(orders) if orders else 0
+        for name, sales in item_sales.items():
+            price = menu_prices.get(name, 0)
+            if sales > len(orders) * 0.3 and price < avg_order * 0.3:
+                price_suggestions.append({
+                    "item": name, "current": price, "suggested": round(price * 1.15, 0),
+                    "reason": "High demand - can increase 15%"
+                })
+        
+        summary = f"Analyzed {len(menu_items)} items across {len(orders)} orders."
+        if _LLM_AVAILABLE and len(orders) >= 20:
+            try:
+                chat = LlmChat(api_key=os.environ.get("LLM_API_KEY"), session_id=str(uuid.uuid4()),
+                    system_message="Restaurant menu consultant. Brief advice.").with_model("openai", "gpt-4o-mini")
+                prompt = f"Menu: {len(menu_items)} items, {len(orders)} orders. Top: {item_sales.most_common(3)}. Combos: {item_pairs.most_common(3)}. Give 2 tips."
+                summary = await chat.send_message(UserMessage(text=prompt))
+            except: pass
+        
+        return {"success": True, "optimization": {"combo_suggestions": combo_suggestions[:5], "price_suggestions": price_suggestions[:5], "summary": summary}}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@api_router.post("/ai/billing-suggestions")
+async def get_billing_suggestions(order_items: List[dict] = Body(...), current_user: dict = Depends(get_current_user)):
+    """AI upsell suggestions during billing"""
+    try:
+        user_org_id = get_secure_org_id(current_user)
+        menu_items = await db.menu_items.find({"organization_id": user_org_id}).to_list(1000)
+        orders = await db.orders.find({"status": "completed", "organization_id": user_org_id}).to_list(200)
+        
+        if not menu_items:
+            return {"success": True, "suggestions": []}
+        
+        from collections import Counter
+        
+        current_items = [item.get("name", "") for item in order_items]
+        menu_by_name = {item.get("name"): item for item in menu_items}
+        
+        pair_counter = Counter()
+        for order in orders:
+            order_item_names = [item.get("name") for item in order.get("items", [])]
+            for current_item in current_items:
+                if current_item in order_item_names:
+                    for other_item in order_item_names:
+                        if other_item != current_item and other_item not in current_items:
+                            pair_counter[other_item] += 1
+        
+        suggestions = []
+        for item_name, count in pair_counter.most_common(3):
+            if item_name in menu_by_name:
+                item = menu_by_name[item_name]
+                suggestions.append({
+                    "type": "frequently_paired",
+                    "item": {"name": item_name, "price": item.get("price", 0), "category": item.get("category", "")},
+                    "reason": f"Often ordered together ({count}x)", "confidence": min(count / 10, 1.0)
+                })
+        
+        return {"success": True, "suggestions": suggestions[:5]}
+    except Exception as e:
+        return {"success": False, "suggestions": [], "error": str(e)}
+
+
 # Reports
 @api_router.get("/reports/daily")
 async def daily_report(current_user: dict = Depends(get_current_user)):

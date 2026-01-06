@@ -5,14 +5,15 @@ import Layout from '../components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { 
   DollarSign, ShoppingCart, TrendingUp, MessageSquare, Sparkles, 
-  Clock, Users, ChefHat, ArrowUpRight, ArrowDownRight, Utensils,
-  Calendar, Zap, Target, Award, RefreshCw, Bell
+  Clock, ChefHat, ArrowUpRight, Utensils,
+  Calendar, Zap, Target, Award, RefreshCw
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import TrialBanner from '../components/TrialBanner';
+import AIInsightsPanel from '../components/AIInsightsPanel';
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
@@ -379,14 +380,15 @@ const Dashboard = ({ user }) => {
           </Card>
         </div>
 
-        {/* AI Section */}
+        {/* AI Section - Enhanced */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* AI Chat */}
           <Card className="border-0 shadow-lg" data-testid="ai-chat-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <MessageSquare className="w-5 h-5 text-violet-600" />
                 AI Assistant
-                <span className="text-[10px] bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full font-medium">BETA</span>
+                <span className="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full font-medium">GPT-4</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -409,7 +411,7 @@ const Dashboard = ({ user }) => {
                 </div>
               )}
               <div className="flex flex-wrap gap-2">
-                {['Today\'s sales?', 'Top items?', 'Busy hours?'].map(q => (
+                {['Today\'s sales?', 'Top items?', 'Busy hours?', 'Menu suggestions?'].map(q => (
                   <button key={q} onClick={() => { setChatMessage(q); }} className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-violet-100 rounded-full text-gray-600 hover:text-violet-600 transition-colors">
                     {q}
                   </button>
@@ -418,26 +420,8 @@ const Dashboard = ({ user }) => {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg" data-testid="recommendations-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Sparkles className="w-5 h-5 text-amber-500" />
-                AI Insights
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recommendations ? (
-                <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200">
-                  <p className="text-sm text-gray-700 whitespace-pre-line">{recommendations}</p>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center py-8 text-gray-400">
-                  <RefreshCw className="w-5 h-5 animate-spin mr-2" />
-                  Loading insights...
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* AI Insights Panel - Compact */}
+          <AIInsightsPanel compact={true} />
         </div>
       </div>
     </Layout>

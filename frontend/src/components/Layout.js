@@ -5,7 +5,7 @@ import { logout } from '../App';
 import { 
   Home, UtensilsCrossed, ShoppingBag, Table, ChefHat, Package, 
   FileText, LogOut, Menu, X, Settings as SettingsIcon, Crown, Users,
-  MoreHorizontal, HelpCircle
+  MoreHorizontal, HelpCircle, Brain
 } from 'lucide-react';
 
 const Layout = ({ user, children }) => {
@@ -28,6 +28,7 @@ const Layout = ({ user, children }) => {
     { path: '/kitchen', icon: ChefHat, label: 'Kitchen' },
     { path: '/inventory', icon: Package, label: 'Inventory' },
     { path: '/reports', icon: FileText, label: 'Reports' },
+    { path: '/ai-analytics', icon: Brain, label: 'AI Analytics', badge: 'NEW' },
     { path: '/staff', icon: Users, label: 'Staff', adminOnly: true },
     { path: '/subscription', icon: Crown, label: 'Subscription' },
     { path: '/help', icon: HelpCircle, label: 'Help' },
@@ -66,6 +67,11 @@ const Layout = ({ user, children }) => {
                 }`}>
                   <item.icon className="w-5 h-5" />
                   <span className="font-medium">{item.label}</span>
+                  {item.badge && (
+                    <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-violet-100 text-violet-600'
+                    }`}>{item.badge}</span>
+                  )}
                   {item.path === '/subscription' && !user?.subscription_active && (
                     <span className="ml-auto text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">PRO</span>
                   )}
