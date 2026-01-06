@@ -1366,7 +1366,7 @@ const LandingPage = () => {
                   </div>
                   {/* Label */}
                   <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur px-3 py-1 rounded-full">
-                    <span className="text-white text-xs font-medium">Round Plate Menu</span>
+                    <span className="text-white text-xs font-medium">Menu</span>
                   </div>
                 </div>
 
