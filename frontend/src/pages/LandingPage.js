@@ -1210,7 +1210,7 @@ const LandingPage = () => {
             </h1>
 
             <p className="text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto font-light animate-fade-in-up delay-200">
-              AI-powered POS system with KOT, thermal printing & WhatsApp integration. Trusted by 500+ restaurants. Better than Petpooja at ₹1999/year!
+              AI-powered POS system with KOT, thermal printing & WhatsApp integration. Trusted by 500+ restaurants. 
               {pricing?.campaign_active && (
                 <span className="font-semibold text-red-600"> {pricing?.campaign_discount_percent || 10}% OFF!</span>
               )}

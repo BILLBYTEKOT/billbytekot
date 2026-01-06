@@ -11,6 +11,7 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Plus, AlertTriangle, Package, Printer, Download, FileSpreadsheet, 
@@ -18,7 +19,8 @@ import {
   ShoppingCart, Truck, Clock, DollarSign, Archive, RefreshCw,
   Eye, Edit, Trash2, History, Bell, Target, Zap, Package2,
   ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, XCircle,
-  Settings, Users, MapPin, Phone, Mail, Globe, Minus
+  Settings, Users, MapPin, Phone, Mail, Globe, Minus, X,
+  Sparkles, Activity, PieChart, Layers
 } from 'lucide-react';
 import BulkUpload from '../components/BulkUpload';
 
@@ -44,77 +46,37 @@ const InventoryPage = ({ user }) => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [viewMode, setViewMode] = useState('grid'); // grid or table
+  const [viewMode, setViewMode] = useState('grid');
+  const [activeTab, setActiveTab] = useState('inventory');
   const [stockAdjustOpen, setStockAdjustOpen] = useState(false);
   const [stockAdjustItem, setStockAdjustItem] = useState(null);
-  const [stockAdjustType, setStockAdjustType] = useState('add'); // 'add' or 'reduce'
+  const [stockAdjustType, setStockAdjustType] = useState('add');
   const [stockAdjustQty, setStockAdjustQty] = useState('');
   const [stockAdjustReason, setStockAdjustReason] = useState('');
   const [businessSettings, setBusinessSettings] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    quantity: '',
-    unit: '',
-    min_quantity: '',
-    max_quantity: '',
-    price_per_unit: '',
-    cost_price: '',
-    category_id: '',
-    supplier_id: '',
-    sku: '',
-    barcode: '',
-    description: '',
-    location: '',
-    expiry_date: '',
-    batch_number: '',
-    reorder_point: '',
-    reorder_quantity: ''
+    name: '', quantity: '', unit: '', min_quantity: '', max_quantity: '',
+    price_per_unit: '', cost_price: '', category_id: '', supplier_id: '',
+    sku: '', barcode: '', description: '', location: '', expiry_date: '',
+    batch_number: '', reorder_point: '', reorder_quantity: ''
   });
   const [supplierFormData, setSupplierFormData] = useState({
-    name: '',
-    contact_person: '',
-    phone: '',
-    email: '',
-    address: '',
-    website: '',
-    payment_terms: '',
-    notes: ''
+    name: '', contact_person: '', phone: '', email: '', address: '',
+    website: '', payment_terms: '', notes: ''
   });
   const [categoryFormData, setCategoryFormData] = useState({
-    name: '',
-    description: '',
-    color: '#7c3aed'
+    name: '', description: '', color: '#7c3aed'
   });
   const [movementFormData, setMovementFormData] = useState({
-    item_id: '',
-    type: 'in', // in, out, adjustment
-    quantity: '',
-    reason: '',
-    reference: '',
-    notes: ''
+    item_id: '', type: 'in', quantity: '', reason: '', reference: '', notes: ''
   });
 
   useEffect(() => {
-    // Load critical data first (inventory), then load supporting data
     const loadData = async () => {
-      // Priority 1: Load inventory immediately
       await fetchInventory();
-      
-      // Priority 2: Load essential data in parallel
-      Promise.all([
-        fetchCategories(),
-        fetchSuppliers(),
-        fetchBusinessSettings()
-      ]);
-      
-      // Priority 3: Load analytics data after a short delay (non-critical)
-      setTimeout(() => {
-        fetchLowStock();
-        fetchStockMovements();
-        fetchAnalytics();
-      }, 100);
+      Promise.all([fetchCategories(), fetchSuppliers(), fetchBusinessSettings()]);
+      setTimeout(() => { fetchLowStock(); fetchStockMovements(); fetchAnalytics(); }, 100);
     };
-    
     loadData();
   }, []);
 
@@ -122,82 +84,56 @@ const InventoryPage = ({ user }) => {
     try {
       const response = await axios.get(`${API}/business/settings`);
       setBusinessSettings(response.data.business_settings);
-    } catch (error) {
-      console.error('Failed to fetch business settings', error);
-    }
+    } catch (error) { console.error('Failed to fetch business settings', error); }
   };
 
   const fetchInventory = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
+      setLoading(true); setError(null);
       const response = await axios.get(`${API}/inventory`);
       setInventory(response.data);
       return response.data;
     } catch (error) {
       console.error('Inventory fetch error:', error);
       setError(error.response?.data?.detail || error.message);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        toast.error('Please login to access inventory');
-      } else if (error.response?.status === 500) {
-        toast.error('Server error - please try again later');
-      } else {
-        toast.error('Failed to fetch inventory: ' + (error.response?.data?.detail || error.message));
-      }
+      toast.error('Failed to fetch inventory');
       return [];
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const fetchLowStock = async () => {
     try {
       const response = await axios.get(`${API}/inventory/low-stock`);
       setLowStock(response.data);
-    } catch (error) {
-      console.error('Failed to fetch low stock', error);
-    }
+    } catch (error) { console.error('Failed to fetch low stock', error); }
   };
 
   const fetchSuppliers = async () => {
     try {
       const response = await axios.get(`${API}/inventory/suppliers`);
       setSuppliers(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch suppliers', error);
-      setSuppliers([]);
-    }
+    } catch (error) { console.error('Failed to fetch suppliers', error); setSuppliers([]); }
   };
 
   const fetchCategories = async () => {
     try {
       const response = await axios.get(`${API}/inventory/categories`);
       setCategories(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch categories', error);
-      setCategories([]);
-    }
+    } catch (error) { console.error('Failed to fetch categories', error); setCategories([]); }
   };
 
   const fetchStockMovements = async () => {
     try {
       const response = await axios.get(`${API}/inventory/movements`);
       setStockMovements(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch stock movements', error);
-      setStockMovements([]);
-    }
+    } catch (error) { console.error('Failed to fetch stock movements', error); setStockMovements([]); }
   };
 
   const fetchAnalytics = async () => {
     try {
       const response = await axios.get(`${API}/inventory/analytics`);
       setAnalytics(response.data || {});
-    } catch (error) {
-      console.error('Failed to fetch analytics', error);
-      setAnalytics({});
-    }
+    } catch (error) { console.error('Failed to fetch analytics', error); setAnalytics({}); }
   };
 
   const handleSubmit = async (e) => {
@@ -211,16 +147,11 @@ const InventoryPage = ({ user }) => {
         toast.success('Inventory item created!');
       }
       setDialogOpen(false);
-      
-      // Optimized: Only refetch inventory, calculate low stock from existing data
       const updatedInventory = await fetchInventory();
       const lowStockItems = updatedInventory.filter(item => item.quantity <= item.min_quantity);
       setLowStock(lowStockItems);
-      
       resetForm();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save inventory item');
-    }
+    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to save inventory item'); }
   };
 
   const handleSupplierSubmit = async (e) => {
@@ -236,9 +167,7 @@ const InventoryPage = ({ user }) => {
       setSupplierDialogOpen(false);
       fetchSuppliers();
       resetSupplierForm();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save supplier');
-    }
+    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to save supplier'); }
   };
 
   const handleCategorySubmit = async (e) => {
@@ -254,9 +183,7 @@ const InventoryPage = ({ user }) => {
       setCategoryDialogOpen(false);
       fetchCategories();
       resetCategoryForm();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save category');
-    }
+    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to save category'); }
   };
 
   const handleMovementSubmit = async (e) => {
@@ -265,118 +192,60 @@ const InventoryPage = ({ user }) => {
       await axios.post(`${API}/inventory/movements`, movementFormData);
       toast.success('Stock movement recorded!');
       setMovementDialogOpen(false);
-      fetchInventory();
-      fetchStockMovements();
-      fetchAnalytics();
+      fetchInventory(); fetchStockMovements(); fetchAnalytics();
       resetMovementForm();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to record movement');
-    }
+    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to record movement'); }
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      quantity: '',
-      unit: '',
-      min_quantity: '',
-      max_quantity: '',
-      price_per_unit: '',
-      cost_price: '',
-      category_id: '',
-      supplier_id: '',
-      sku: '',
-      barcode: '',
-      description: '',
-      location: '',
-      expiry_date: '',
-      batch_number: '',
-      reorder_point: '',
-      reorder_quantity: ''
-    });
+    setFormData({ name: '', quantity: '', unit: '', min_quantity: '', max_quantity: '',
+      price_per_unit: '', cost_price: '', category_id: '', supplier_id: '', sku: '',
+      barcode: '', description: '', location: '', expiry_date: '', batch_number: '',
+      reorder_point: '', reorder_quantity: '' });
     setEditingItem(null);
   };
 
   const resetSupplierForm = () => {
-    setSupplierFormData({
-      name: '',
-      contact_person: '',
-      phone: '',
-      email: '',
-      address: '',
-      website: '',
-      payment_terms: '',
-      notes: ''
-    });
+    setSupplierFormData({ name: '', contact_person: '', phone: '', email: '', address: '',
+      website: '', payment_terms: '', notes: '' });
     setEditingSupplier(null);
   };
 
   const resetCategoryForm = () => {
-    setCategoryFormData({
-      name: '',
-      description: '',
-      color: '#7c3aed'
-    });
+    setCategoryFormData({ name: '', description: '', color: '#7c3aed' });
     setEditingCategory(null);
   };
 
   const resetMovementForm = () => {
-    setMovementFormData({
-      item_id: '',
-      type: 'in',
-      quantity: '',
-      reason: '',
-      reference: '',
-      notes: ''
-    });
+    setMovementFormData({ item_id: '', type: 'in', quantity: '', reason: '', reference: '', notes: '' });
   };
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({
-      name: item.name,
-      quantity: item.quantity,
-      unit: item.unit,
-      min_quantity: item.min_quantity,
-      max_quantity: item.max_quantity || '',
-      price_per_unit: item.price_per_unit,
-      cost_price: item.cost_price || '',
-      category_id: item.category_id || '',
-      supplier_id: item.supplier_id || '',
-      sku: item.sku || '',
-      barcode: item.barcode || '',
-      description: item.description || '',
-      location: item.location || '',
-      expiry_date: item.expiry_date || '',
-      batch_number: item.batch_number || '',
-      reorder_point: item.reorder_point || '',
-      reorder_quantity: item.reorder_quantity || ''
-    });
+    setFormData({ name: item.name, quantity: item.quantity, unit: item.unit,
+      min_quantity: item.min_quantity, max_quantity: item.max_quantity || '',
+      price_per_unit: item.price_per_unit, cost_price: item.cost_price || '',
+      category_id: item.category_id || '', supplier_id: item.supplier_id || '',
+      sku: item.sku || '', barcode: item.barcode || '', description: item.description || '',
+      location: item.location || '', expiry_date: item.expiry_date || '',
+      batch_number: item.batch_number || '', reorder_point: item.reorder_point || '',
+      reorder_quantity: item.reorder_quantity || '' });
     setDialogOpen(true);
   };
 
   const handleEditSupplier = (supplier) => {
     setEditingSupplier(supplier);
-    setSupplierFormData({
-      name: supplier.name,
-      contact_person: supplier.contact_person || '',
-      phone: supplier.phone || '',
-      email: supplier.email || '',
-      address: supplier.address || '',
-      website: supplier.website || '',
-      payment_terms: supplier.payment_terms || '',
-      notes: supplier.notes || ''
-    });
+    setSupplierFormData({ name: supplier.name, contact_person: supplier.contact_person || '',
+      phone: supplier.phone || '', email: supplier.email || '', address: supplier.address || '',
+      website: supplier.website || '', payment_terms: supplier.payment_terms || '',
+      notes: supplier.notes || '' });
     setSupplierDialogOpen(true);
   };
 
   const handleEditCategory = (category) => {
     setEditingCategory(category);
-    setCategoryFormData({
-      name: category.name,
-      description: category.description || '',
-      color: category.color || '#7c3aed'
-    });
+    setCategoryFormData({ name: category.name, description: category.description || '',
+      color: category.color || '#7c3aed' });
     setCategoryDialogOpen(true);
   };
 
@@ -385,996 +254,410 @@ const InventoryPage = ({ user }) => {
       try {
         await axios.delete(`${API}/inventory/${id}`);
         toast.success('Item deleted successfully');
-        
-        // Optimized: Update state directly instead of refetching
         const updatedInventory = inventory.filter(item => item.id !== id);
         setInventory(updatedInventory);
-        const lowStockItems = updatedInventory.filter(item => item.quantity <= item.min_quantity);
-        setLowStock(lowStockItems);
-      } catch (error) {
-        toast.error('Failed to delete item');
-      }
+        setLowStock(updatedInventory.filter(item => item.quantity <= item.min_quantity));
+      } catch (error) { toast.error('Failed to delete item'); }
     }
   };
 
-  // Memoize filtered and sorted inventory for better performance
+  const handleDeleteSupplier = async (id) => {
+    if (window.confirm('Delete this supplier?')) {
+      try {
+        await axios.delete(`${API}/inventory/suppliers/${id}`);
+        toast.success('Supplier deleted!');
+        fetchSuppliers();
+      } catch (error) { toast.error('Failed to delete supplier'); }
+    }
+  };
+
+  const handleDeleteCategory = async (id) => {
+    if (window.confirm('Delete this category?')) {
+      try {
+        await axios.delete(`${API}/inventory/categories/${id}`);
+        toast.success('Category deleted!');
+        fetchCategories();
+      } catch (error) { toast.error('Failed to delete category'); }
+    }
+  };
+
   const filteredAndSortedInventory = useMemo(() => {
     return inventory
       .filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                             (item.barcode && item.barcode.includes(searchTerm));
+          (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (item.barcode && item.barcode.includes(searchTerm));
         const matchesLowStock = filterLowStock ? item.quantity <= item.min_quantity : true;
         const matchesCategory = filterCategory && filterCategory !== 'all' ? item.category_id === filterCategory : true;
         return matchesSearch && matchesLowStock && matchesCategory;
       })
       .sort((a, b) => {
-        let aValue = a[sortBy];
-        let bValue = b[sortBy];
-        
-        if (sortBy === 'total_value') {
-          aValue = a.quantity * a.price_per_unit;
-          bValue = b.quantity * b.price_per_unit;
-        }
-        
-        if (typeof aValue === 'string') {
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
-        }
-        
-        if (sortOrder === 'asc') {
-          return aValue > bValue ? 1 : -1;
-        } else {
-          return aValue < bValue ? 1 : -1;
-        }
+        let aValue = a[sortBy], bValue = b[sortBy];
+        if (sortBy === 'total_value') { aValue = a.quantity * a.price_per_unit; bValue = b.quantity * b.price_per_unit; }
+        if (typeof aValue === 'string') { aValue = aValue.toLowerCase(); bValue = bValue.toLowerCase(); }
+        return sortOrder === 'asc' ? (aValue > bValue ? 1 : -1) : (aValue < bValue ? 1 : -1);
       });
   }, [inventory, searchTerm, filterLowStock, filterCategory, sortBy, sortOrder]);
 
-  // Print inventory report
   const handlePrintInventory = () => {
     const totalValue = inventory.reduce((sum, item) => sum + (item.quantity * item.price_per_unit), 0);
-    const lowStockItems = inventory.filter(item => item.quantity <= item.min_quantity);
-
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Inventory Report - ${businessSettings?.restaurant_name || 'Restaurant'}</title>
-        <style>
-          @page { size: A4; margin: 15mm; }
-          body { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
-          .header { text-align: center; padding: 20px; border-bottom: 2px solid #7c3aed; margin-bottom: 20px; }
-          .header h1 { margin: 0; color: #7c3aed; font-size: 24px; }
-          .header p { margin: 5px 0; color: #666; }
-          .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
-          .summary-card { background: #f3f4f6; padding: 15px; border-radius: 8px; text-align: center; }
-          .summary-card h4 { margin: 0 0 5px 0; font-size: 11px; color: #666; text-transform: uppercase; }
-          .summary-card p { margin: 0; font-size: 20px; font-weight: bold; color: #7c3aed; }
-          .low-stock { background: #fef3c7 !important; }
-          .low-stock p { color: #d97706 !important; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-          th { background: #7c3aed; color: white; font-weight: 600; }
-          tr:nth-child(even) { background: #f9fafb; }
-          .low { background: #fef3c7 !important; }
-          .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; color: #666; font-size: 10px; }
-          .no-print { margin-top: 20px; text-align: center; }
-          .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin: 5px; }
-          .btn-primary { background: #7c3aed; color: white; }
-          .btn-secondary { background: #6b7280; color: white; }
-          @media print { .no-print { display: none; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>📦 ${businessSettings?.restaurant_name || 'Restaurant'}</h1>
-          <p>Inventory Report</p>
-          <p>Generated: ${new Date().toLocaleString()}</p>
-        </div>
-
-        <div class="summary">
-          <div class="summary-card">
-            <h4>Total Items</h4>
-            <p>${inventory.length}</p>
-          </div>
-          <div class="summary-card">
-            <h4>Total Value</h4>
-            <p>₹${totalValue.toFixed(0)}</p>
-          </div>
-          <div class="summary-card low-stock">
-            <h4>Low Stock</h4>
-            <p>${lowStockItems.length}</p>
-          </div>
-          <div class="summary-card">
-            <h4>Healthy Stock</h4>
-            <p>${inventory.length - lowStockItems.length}</p>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Item Name</th>
-              <th>Current Stock</th>
-              <th>Min Required</th>
-              <th>Unit Price</th>
-              <th>Total Value</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${inventory.map((item, idx) => {
-              const isLow = item.quantity <= item.min_quantity;
-              return `
-                <tr class="${isLow ? 'low' : ''}">
-                  <td>${idx + 1}</td>
-                  <td><strong>${item.name}</strong></td>
-                  <td>${item.quantity} ${item.unit}</td>
-                  <td>${item.min_quantity} ${item.unit}</td>
-                  <td>₹${item.price_per_unit}</td>
-                  <td>₹${(item.quantity * item.price_per_unit).toFixed(2)}</td>
-                  <td style="color: ${isLow ? '#d97706' : '#16a34a'}; font-weight: bold;">
-                    ${isLow ? '⚠️ Low' : '✅ OK'}
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-          <tfoot>
-            <tr style="background: #f3f4f6; font-weight: bold;">
-              <td colspan="5" style="text-align: right;">Total Inventory Value:</td>
-              <td colspan="2">₹${totalValue.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <div class="footer">
-          <p>Generated by BillByteKOT - Restaurant Management System</p>
-          <p>${businessSettings?.address || ''}</p>
-        </div>
-
-        <div class="no-print">
-          <button class="btn btn-primary" onclick="window.print()">🖨️ Print Report</button>
-          <button class="btn btn-secondary" onclick="window.close()">✕ Close</button>
-        </div>
-      </body>
-      </html>
-    `);
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Inventory Report</title>
+      <style>body{font-family:Arial;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px}th{background:#7c3aed;color:white}.low{background:#fef3c7}</style></head>
+      <body><h1>📦 Inventory Report</h1><p>Generated: ${new Date().toLocaleString()}</p>
+      <table><tr><th>#</th><th>Item</th><th>Stock</th><th>Min</th><th>Price</th><th>Value</th><th>Status</th></tr>
+      ${inventory.map((item, i) => `<tr class="${item.quantity <= item.min_quantity ? 'low' : ''}">
+        <td>${i+1}</td><td>${item.name}</td><td>${item.quantity} ${item.unit}</td><td>${item.min_quantity}</td>
+        <td>₹${item.price_per_unit}</td><td>₹${(item.quantity * item.price_per_unit).toFixed(2)}</td>
+        <td>${item.quantity <= item.min_quantity ? '⚠️ Low' : '✅ OK'}</td></tr>`).join('')}
+      <tr style="font-weight:bold"><td colspan="5">Total Value:</td><td colspan="2">₹${totalValue.toFixed(2)}</td></tr></table>
+      <button onclick="window.print()">Print</button></body></html>`);
     printWindow.document.close();
-    toast.success('Inventory report ready for printing!');
+    toast.success('Report ready!');
   };
 
-  // Export inventory to CSV
   const handleExportCSV = () => {
-    const csvContent = [
-      ['Item Name', 'Quantity', 'Unit', 'Min Quantity', 'Price per Unit', 'Total Value', 'Status'],
-      ...inventory.map(item => [
-        item.name,
-        item.quantity,
-        item.unit,
-        item.min_quantity,
-        item.price_per_unit,
-        (item.quantity * item.price_per_unit).toFixed(2),
-        item.quantity <= item.min_quantity ? 'Low Stock' : 'OK'
-      ])
+    const csvContent = [['Item Name', 'Quantity', 'Unit', 'Min Quantity', 'Price', 'Total Value', 'Status'],
+      ...inventory.map(item => [item.name, item.quantity, item.unit, item.min_quantity, item.price_per_unit,
+        (item.quantity * item.price_per_unit).toFixed(2), item.quantity <= item.min_quantity ? 'Low Stock' : 'OK'])
     ].map(row => row.join(',')).join('\n');
-
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+    const a = document.createElement('a'); a.href = url;
+    a.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`; a.click();
     window.URL.revokeObjectURL(url);
-    toast.success('Inventory exported to CSV!');
+    toast.success('Exported to CSV!');
   };
 
-  // Stock Adjustment Functions
   const openStockAdjust = (item, type) => {
-    setStockAdjustItem(item);
-    setStockAdjustType(type);
-    setStockAdjustQty('');
-    setStockAdjustReason('');
-    setStockAdjustOpen(true);
+    setStockAdjustItem(item); setStockAdjustType(type);
+    setStockAdjustQty(''); setStockAdjustReason(''); setStockAdjustOpen(true);
   };
 
   const handleStockAdjust = async () => {
-    if (!stockAdjustQty || parseFloat(stockAdjustQty) <= 0) {
-      toast.error('Please enter a valid quantity');
-      return;
-    }
-
+    if (!stockAdjustQty || parseFloat(stockAdjustQty) <= 0) { toast.error('Enter valid quantity'); return; }
     const qty = parseFloat(stockAdjustQty);
-    const newQty = stockAdjustType === 'add' 
-      ? stockAdjustItem.quantity + qty 
-      : stockAdjustItem.quantity - qty;
-
-    if (newQty < 0) {
-      toast.error('Cannot reduce stock below 0');
-      return;
-    }
-
+    const newQty = stockAdjustType === 'add' ? stockAdjustItem.quantity + qty : stockAdjustItem.quantity - qty;
+    if (newQty < 0) { toast.error('Cannot reduce below 0'); return; }
     try {
-      // Update inventory quantity
-      await axios.put(`${API}/inventory/${stockAdjustItem.id}`, {
-        ...stockAdjustItem,
-        quantity: newQty
-      });
-
-      // Record stock movement
-      await axios.post(`${API}/inventory/movements`, {
-        item_id: stockAdjustItem.id,
-        type: stockAdjustType === 'add' ? 'in' : 'out',
-        quantity: qty,
+      await axios.put(`${API}/inventory/${stockAdjustItem.id}`, { ...stockAdjustItem, quantity: newQty });
+      await axios.post(`${API}/inventory/movements`, { item_id: stockAdjustItem.id,
+        type: stockAdjustType === 'add' ? 'in' : 'out', quantity: qty,
         reason: stockAdjustReason || (stockAdjustType === 'add' ? 'Stock Added' : 'Stock Reduced'),
         reference: `Manual ${stockAdjustType === 'add' ? 'Addition' : 'Reduction'}`,
-        notes: `${stockAdjustType === 'add' ? 'Added' : 'Reduced'} ${qty} ${stockAdjustItem.unit}. Previous: ${stockAdjustItem.quantity}, New: ${newQty}`
-      });
-
-      toast.success(`Stock ${stockAdjustType === 'add' ? 'added' : 'reduced'} successfully!`);
+        notes: `${stockAdjustType === 'add' ? 'Added' : 'Reduced'} ${qty}. Previous: ${stockAdjustItem.quantity}, New: ${newQty}` });
+      toast.success(`Stock ${stockAdjustType === 'add' ? 'added' : 'reduced'}!`);
       setStockAdjustOpen(false);
-      
-      // Refresh data
       const updatedInventory = await fetchInventory();
-      const lowStockItems = updatedInventory.filter(item => item.quantity <= item.min_quantity);
-      setLowStock(lowStockItems);
+      setLowStock(updatedInventory.filter(item => item.quantity <= item.min_quantity));
       fetchStockMovements();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to adjust stock');
-    }
+    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to adjust stock'); }
   };
+
+  // Calculate analytics
+  const inventoryStats = useMemo(() => {
+    const totalItems = inventory.length;
+    const totalValue = inventory.reduce((sum, item) => sum + (item.quantity * item.price_per_unit), 0);
+    const lowStockCount = inventory.filter(item => item.quantity <= item.min_quantity).length;
+    const healthyStock = totalItems - lowStockCount;
+    const categoryBreakdown = categories.map(cat => ({
+      ...cat, count: inventory.filter(i => i.category_id === cat.id).length,
+      value: inventory.filter(i => i.category_id === cat.id).reduce((s, i) => s + (i.quantity * i.price_per_unit), 0)
+    }));
+    return { totalItems, totalValue, lowStockCount, healthyStock, categoryBreakdown };
+  }, [inventory, categories]);
 
   return (
     <Layout user={user}>
       <div className="space-y-6" data-testid="inventory-page">
         <TrialBanner user={user} />
-        {/* Low Stock Alert Banner */}
+        
+        {/* Enhanced Header */}
+        <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 rounded-2xl p-6 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+          <div className="relative z-10">
+            <div className="flex justify-between items-start flex-wrap gap-4">
+              <div>
+                <h1 className="text-3xl font-bold flex items-center gap-3">
+                  <Package className="w-8 h-8" />
+                  Inventory Management
+                </h1>
+                <p className="text-white/80 mt-2">Track stock, suppliers, and categories</p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="secondary" size="sm" onClick={handlePrintInventory}>
+                  <Printer className="w-4 h-4 mr-2" />Print
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleExportCSV}>
+                  <Download className="w-4 h-4 mr-2" />Export
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => { fetchInventory(); fetchSuppliers(); fetchCategories(); }}>
+                  <RefreshCw className="w-4 h-4 mr-2" />Refresh
+                </Button>
+              </div>
+            </div>
+            
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                <Package className="w-6 h-6 mb-2" />
+                <div className="text-2xl font-bold">{inventoryStats.totalItems}</div>
+                <div className="text-sm text-white/70">Total Items</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                <DollarSign className="w-6 h-6 mb-2" />
+                <div className="text-2xl font-bold">₹{inventoryStats.totalValue.toFixed(0)}</div>
+                <div className="text-sm text-white/70">Total Value</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                <AlertTriangle className="w-6 h-6 mb-2" />
+                <div className="text-2xl font-bold">{inventoryStats.lowStockCount}</div>
+                <div className="text-sm text-white/70">Low Stock</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+                <Truck className="w-6 h-6 mb-2" />
+                <div className="text-2xl font-bold">{suppliers.length}</div>
+                <div className="text-sm text-white/70">Suppliers</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Low Stock Alert */}
         {lowStock.length > 0 && (
           <div className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-500 p-4 rounded-lg">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-6 h-6 text-orange-600 flex-shrink-0" />
               <div className="flex-1">
                 <h3 className="font-semibold text-orange-900">Low Stock Alert!</h3>
-                <p className="text-sm text-orange-800 mt-1">
-                  {lowStock.length} item{lowStock.length > 1 ? 's' : ''} running low on stock. Restock soon to avoid shortages.
-                </p>
+                <p className="text-sm text-orange-800">{lowStock.length} items running low</p>
                 <div className="flex gap-2 mt-2 flex-wrap">
                   {lowStock.slice(0, 3).map(item => (
                     <span key={item.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
                       {item.name}: {item.quantity} {item.unit}
                     </span>
                   ))}
-                  {lowStock.length > 3 && (
-                    <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
-                      +{lowStock.length - 3} more
-                    </span>
-                  )}
+                  {lowStock.length > 3 && <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">+{lowStock.length - 3} more</span>}
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        <div className="flex justify-between items-start flex-wrap gap-4">
-          <div>
-            <h1 className="text-4xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              Inventory Management
-            </h1>
-            <p className="text-gray-600 mt-2">Track stock levels, suppliers, and analytics</p>
-            
-            {/* Quick Stats */}
-            <div className="flex gap-4 mt-4 flex-wrap">
-              <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
-                <Package className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium">{inventory.length} Items</span>
-              </div>
-              <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg">
-                <DollarSign className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-medium">
-                  ₹{inventory.reduce((sum, item) => sum + (item.quantity * item.price_per_unit), 0).toFixed(0)} Value
-                </span>
-              </div>
-              {lowStock.length > 0 && (
-                <div className="flex items-center gap-2 bg-orange-50 px-3 py-2 rounded-lg">
-                  <AlertTriangle className="w-4 h-4 text-orange-600" />
-                  <span className="text-sm font-medium">{lowStock.length} Low Stock</span>
+        {/* Tabs Navigation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
+            <TabsTrigger value="inventory" className="flex items-center gap-2">
+              <Package className="w-4 h-4" />Inventory
+            </TabsTrigger>
+            <TabsTrigger value="suppliers" className="flex items-center gap-2">
+              <Truck className="w-4 h-4" />Suppliers
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="flex items-center gap-2">
+              <Layers className="w-4 h-4" />Categories
+            </TabsTrigger>
+            <TabsTrigger value="movements" className="flex items-center gap-2">
+              <History className="w-4 h-4" />Movements
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Inventory Tab */}
+          <TabsContent value="inventory" className="space-y-6">
+            {/* Search and Filter Bar */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border">
+              <div className="flex gap-4 flex-wrap items-center">
+                <div className="flex-1 min-w-[200px] relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Input placeholder="Search by name, SKU, or barcode..." value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
                 </div>
-              )}
-              <div className="flex items-center gap-2 bg-purple-50 px-3 py-2 rounded-lg">
-                <Users className="w-4 h-4 text-purple-600" />
-                <span className="text-sm font-medium">{suppliers.length} Suppliers</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex gap-2 flex-wrap">
-            {/* Analytics Button */}
-            <Button 
-              variant="outline" 
-              onClick={() => setAnalyticsDialogOpen(true)}
-              className="border-blue-500 text-blue-600 hover:bg-blue-50"
-              title="View Analytics Dashboard"
-            >
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Analytics
-            </Button>
-
-            {/* Stock Movement Button */}
-            <Button 
-              variant="outline" 
-              onClick={() => setMovementDialogOpen(true)}
-              className="border-purple-500 text-purple-600 hover:bg-purple-50"
-              title="Record Stock Movement"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Movement
-            </Button>
-
-            {/* Suppliers Button */}
-            <Button 
-              variant="outline" 
-              onClick={() => setSupplierDialogOpen(true)}
-              className="border-indigo-500 text-indigo-600 hover:bg-indigo-50"
-              title="Manage Suppliers"
-            >
-              <Truck className="w-4 h-4 mr-2" />
-              Suppliers
-            </Button>
-
-            {/* Categories Button */}
-            <Button 
-              variant="outline" 
-              onClick={() => setCategoryDialogOpen(true)}
-              className="border-teal-500 text-teal-600 hover:bg-teal-50"
-              title="Manage Categories"
-            >
-              <Archive className="w-4 h-4 mr-2" />
-              Categories
-            </Button>
-
-            {/* Print & Export Buttons */}
-            <Button variant="outline" onClick={handlePrintInventory} title="Print Inventory Report">
-              <Printer className="w-4 h-4 mr-2" />
-              Print
-            </Button>
-            <Button variant="outline" onClick={handleExportCSV} title="Export to CSV">
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-            
-            {['admin', 'cashier'].includes(user?.role) && (
-              <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
-                <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-violet-600 to-purple-600" data-testid="add-inventory-button">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Item
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Categories" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map(cat => (
+                      <SelectItem key={cat.id} value={cat.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }}></div>
+                          {cat.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">Name</SelectItem>
+                    <SelectItem value="quantity">Quantity</SelectItem>
+                    <SelectItem value="price_per_unit">Price</SelectItem>
+                    <SelectItem value="total_value">Total Value</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
+                  {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+                </Button>
+                <Button variant={filterLowStock ? "default" : "outline"} size="sm" onClick={() => setFilterLowStock(!filterLowStock)}
+                  className={filterLowStock ? "bg-orange-500 hover:bg-orange-600" : ""}>
+                  <Filter className="w-4 h-4 mr-2" />{filterLowStock ? 'Low Stock' : 'All Items'}
+                </Button>
+                {['admin', 'cashier'].includes(user?.role) && (
+                  <Button className="bg-gradient-to-r from-violet-600 to-purple-600" onClick={() => { resetForm(); setDialogOpen(true); }}>
+                    <Plus className="w-4 h-4 mr-2" />Add Item
                   </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="inventory-dialog">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <Package className="w-5 h-5" />
-                      {editingItem ? 'Edit Inventory Item' : 'Add New Inventory Item'}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Basic Information */}
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h3 className="font-semibold mb-3 flex items-center gap-2">
-                        <Package2 className="w-4 h-4" />
-                        Basic Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Item Name *</Label>
-                          <Input
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            required
-                            data-testid="inventory-name-input"
-                            placeholder="e.g., Tomatoes, Chicken Breast"
-                          />
-                        </div>
-                        <div>
-                          <Label>SKU (Stock Keeping Unit)</Label>
-                          <Input
-                            value={formData.sku}
-                            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                            placeholder="e.g., TOM-001, CHK-BR-001"
-                          />
-                        </div>
-                        <div>
-                          <Label>Category</Label>
-                          <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {categories.map(category => (
-                                <SelectItem key={category.id} value={category.id.toString()}>
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: category.color }}></div>
-                                    {category.name}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Supplier</Label>
-                          <Select value={formData.supplier_id} onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {suppliers.map(supplier => (
-                                <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                                  {supplier.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
+                )}
+              </div>
+            </div>
 
-                    {/* Stock Information */}
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h3 className="font-semibold mb-3 flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4" />
-                        Stock Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label>Current Quantity *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.quantity}
-                            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                            required
-                            data-testid="inventory-quantity-input"
-                          />
-                        </div>
-                        <div>
-                          <Label>Unit *</Label>
-                          <Input
-                            value={formData.unit}
-                            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                            placeholder="kg, liters, pieces, boxes"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Storage Location</Label>
-                          <Input
-                            value={formData.location}
-                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                            placeholder="e.g., Freezer A, Shelf 2"
-                          />
-                        </div>
-                        <div>
-                          <Label>Minimum Quantity *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.min_quantity}
-                            onChange={(e) => setFormData({ ...formData, min_quantity: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Maximum Quantity</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.max_quantity}
-                            onChange={(e) => setFormData({ ...formData, max_quantity: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Reorder Point</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.reorder_point}
-                            onChange={(e) => setFormData({ ...formData, reorder_point: e.target.value })}
-                            placeholder="Auto-reorder when stock hits this level"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Pricing Information */}
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <h3 className="font-semibold mb-3 flex items-center gap-2">
-                        <DollarSign className="w-4 h-4" />
-                        Pricing Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label>Cost Price (₹) *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.cost_price}
-                            onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
-                            placeholder="Purchase price per unit"
-                          />
-                        </div>
-                        <div>
-                          <Label>Selling Price (₹) *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.price_per_unit}
-                            onChange={(e) => setFormData({ ...formData, price_per_unit: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Reorder Quantity</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.reorder_quantity}
-                            onChange={(e) => setFormData({ ...formData, reorder_quantity: e.target.value })}
-                            placeholder="Quantity to order when restocking"
-                          />
-                        </div>
-                      </div>
-                      {formData.cost_price && formData.price_per_unit && (
-                        <div className="mt-3 p-3 bg-white rounded border">
-                          <div className="flex justify-between text-sm">
-                            <span>Profit Margin:</span>
-                            <span className="font-semibold text-green-600">
-                              ₹{(parseFloat(formData.price_per_unit) - parseFloat(formData.cost_price)).toFixed(2)} 
-                              ({(((parseFloat(formData.price_per_unit) - parseFloat(formData.cost_price)) / parseFloat(formData.cost_price)) * 100).toFixed(1)}%)
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Additional Details */}
-                    <div className="bg-purple-50 p-4 rounded-lg">
-                      <h3 className="font-semibold mb-3 flex items-center gap-2">
-                        <Settings className="w-4 h-4" />
-                        Additional Details
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Barcode</Label>
-                          <Input
-                            value={formData.barcode}
-                            onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                            placeholder="Scan or enter barcode"
-                          />
-                        </div>
-                        <div>
-                          <Label>Batch Number</Label>
-                          <Input
-                            value={formData.batch_number}
-                            onChange={(e) => setFormData({ ...formData, batch_number: e.target.value })}
-                            placeholder="e.g., BATCH-2024-001"
-                          />
-                        </div>
-                        <div>
-                          <Label>Expiry Date</Label>
-                          <Input
-                            type="date"
-                            value={formData.expiry_date}
-                            onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <Label>Description</Label>
-                          <Textarea
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            placeholder="Additional notes about this item..."
-                            rows={3}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4 border-t">
-                      <Button type="submit" className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600" data-testid="save-inventory-button">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        {editingItem ? 'Update Item' : 'Create Item'}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
+            {/* Bulk Upload */}
+            {['admin', 'manager'].includes(user?.role) && (
+              <BulkUpload type="inventory" onSuccess={() => { fetchInventory(); fetchLowStock(); }} />
             )}
-          </div>
-        </div>
 
-        {/* Enhanced Search and Filter Bar */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border">
-          <div className="flex gap-4 flex-wrap items-center">
-            {/* Search */}
-            <div className="flex-1 min-w-[200px] relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Search by name, SKU, or barcode..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Category Filter */}
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category.id} value={category.id.toString()}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: category.color }}></div>
-                      {category.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Sort Options */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="quantity">Quantity</SelectItem>
-                <SelectItem value="price_per_unit">Price</SelectItem>
-                <SelectItem value="total_value">Total Value</SelectItem>
-                <SelectItem value="updated_at">Last Updated</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Sort Order */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
-            >
-              {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-            </Button>
-
-            {/* View Mode Toggle */}
-            <div className="flex border rounded-lg overflow-hidden">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="rounded-none"
-              >
-                <Package className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'table' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('table')}
-                className="rounded-none"
-              >
-                <BarChart3 className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {/* Low Stock Filter */}
-            <Button
-              variant={filterLowStock ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilterLowStock(!filterLowStock)}
-              className={filterLowStock ? "bg-orange-500 hover:bg-orange-600" : ""}
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              {filterLowStock ? 'Low Stock' : 'All Items'}
-              {lowStock.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {lowStock.length}
-                </Badge>
-              )}
-            </Button>
-          </div>
-
-          {/* Active Filters Display */}
-          {(searchTerm || (filterCategory && filterCategory !== 'all') || filterLowStock) && (
-            <div className="flex gap-2 mt-3 flex-wrap">
-              <span className="text-sm text-gray-500">Active filters:</span>
-              {searchTerm && (
-                <Badge variant="outline" className="gap-1">
-                  Search: {searchTerm}
-                  <button onClick={() => setSearchTerm('')} className="ml-1 hover:bg-gray-200 rounded-full p-0.5">
-                    <XCircle className="w-3 h-3" />
-                  </button>
-                </Badge>
-              )}
-              {filterCategory && filterCategory !== 'all' && (
-                <Badge variant="outline" className="gap-1">
-                  Category: {categories.find(c => c.id.toString() === filterCategory)?.name}
-                  <button onClick={() => setFilterCategory('all')} className="ml-1 hover:bg-gray-200 rounded-full p-0.5">
-                    <XCircle className="w-3 h-3" />
-                  </button>
-                </Badge>
-              )}
-              {filterLowStock && (
-                <Badge variant="outline" className="gap-1">
-                  Low Stock Only
-                  <button onClick={() => setFilterLowStock(false)} className="ml-1 hover:bg-gray-200 rounded-full p-0.5">
-                    <XCircle className="w-3 h-3" />
-                  </button>
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterCategory('all');
-                  setFilterLowStock(false);
-                }}
-                className="text-xs h-6"
-              >
-                Clear All
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Bulk Upload Component */}
-        {['admin', 'manager'].includes(user?.role) && (
-          <BulkUpload 
-            type="inventory" 
-            onSuccess={() => {
-              fetchInventory();
-              fetchLowStock();
-            }}
-          />
-        )}
-
-        {lowStock.length > 0 && (
-          <Card className="border-0 shadow-lg border-l-4 border-l-orange-500" data-testid="low-stock-alert">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-orange-600">
-                <AlertTriangle className="w-5 h-5" />
-                Low Stock Alert
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {lowStock.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center p-2 bg-orange-50 rounded-md">
-                    <span className="font-medium">{item.name}</span>
-                    <span className="text-sm text-orange-700">{item.quantity} {item.unit} (Min: {item.min_quantity})</span>
-                  </div>
+            {/* Inventory Grid */}
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="border-0 shadow-lg animate-pulse">
+                    <CardContent className="p-6"><div className="h-32 bg-gray-200 rounded"></div></CardContent>
+                  </Card>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Optimized Loading State with Skeleton */}
-        {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="border-0 shadow-lg">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gray-200 rounded-xl animate-pulse"></div>
-                    <div className="flex-1">
-                      <div className="h-5 bg-gray-200 rounded animate-pulse mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded animate-pulse w-2/3"></div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-gray-100 p-2 rounded">
-                      <div className="h-3 bg-gray-200 rounded animate-pulse mb-1"></div>
-                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-                    </div>
-                    <div className="bg-gray-100 p-2 rounded">
-                      <div className="h-3 bg-gray-200 rounded animate-pulse mb-1"></div>
-                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <div className="h-8 bg-gray-200 rounded animate-pulse flex-1"></div>
-                    <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && !loading && (
-          <div className="text-center py-12">
-            <AlertTriangle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load inventory</h3>
-            <p className="text-gray-500 mb-4">{error}</p>
-            <Button onClick={fetchInventory} className="bg-gradient-to-r from-violet-600 to-purple-600">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Try Again
-            </Button>
-          </div>
-        )}
-
-        {/* Optimized Inventory Grid */}
-        {!loading && !error && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAndSortedInventory.map((item) => {
-              const isLowStock = item.quantity <= item.min_quantity;
-              const category = categories.find(c => c.id === item.category_id);
-              const supplier = suppliers.find(s => s.id === item.supplier_id);
-              const totalValue = item.quantity * item.price_per_unit;
-              
-              return (
-                <Card
-                  key={item.id}
-                  className={`card-hover border-0 shadow-lg transition-all hover:shadow-xl ${
-                    isLowStock ? 'border-l-4 border-l-orange-500' : ''
-                  }`}
-                  data-testid={`inventory-item-${item.id}`}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
-                          <Package className="w-6 h-6 text-white" />
+            ) : error ? (
+              <div className="text-center py-12">
+                <AlertTriangle className="w-16 h-16 mx-auto text-red-500 mb-4" />
+                <h3 className="text-lg font-medium mb-2">Failed to load inventory</h3>
+                <Button onClick={fetchInventory}><RefreshCw className="w-4 h-4 mr-2" />Try Again</Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredAndSortedInventory.map((item) => {
+                  const isLowStock = item.quantity <= item.min_quantity;
+                  const category = categories.find(c => c.id === item.category_id);
+                  const supplier = suppliers.find(s => s.id === item.supplier_id);
+                  const totalValue = item.quantity * item.price_per_unit;
+                  return (
+                    <Card key={item.id} className={`border-0 shadow-lg hover:shadow-xl transition-all ${isLowStock ? 'border-l-4 border-l-orange-500' : ''}`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isLowStock ? 'bg-gradient-to-br from-orange-500 to-red-500' : 'bg-gradient-to-br from-violet-500 to-purple-600'}`}>
+                              <Package className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-lg">{item.name}</CardTitle>
+                              <div className="flex gap-1 mt-1">
+                                {item.sku && <Badge variant="outline" className="text-xs">{item.sku}</Badge>}
+                                {category && <Badge variant="outline" className="text-xs" style={{ borderColor: category.color, color: category.color }}>{category.name}</Badge>}
+                              </div>
+                            </div>
+                          </div>
+                          {isLowStock && <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>}
                         </div>
-                        <div className="flex-1">
-                          <CardTitle className="text-lg leading-tight">{item.name}</CardTitle>
-                          <div className="flex items-center gap-2 mt-1">
-                            {item.sku && (
-                              <Badge variant="outline" className="text-xs">
-                                {item.sku}
-                              </Badge>
-                            )}
-                            {category && (
-                              <Badge 
-                                variant="outline" 
-                                className="text-xs"
-                                style={{ borderColor: category.color, color: category.color }}
-                              >
-                                {category.name}
-                              </Badge>
-                            )}
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="bg-gray-50 p-2 rounded">
+                            <div className="text-gray-600 text-xs">Current Stock</div>
+                            <div className={`font-bold ${isLowStock ? 'text-orange-600' : 'text-green-600'}`}>{item.quantity} {item.unit}</div>
+                          </div>
+                          <div className="bg-gray-50 p-2 rounded">
+                            <div className="text-gray-600 text-xs">Min Required</div>
+                            <div className="font-medium">{item.min_quantity} {item.unit}</div>
                           </div>
                         </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div><span className="text-gray-600">Unit Price:</span><span className="font-medium ml-1">₹{item.price_per_unit}</span></div>
+                          <div><span className="text-gray-600">Total:</span><span className="font-bold text-green-600 ml-1">₹{totalValue.toFixed(2)}</span></div>
+                        </div>
+                        {(item.location || supplier) && (
+                          <div className="text-xs text-gray-500 space-y-1">
+                            {item.location && <div className="flex items-center gap-1"><MapPin className="w-3 h-3" />{item.location}</div>}
+                            {supplier && <div className="flex items-center gap-1"><Truck className="w-3 h-3" />{supplier.name}</div>}
+                          </div>
+                        )}
+                        {['admin', 'cashier'].includes(user?.role) && (
+                          <div className="flex gap-2 pt-2 border-t">
+                            <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEdit(item)}><Edit className="w-3 h-3 mr-1" />Edit</Button>
+                            <Button size="sm" variant="outline" className="border-green-500 text-green-600" onClick={() => openStockAdjust(item, 'add')}><Plus className="w-3 h-3" /></Button>
+                            <Button size="sm" variant="outline" className="border-orange-500 text-orange-600" onClick={() => openStockAdjust(item, 'reduce')}><Minus className="w-3 h-3" /></Button>
+                            {['admin'].includes(user?.role) && (
+                              <Button size="sm" variant="outline" className="border-red-500 text-red-600" onClick={() => handleDelete(item.id)}><Trash2 className="w-3 h-3" /></Button>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {filteredAndSortedInventory.length === 0 && (
+                  <div className="col-span-full text-center py-12">
+                    <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No items found</h3>
+                    <p className="text-gray-500 mb-4">{searchTerm || filterCategory !== 'all' || filterLowStock ? 'Try adjusting filters' : 'Add your first item'}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Suppliers Tab */}
+          <TabsContent value="suppliers" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Truck className="w-6 h-6 text-violet-600" />Suppliers ({suppliers.length})
+              </h2>
+              {['admin', 'cashier'].includes(user?.role) && (
+                <Button className="bg-gradient-to-r from-violet-600 to-purple-600" onClick={() => { resetSupplierForm(); setSupplierDialogOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />Add Supplier
+                </Button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {suppliers.map((supplier) => (
+                <Card key={supplier.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <Truck className="w-6 h-6 text-white" />
                       </div>
-                      <div className="flex gap-1">
-                        {isLowStock && (
-                          <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Low Stock"></div>
-                        )}
-                        {item.expiry_date && new Date(item.expiry_date) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) && (
-                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Expiring Soon"></div>
-                        )}
+                      <div>
+                        <CardTitle className="text-lg">{supplier.name}</CardTitle>
+                        {supplier.contact_person && <p className="text-sm text-gray-500">{supplier.contact_person}</p>}
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {/* Stock Information */}
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="bg-gray-50 p-2 rounded">
-                        <div className="text-gray-600 text-xs">Current Stock</div>
-                        <div className={`font-bold ${isLowStock ? 'text-orange-600' : 'text-green-600'}`}>
-                          {item.quantity} {item.unit}
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 p-2 rounded">
-                        <div className="text-gray-600 text-xs">Min Required</div>
-                        <div className="font-medium">{item.min_quantity} {item.unit}</div>
-                      </div>
-                    </div>
-
-                    {/* Pricing Information */}
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-gray-600">Unit Price:</span>
-                        <span className="font-medium ml-1">₹{item.price_per_unit}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Total Value:</span>
-                        <span className="font-bold text-green-600 ml-1">₹{totalValue.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    {/* Additional Information */}
-                    {(item.location || supplier || item.batch_number) && (
-                      <div className="text-xs text-gray-500 space-y-1">
-                        {item.location && (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {item.location}
-                          </div>
-                        )}
-                        {supplier && (
-                          <div className="flex items-center gap-1">
-                            <Truck className="w-3 h-3" />
-                            {supplier.name}
-                          </div>
-                        )}
-                        {item.batch_number && (
-                          <div className="flex items-center gap-1">
-                            <Package2 className="w-3 h-3" />
-                            Batch: {item.batch_number}
-                          </div>
-                        )}
+                    {supplier.phone && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <span>{supplier.phone}</span>
                       </div>
                     )}
-
-                    {/* Expiry Warning */}
-                    {item.expiry_date && (
-                      <div className={`text-xs p-2 rounded ${
-                        new Date(item.expiry_date) < new Date() 
-                          ? 'bg-red-100 text-red-700' 
-                          : new Date(item.expiry_date) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-green-100 text-green-700'
-                      }`}>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Expires: {new Date(item.expiry_date).toLocaleDateString()}
-                        </div>
+                    {supplier.email && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <span className="truncate">{supplier.email}</span>
                       </div>
                     )}
-
-                    {/* Action Buttons */}
+                    {supplier.address && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="w-4 h-4 text-gray-400" />
+                        <span className="truncate">{supplier.address}</span>
+                      </div>
+                    )}
+                    {supplier.payment_terms && (
+                      <Badge variant="outline" className="text-xs">{supplier.payment_terms}</Badge>
+                    )}
                     {['admin', 'cashier'].includes(user?.role) && (
                       <div className="flex gap-2 pt-2 border-t">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => handleEdit(item)}
-                          data-testid={`edit-inventory-${item.id}`}
-                        >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-green-500 text-green-600 hover:bg-green-50"
-                          onClick={() => openStockAdjust(item, 'add')}
-                          title="Add Stock"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-orange-500 text-orange-600 hover:bg-orange-50"
-                          onClick={() => openStockAdjust(item, 'reduce')}
-                          title="Reduce Stock"
-                        >
-                          <Minus className="w-3 h-3" />
+                        <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEditSupplier(supplier)}>
+                          <Edit className="w-3 h-3 mr-1" />Edit
                         </Button>
                         {['admin'].includes(user?.role) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-red-500 text-red-600 hover:bg-red-50"
-                            onClick={() => handleDelete(item.id)}
-                            title="Delete item"
-                          >
+                          <Button size="sm" variant="outline" className="border-red-500 text-red-600" onClick={() => handleDeleteSupplier(supplier.id)}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         )}
@@ -1382,32 +665,335 @@ const InventoryPage = ({ user }) => {
                     )}
                   </CardContent>
                 </Card>
-              );
-            })}
+              ))}
+              {suppliers.length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <Truck className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No suppliers yet</h3>
+                  <p className="text-gray-500 mb-4">Add your first supplier to track inventory sources</p>
+                  {['admin', 'cashier'].includes(user?.role) && (
+                    <Button onClick={() => { resetSupplierForm(); setSupplierDialogOpen(true); }} className="bg-gradient-to-r from-violet-600 to-purple-600">
+                      <Plus className="w-4 h-4 mr-2" />Add First Supplier
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
-            {filteredAndSortedInventory.length === 0 && (
-              <div className="col-span-full text-center py-12">
-                <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No items found</h3>
-                <p className="text-gray-500 mb-4">
-                  {searchTerm || (filterCategory && filterCategory !== 'all') || filterLowStock 
-                    ? 'Try adjusting your search or filters' 
-                    : 'Start by adding your first inventory item'
-                  }
-                </p>
-                {!searchTerm && (!filterCategory || filterCategory === 'all') && !filterLowStock && ['admin', 'cashier'].includes(user?.role) && (
-                  <Button 
-                    onClick={() => setDialogOpen(true)}
-                    className="bg-gradient-to-r from-violet-600 to-purple-600"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add First Item
-                  </Button>
-                )}
+          {/* Categories Tab */}
+          <TabsContent value="categories" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Layers className="w-6 h-6 text-violet-600" />Categories ({categories.length})
+              </h2>
+              {['admin', 'cashier'].includes(user?.role) && (
+                <Button className="bg-gradient-to-r from-violet-600 to-purple-600" onClick={() => { resetCategoryForm(); setCategoryDialogOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />Add Category
+                </Button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {categories.map((category) => {
+                const itemCount = inventory.filter(i => i.category_id === category.id).length;
+                const categoryValue = inventory.filter(i => i.category_id === category.id)
+                  .reduce((sum, i) => sum + (i.quantity * i.price_per_unit), 0);
+                return (
+                  <Card key={category.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: category.color + '20' }}>
+                          <Layers className="w-6 h-6" style={{ color: category.color }} />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">{category.name}</CardTitle>
+                          {category.description && <p className="text-sm text-gray-500">{category.description}</p>}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-50 p-3 rounded-lg text-center">
+                          <div className="text-2xl font-bold" style={{ color: category.color }}>{itemCount}</div>
+                          <div className="text-xs text-gray-500">Items</div>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg text-center">
+                          <div className="text-lg font-bold text-green-600">₹{categoryValue.toFixed(0)}</div>
+                          <div className="text-xs text-gray-500">Value</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: category.color }}></div>
+                        <span className="text-sm text-gray-500">Color: {category.color}</span>
+                      </div>
+                      {['admin', 'cashier'].includes(user?.role) && (
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEditCategory(category)}>
+                            <Edit className="w-3 h-3 mr-1" />Edit
+                          </Button>
+                          {['admin'].includes(user?.role) && (
+                            <Button size="sm" variant="outline" className="border-red-500 text-red-600" onClick={() => handleDeleteCategory(category.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              {categories.length === 0 && (
+                <div className="col-span-full text-center py-12">
+                  <Layers className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No categories yet</h3>
+                  <p className="text-gray-500 mb-4">Create categories to organize your inventory</p>
+                  {['admin', 'cashier'].includes(user?.role) && (
+                    <Button onClick={() => { resetCategoryForm(); setCategoryDialogOpen(true); }} className="bg-gradient-to-r from-violet-600 to-purple-600">
+                      <Plus className="w-4 h-4 mr-2" />Add First Category
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Movements Tab */}
+          <TabsContent value="movements" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <History className="w-6 h-6 text-violet-600" />Stock Movements
+              </h2>
+              {['admin', 'cashier'].includes(user?.role) && (
+                <Button className="bg-gradient-to-r from-violet-600 to-purple-600" onClick={() => { resetMovementForm(); setMovementDialogOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />Record Movement
+                </Button>
+              )}
+            </div>
+            
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {stockMovements.slice(0, 20).map((movement, i) => {
+                        const item = inventory.find(inv => inv.id === movement.item_id);
+                        return (
+                          <tr key={i} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm">{new Date(movement.created_at).toLocaleDateString()}</td>
+                            <td className="px-4 py-3 text-sm font-medium">{item?.name || 'Unknown'}</td>
+                            <td className="px-4 py-3">
+                              <Badge className={movement.type === 'in' ? 'bg-green-100 text-green-700' : movement.type === 'out' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}>
+                                {movement.type === 'in' ? '↑ In' : movement.type === 'out' ? '↓ Out' : '⟳ Adjust'}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-sm font-medium">{movement.quantity}</td>
+                            <td className="px-4 py-3 text-sm text-gray-500">{movement.reason || '-'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {stockMovements.length === 0 && (
+                    <div className="text-center py-12">
+                      <History className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No movements recorded</h3>
+                      <p className="text-gray-500">Stock movements will appear here</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Add/Edit Item Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />{editingItem ? 'Edit Item' : 'Add New Item'}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold mb-3">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Item Name *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="e.g., Tomatoes" /></div>
+                  <div><Label>SKU</Label><Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} placeholder="e.g., TOM-001" /></div>
+                  <div><Label>Category</Label>
+                    <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
+                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                      <SelectContent>
+                        {categories.map(cat => (<SelectItem key={cat.id} value={cat.id.toString()}>{cat.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label>Supplier</Label>
+                    <Select value={formData.supplier_id} onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}>
+                      <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                      <SelectContent>
+                        {suppliers.map(sup => (<SelectItem key={sup.id} value={sup.id.toString()}>{sup.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
-        )}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-semibold mb-3">Stock Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div><Label>Current Quantity *</Label><Input type="number" step="0.01" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} required /></div>
+                  <div><Label>Unit *</Label><Input value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} placeholder="kg, liters, pieces" required /></div>
+                  <div><Label>Storage Location</Label><Input value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} placeholder="e.g., Freezer A" /></div>
+                  <div><Label>Minimum Quantity *</Label><Input type="number" step="0.01" value={formData.min_quantity} onChange={(e) => setFormData({ ...formData, min_quantity: e.target.value })} required /></div>
+                  <div><Label>Maximum Quantity</Label><Input type="number" step="0.01" value={formData.max_quantity} onChange={(e) => setFormData({ ...formData, max_quantity: e.target.value })} /></div>
+                  <div><Label>Reorder Point</Label><Input type="number" step="0.01" value={formData.reorder_point} onChange={(e) => setFormData({ ...formData, reorder_point: e.target.value })} /></div>
+                </div>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-semibold mb-3">Pricing</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div><Label>Cost Price (₹)</Label><Input type="number" step="0.01" value={formData.cost_price} onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })} /></div>
+                  <div><Label>Selling Price (₹) *</Label><Input type="number" step="0.01" value={formData.price_per_unit} onChange={(e) => setFormData({ ...formData, price_per_unit: e.target.value })} required /></div>
+                  <div><Label>Reorder Quantity</Label><Input type="number" step="0.01" value={formData.reorder_quantity} onChange={(e) => setFormData({ ...formData, reorder_quantity: e.target.value })} /></div>
+                </div>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h3 className="font-semibold mb-3">Additional Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Barcode</Label><Input value={formData.barcode} onChange={(e) => setFormData({ ...formData, barcode: e.target.value })} /></div>
+                  <div><Label>Batch Number</Label><Input value={formData.batch_number} onChange={(e) => setFormData({ ...formData, batch_number: e.target.value })} /></div>
+                  <div><Label>Expiry Date</Label><Input type="date" value={formData.expiry_date} onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })} /></div>
+                  <div className="md:col-span-2"><Label>Description</Label><Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} /></div>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button type="submit" className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600"><CheckCircle className="w-4 h-4 mr-2" />{editingItem ? 'Update' : 'Create'}</Button>
+                <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}><XCircle className="w-4 h-4 mr-2" />Cancel</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Supplier Dialog */}
+        <Dialog open={supplierDialogOpen} onOpenChange={(open) => { setSupplierDialogOpen(open); if (!open) resetSupplierForm(); }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Truck className="w-5 h-5" />{editingSupplier ? 'Edit Supplier' : 'Add New Supplier'}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSupplierSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><Label>Supplier Name *</Label><Input value={supplierFormData.name} onChange={(e) => setSupplierFormData({ ...supplierFormData, name: e.target.value })} required placeholder="e.g., Fresh Farms Ltd" /></div>
+                <div><Label>Contact Person</Label><Input value={supplierFormData.contact_person} onChange={(e) => setSupplierFormData({ ...supplierFormData, contact_person: e.target.value })} placeholder="e.g., John Doe" /></div>
+                <div><Label>Phone</Label><Input value={supplierFormData.phone} onChange={(e) => setSupplierFormData({ ...supplierFormData, phone: e.target.value })} placeholder="+91 9876543210" /></div>
+                <div><Label>Email</Label><Input type="email" value={supplierFormData.email} onChange={(e) => setSupplierFormData({ ...supplierFormData, email: e.target.value })} placeholder="supplier@example.com" /></div>
+                <div className="md:col-span-2"><Label>Address</Label><Input value={supplierFormData.address} onChange={(e) => setSupplierFormData({ ...supplierFormData, address: e.target.value })} placeholder="Full address" /></div>
+                <div><Label>Website</Label><Input value={supplierFormData.website} onChange={(e) => setSupplierFormData({ ...supplierFormData, website: e.target.value })} placeholder="https://example.com" /></div>
+                <div><Label>Payment Terms</Label>
+                  <Select value={supplierFormData.payment_terms} onValueChange={(value) => setSupplierFormData({ ...supplierFormData, payment_terms: value })}>
+                    <SelectTrigger><SelectValue placeholder="Select terms" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="immediate">Immediate</SelectItem>
+                      <SelectItem value="net15">Net 15</SelectItem>
+                      <SelectItem value="net30">Net 30</SelectItem>
+                      <SelectItem value="net60">Net 60</SelectItem>
+                      <SelectItem value="cod">Cash on Delivery</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2"><Label>Notes</Label><Textarea value={supplierFormData.notes} onChange={(e) => setSupplierFormData({ ...supplierFormData, notes: e.target.value })} rows={2} placeholder="Additional notes..." /></div>
+              </div>
+              <div className="flex gap-3">
+                <Button type="submit" className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600"><CheckCircle className="w-4 h-4 mr-2" />{editingSupplier ? 'Update' : 'Create'} Supplier</Button>
+                <Button type="button" variant="outline" onClick={() => { setSupplierDialogOpen(false); resetSupplierForm(); }}>Cancel</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Category Dialog */}
+        <Dialog open={categoryDialogOpen} onOpenChange={(open) => { setCategoryDialogOpen(open); if (!open) resetCategoryForm(); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Layers className="w-5 h-5" />{editingCategory ? 'Edit Category' : 'Add New Category'}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCategorySubmit} className="space-y-4">
+              <div><Label>Category Name *</Label><Input value={categoryFormData.name} onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })} required placeholder="e.g., Vegetables, Dairy" /></div>
+              <div><Label>Description</Label><Textarea value={categoryFormData.description} onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })} rows={2} placeholder="Category description..." /></div>
+              <div>
+                <Label>Color</Label>
+                <div className="flex gap-2 items-center mt-2">
+                  <Input type="color" value={categoryFormData.color} onChange={(e) => setCategoryFormData({ ...categoryFormData, color: e.target.value })} className="w-16 h-10 p-1 cursor-pointer" />
+                  <Input value={categoryFormData.color} onChange={(e) => setCategoryFormData({ ...categoryFormData, color: e.target.value })} className="flex-1" />
+                  <div className="w-10 h-10 rounded-lg" style={{ backgroundColor: categoryFormData.color }}></div>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {['#7c3aed', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#06b6d4'].map(color => (
+                    <button key={color} type="button" onClick={() => setCategoryFormData({ ...categoryFormData, color })}
+                      className={`w-8 h-8 rounded-full border-2 ${categoryFormData.color === color ? 'border-gray-800 scale-110' : 'border-transparent'}`}
+                      style={{ backgroundColor: color }} />
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button type="submit" className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600"><CheckCircle className="w-4 h-4 mr-2" />{editingCategory ? 'Update' : 'Create'} Category</Button>
+                <Button type="button" variant="outline" onClick={() => { setCategoryDialogOpen(false); resetCategoryForm(); }}>Cancel</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Movement Dialog */}
+        <Dialog open={movementDialogOpen} onOpenChange={(open) => { setMovementDialogOpen(open); if (!open) resetMovementForm(); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5" />Record Stock Movement
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleMovementSubmit} className="space-y-4">
+              <div><Label>Item *</Label>
+                <Select value={movementFormData.item_id} onValueChange={(value) => setMovementFormData({ ...movementFormData, item_id: value })}>
+                  <SelectTrigger><SelectValue placeholder="Select item" /></SelectTrigger>
+                  <SelectContent>
+                    {inventory.map(item => (<SelectItem key={item.id} value={item.id.toString()}>{item.name} ({item.quantity} {item.unit})</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Movement Type *</Label>
+                <Select value={movementFormData.type} onValueChange={(value) => setMovementFormData({ ...movementFormData, type: value })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="in">Stock In (Purchase/Return)</SelectItem>
+                    <SelectItem value="out">Stock Out (Usage/Sale)</SelectItem>
+                    <SelectItem value="adjustment">Adjustment (Correction)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Quantity *</Label><Input type="number" step="0.01" value={movementFormData.quantity} onChange={(e) => setMovementFormData({ ...movementFormData, quantity: e.target.value })} required /></div>
+              <div><Label>Reason</Label><Input value={movementFormData.reason} onChange={(e) => setMovementFormData({ ...movementFormData, reason: e.target.value })} placeholder="e.g., Purchase, Used in cooking" /></div>
+              <div><Label>Reference</Label><Input value={movementFormData.reference} onChange={(e) => setMovementFormData({ ...movementFormData, reference: e.target.value })} placeholder="e.g., Invoice #123" /></div>
+              <div><Label>Notes</Label><Textarea value={movementFormData.notes} onChange={(e) => setMovementFormData({ ...movementFormData, notes: e.target.value })} rows={2} /></div>
+              <div className="flex gap-3">
+                <Button type="submit" className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600"><CheckCircle className="w-4 h-4 mr-2" />Record Movement</Button>
+                <Button type="button" variant="outline" onClick={() => { setMovementDialogOpen(false); resetMovementForm(); }}>Cancel</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Stock Adjustment Modal */}
         {stockAdjustOpen && stockAdjustItem && (
@@ -1421,68 +1007,31 @@ const InventoryPage = ({ user }) => {
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Current Stock:</span>
-                    <span className="font-bold text-lg">{stockAdjustItem.quantity} {stockAdjustItem.unit}</span>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-gray-600">Min Required:</span>
-                    <span className="font-medium">{stockAdjustItem.min_quantity} {stockAdjustItem.unit}</span>
-                  </div>
+                  <div className="flex justify-between"><span className="text-gray-600">Current Stock:</span><span className="font-bold text-lg">{stockAdjustItem.quantity} {stockAdjustItem.unit}</span></div>
+                  <div className="flex justify-between mt-2"><span className="text-gray-600">Min Required:</span><span className="font-medium">{stockAdjustItem.min_quantity} {stockAdjustItem.unit}</span></div>
                 </div>
-
-                <div>
-                  <Label>Quantity to {stockAdjustType === 'add' ? 'Add' : 'Reduce'} *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder={`Enter quantity in ${stockAdjustItem.unit}`}
-                    value={stockAdjustQty}
-                    onChange={(e) => setStockAdjustQty(e.target.value)}
-                    className="mt-1"
-                  />
+                <div><Label>Quantity to {stockAdjustType === 'add' ? 'Add' : 'Reduce'} *</Label>
+                  <Input type="number" step="0.01" min="0.01" placeholder={`Enter quantity in ${stockAdjustItem.unit}`} value={stockAdjustQty} onChange={(e) => setStockAdjustQty(e.target.value)} className="mt-1" />
                 </div>
-
-                <div>
-                  <Label>Reason (optional)</Label>
-                  <Input
-                    placeholder={stockAdjustType === 'add' ? 'e.g., New purchase, Supplier delivery' : 'e.g., Used in cooking, Damaged, Expired'}
-                    value={stockAdjustReason}
-                    onChange={(e) => setStockAdjustReason(e.target.value)}
-                    className="mt-1"
-                  />
+                <div><Label>Reason (optional)</Label>
+                  <Input placeholder={stockAdjustType === 'add' ? 'e.g., New purchase' : 'e.g., Used in cooking'} value={stockAdjustReason} onChange={(e) => setStockAdjustReason(e.target.value)} className="mt-1" />
                 </div>
-
                 {stockAdjustQty && parseFloat(stockAdjustQty) > 0 && (
                   <div className={`p-3 rounded-lg ${stockAdjustType === 'add' ? 'bg-green-50 border border-green-200' : 'bg-orange-50 border border-orange-200'}`}>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">New Stock Level:</span>
+                    <div className="flex justify-between"><span className="text-gray-600">New Stock Level:</span>
                       <span className={`font-bold text-lg ${stockAdjustType === 'add' ? 'text-green-600' : 'text-orange-600'}`}>
-                        {stockAdjustType === 'add' 
-                          ? (stockAdjustItem.quantity + parseFloat(stockAdjustQty || 0)).toFixed(2)
-                          : (stockAdjustItem.quantity - parseFloat(stockAdjustQty || 0)).toFixed(2)
-                        } {stockAdjustItem.unit}
+                        {stockAdjustType === 'add' ? (stockAdjustItem.quantity + parseFloat(stockAdjustQty || 0)).toFixed(2) : (stockAdjustItem.quantity - parseFloat(stockAdjustQty || 0)).toFixed(2)} {stockAdjustItem.unit}
                       </span>
                     </div>
                   </div>
                 )}
-
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    onClick={handleStockAdjust}
-                    disabled={!stockAdjustQty || parseFloat(stockAdjustQty) <= 0}
-                    className={`flex-1 ${stockAdjustType === 'add' ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}
-                  >
+                <div className="flex gap-3">
+                  <Button onClick={handleStockAdjust} disabled={!stockAdjustQty || parseFloat(stockAdjustQty) <= 0}
+                    className={`flex-1 ${stockAdjustType === 'add' ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'bg-gradient-to-r from-orange-500 to-red-500'}`}>
                     {stockAdjustType === 'add' ? <Plus className="w-4 h-4 mr-2" /> : <Minus className="w-4 h-4 mr-2" />}
                     {stockAdjustType === 'add' ? 'Add Stock' : 'Reduce Stock'}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setStockAdjustOpen(false)}
-                  >
-                    Cancel
-                  </Button>
+                  <Button variant="outline" onClick={() => setStockAdjustOpen(false)}>Cancel</Button>
                 </div>
               </CardContent>
             </Card>
