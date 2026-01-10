@@ -44,40 +44,53 @@ async def get_super_admin_dashboard(
     
     db = get_db()
     
-    # Get all users
-    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
-    
-    # Get all tickets
-    tickets = await db.support_tickets.find({}, {"_id": 0}).to_list(1000)
-    
-    # Get all orders (last 30 days)
-    thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-    recent_orders = await db.orders.find(
-        {"created_at": {"$gte": thirty_days_ago}},
-        {"_id": 0}
-    ).to_list(10000)
-    
-    # Calculate statistics
-    total_users = len(users)
-    active_subscriptions = sum(1 for u in users if u.get("subscription_active"))
-    trial_users = sum(1 for u in users if not u.get("subscription_active"))
-    total_revenue = sum(u.get("bill_count", 0) for u in users)
-    
-    # Ticket statistics
-    open_tickets = sum(1 for t in tickets if t.get("status") == "open")
-    pending_tickets = sum(1 for t in tickets if t.get("status") == "pending")
-    resolved_tickets = sum(1 for t in tickets if t.get("status") == "resolved")
-    
-    return {
-        "overview": {
-            "total_users": total_users,
-            "active_subscriptions": active_subscriptions,
-            "trial_users": trial_users,
-            "total_revenue": total_revenue,
-            "total_orders_30d": len(recent_orders),
-            "open_tickets": open_tickets,
-            "pending_tickets": pending_tickets,
-            "resolved_tickets": resolved_tickets
+    try:
+        # Get all users
+        users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
+        
+        # Get all tickets (handle if collection doesn't exist)
+        try:
+            tickets = await db.support_tickets.find({}, {"_id": 0}).to_list(1000)
+        except Exception:
+            tickets = []
+        
+        # Get all orders (last 30 days)
+        thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        recent_orders = await db.orders.find(
+            {"created_at": {"$gte": thirty_days_ago}},
+            {"_id": 0}
+        ).to_list(10000)
+        
+        # Calculate statistics
+        total_users = len(users)
+        active_subscriptions = sum(1 for u in users if u.get("subscription_active"))
+        trial_users = sum(1 for u in users if not u.get("subscription_active"))
+        total_revenue = sum(u.get("bill_count", 0) for u in users)
+        
+        # Ticket statistics
+        open_tickets = sum(1 for t in tickets if t.get("status") == "open")
+        pending_tickets = sum(1 for t in tickets if t.get("status") == "pending")
+        resolved_tickets = sum(1 for t in tickets if t.get("status") == "resolved")
+        
+        return {
+            "overview": {
+                "total_users": total_users,
+                "active_subscriptions": active_subscriptions,
+                "trial_users": trial_users,
+                "total_revenue": total_revenue,
+                "total_orders_30d": len(recent_orders),
+                "open_tickets": open_tickets,
+                "pending_tickets": pending_tickets,
+                "resolved_tickets": resolved_tickets
+            },
+            "users": users,
+            "tickets": tickets,
+            "recent_orders": recent_orders[:100]
+        }
+    except Exception as e:
+        # Log the error and return a safe response
+        print(f"Super admin dashboard error: {e}")
+        raise HTTPException(status_code=500, detail=f"Dashboard error: {str(e)}")
         },
         "users": users,
         "tickets": tickets,
