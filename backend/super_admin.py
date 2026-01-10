@@ -33,117 +33,83 @@ def verify_super_admin(username: str, password: str) -> bool:
     return username == SUPER_ADMIN_USERNAME and password == SUPER_ADMIN_PASSWORD
 
 
+@super_admin_router.get("/login")
+async def super_admin_login(
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Lightweight super admin login - NO DATA LOADING"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Just return success - no database queries at all
+    return {
+        "success": True,
+        "message": "Super admin authenticated",
+        "user_type": "super-admin"
+    }
+
+
 @super_admin_router.get("/dashboard")
 async def get_super_admin_dashboard(
     username: str = Query(...),
     password: str = Query(...)
 ):
-    """Get complete system overview - OPTIMIZED for speed"""
+    """Get basic dashboard stats only - MINIMAL queries for free tier"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
     db = get_db()
     
     try:
-        # Use aggregation pipelines for fast statistics instead of loading all data
+        # ONLY get basic counts - no data loading
+        # Use count_documents which is much faster than aggregation
+        total_users = await db.users.count_documents({})
+        active_subscriptions = await db.users.count_documents({"subscription_active": True})
+        
+        # Get orders count for last 30 days only
         thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        total_orders_30d = await db.orders.count_documents({"created_at": {"$gte": thirty_days_ago}})
         
-        # Get user statistics using aggregation (much faster)
-        user_stats_pipeline = [
-            {
-                "$group": {
-                    "_id": None,
-                    "total_users": {"$sum": 1},
-                    "active_subscriptions": {
-                        "$sum": {"$cond": [{"$eq": ["$subscription_active", True]}, 1, 0]}
-                    },
-                    "trial_users": {
-                        "$sum": {"$cond": [{"$eq": ["$subscription_active", False]}, 1, 0]}
-                    },
-                    "total_revenue": {"$sum": "$bill_count"}
-                }
-            }
-        ]
-        
-        user_stats_result = await db.users.aggregate(user_stats_pipeline).to_list(1)
-        user_stats = user_stats_result[0] if user_stats_result else {
-            "total_users": 0, "active_subscriptions": 0, "trial_users": 0, "total_revenue": 0
-        }
-        
-        # Get order statistics using aggregation (much faster)
-        order_stats_pipeline = [
-            {"$match": {"created_at": {"$gte": thirty_days_ago}}},
-            {
-                "$group": {
-                    "_id": None,
-                    "total_orders_30d": {"$sum": 1}
-                }
-            }
-        ]
-        
-        order_stats_result = await db.orders.aggregate(order_stats_pipeline).to_list(1)
-        order_stats = order_stats_result[0] if order_stats_result else {"total_orders_30d": 0}
-        
-        # Get ticket statistics using aggregation (much faster)
+        # Get tickets count (handle if collection doesn't exist)
         try:
-            ticket_stats_pipeline = [
-                {
-                    "$group": {
-                        "_id": "$status",
-                        "count": {"$sum": 1}
-                    }
-                }
-            ]
-            
-            ticket_stats_result = await db.support_tickets.aggregate(ticket_stats_pipeline).to_list(10)
-            ticket_counts = {item["_id"]: item["count"] for item in ticket_stats_result}
-            
-            open_tickets = ticket_counts.get("open", 0)
-            pending_tickets = ticket_counts.get("pending", 0)
-            resolved_tickets = ticket_counts.get("resolved", 0)
+            open_tickets = await db.support_tickets.count_documents({"status": "open"})
+            pending_tickets = await db.support_tickets.count_documents({"status": "pending"})
         except Exception:
-            open_tickets = pending_tickets = resolved_tickets = 0
-        
-        # Get only recent users (last 50) instead of all users
-        recent_users = await db.users.find(
-            {}, 
-            {"_id": 0, "password": 0}
-        ).sort("created_at", -1).limit(50).to_list(50)
-        
-        # Get only recent tickets (last 20) instead of all tickets
-        try:
-            recent_tickets = await db.support_tickets.find(
-                {}, 
-                {"_id": 0}
-            ).sort("created_at", -1).limit(20).to_list(20)
-        except Exception:
-            recent_tickets = []
-        
-        # Get only recent orders (last 20) instead of 10,000
-        recent_orders = await db.orders.find(
-            {"created_at": {"$gte": thirty_days_ago}},
-            {"_id": 0}
-        ).sort("created_at", -1).limit(20).to_list(20)
+            open_tickets = pending_tickets = 0
         
         return {
             "overview": {
-                "total_users": user_stats.get("total_users", 0),
-                "active_subscriptions": user_stats.get("active_subscriptions", 0),
-                "trial_users": user_stats.get("trial_users", 0),
-                "total_revenue": user_stats.get("total_revenue", 0),
-                "total_orders_30d": order_stats.get("total_orders_30d", 0),
+                "total_users": total_users,
+                "active_subscriptions": active_subscriptions,
+                "trial_users": total_users - active_subscriptions,
+                "total_orders_30d": total_orders_30d,
                 "open_tickets": open_tickets,
                 "pending_tickets": pending_tickets,
-                "resolved_tickets": resolved_tickets
+                "resolved_tickets": 0  # Skip this for speed
             },
-            "users": recent_users,  # Only recent 50 users
-            "tickets": recent_tickets,  # Only recent 20 tickets
-            "recent_orders": recent_orders  # Only recent 20 orders
+            # NO DATA ARRAYS - load separately when needed
+            "users": [],
+            "tickets": [],
+            "recent_orders": []
         }
     except Exception as e:
-        # Log the error and return a safe response
         print(f"Super admin dashboard error: {e}")
-        raise HTTPException(status_code=500, detail=f"Dashboard error: {str(e)}")
+        # Return minimal safe response even if DB fails
+        return {
+            "overview": {
+                "total_users": 0,
+                "active_subscriptions": 0,
+                "trial_users": 0,
+                "total_orders_30d": 0,
+                "open_tickets": 0,
+                "pending_tickets": 0,
+                "resolved_tickets": 0
+            },
+            "users": [],
+            "tickets": [],
+            "recent_orders": []
+        }
 
 
 @super_admin_router.get("/users")
@@ -151,19 +117,23 @@ async def get_all_users(
     username: str = Query(...),
     password: str = Query(...),
     skip: int = Query(0),
-    limit: int = Query(100)
+    limit: int = Query(50)  # Reduced from 100 to 50 for free tier
 ):
-    """Get all users with pagination"""
+    """Get users with pagination - FREE TIER OPTIMIZED"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
     db = get_db()
+    
+    # Limit maximum to 50 for free tier
+    limit = min(limit, 50)
     
     users = await db.users.find(
         {},
         {"_id": 0, "password": 0}
     ).skip(skip).limit(limit).to_list(limit)
     
+    # Get total count separately (faster)
     total = await db.users.count_documents({})
     
     return {
@@ -171,6 +141,69 @@ async def get_all_users(
         "total": total,
         "skip": skip,
         "limit": limit
+    }
+
+
+@super_admin_router.get("/tickets/recent")
+async def get_recent_tickets(
+    username: str = Query(...),
+    password: str = Query(...),
+    limit: int = Query(20)  # Small limit for free tier
+):
+    """Get recent tickets only - FREE TIER OPTIMIZED"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
+    
+    # Limit to 20 for free tier
+    limit = min(limit, 20)
+    
+    try:
+        tickets = await db.support_tickets.find(
+            {},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+        
+        return {
+            "tickets": tickets,
+            "total": len(tickets)
+        }
+    except Exception:
+        return {
+            "tickets": [],
+            "total": 0
+        }
+
+
+@super_admin_router.get("/orders/recent")
+async def get_recent_orders(
+    username: str = Query(...),
+    password: str = Query(...),
+    days: int = Query(7),  # Reduced from 30 to 7 days
+    limit: int = Query(20)  # Small limit for free tier
+):
+    """Get recent orders only - FREE TIER OPTIMIZED"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
+    
+    # Limit to 20 for free tier
+    limit = min(limit, 20)
+    days = min(days, 30)  # Max 30 days
+    
+    days_ago = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    
+    orders = await db.orders.find(
+        {"created_at": {"$gte": days_ago}},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "orders": orders,
+        "total": len(orders),
+        "days": days
     }
 
 

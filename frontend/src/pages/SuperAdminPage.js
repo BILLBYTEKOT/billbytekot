@@ -352,16 +352,47 @@ const SuperAdminPage = () => {
     setLoading(true);
     
     try {
-      // First try super admin login with timeout
-      const response = await axios.get(`${API}/super-admin/dashboard`, {
+      // Step 1: Lightweight login check (NO data loading)
+      const loginResponse = await axios.get(`${API}/super-admin/login`, {
         params: credentials,
-        timeout: 30000 // 30 second timeout
+        timeout: 10000 // 10 second timeout for login
       });
-      setDashboard(response.data);
-      setUserType('super-admin');
-      setAuthenticated(true);
-      toast.success('Super Admin access granted');
-      fetchAllData();
+      
+      if (loginResponse.data.success) {
+        // Step 2: Set authenticated state immediately
+        setUserType('super-admin');
+        setAuthenticated(true);
+        toast.success('Super Admin access granted');
+        
+        // Step 3: Load basic dashboard stats (lightweight)
+        try {
+          const dashboardResponse = await axios.get(`${API}/super-admin/dashboard`, {
+            params: credentials,
+            timeout: 15000 // 15 second timeout for dashboard
+          });
+          setDashboard(dashboardResponse.data);
+        } catch (dashboardError) {
+          console.warn('Dashboard loading failed, using minimal data:', dashboardError);
+          // Set minimal dashboard if it fails
+          setDashboard({
+            overview: {
+              total_users: 0,
+              active_subscriptions: 0,
+              trial_users: 0,
+              total_orders_30d: 0,
+              open_tickets: 0,
+              pending_tickets: 0,
+              resolved_tickets: 0
+            },
+            users: [],
+            tickets: [],
+            recent_orders: []
+          });
+        }
+        
+        // Step 4: Load additional data in background (non-blocking)
+        loadAdditionalDataInBackground();
+      }
     } catch (superAdminError) {
       console.error('Super admin login error:', superAdminError);
       
@@ -408,6 +439,82 @@ const SuperAdminPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Load additional data in background after login
+  const loadAdditionalDataInBackground = () => {
+    // Load data progressively with delays to avoid overwhelming free tier MongoDB
+    setTimeout(() => {
+      loadUsersData();
+    }, 1000);
+    
+    setTimeout(() => {
+      loadTicketsData();
+    }, 2000);
+    
+    setTimeout(() => {
+      loadOrdersData();
+    }, 3000);
+    
+    setTimeout(() => {
+      loadOtherData();
+    }, 4000);
+  };
+
+  const loadUsersData = async () => {
+    try {
+      const response = await axios.get(`${API}/super-admin/users`, {
+        params: { ...credentials, limit: 20 }, // Small limit
+        timeout: 10000
+      });
+      setUsers(response.data.users || []);
+    } catch (error) {
+      console.warn('Failed to load users:', error);
+    }
+  };
+
+  const loadTicketsData = async () => {
+    try {
+      const response = await axios.get(`${API}/super-admin/tickets/recent`, {
+        params: { ...credentials, limit: 10 }, // Small limit
+        timeout: 10000
+      });
+      setTickets(response.data.tickets || []);
+    } catch (error) {
+      console.warn('Failed to load tickets:', error);
+    }
+  };
+
+  const loadOrdersData = async () => {
+    try {
+      const response = await axios.get(`${API}/super-admin/orders/recent`, {
+        params: { ...credentials, days: 7, limit: 10 }, // Small limits
+        timeout: 10000
+      });
+      // Update dashboard with recent orders
+      setDashboard(prev => ({
+        ...prev,
+        recent_orders: response.data.orders || []
+      }));
+    } catch (error) {
+      console.warn('Failed to load orders:', error);
+    }
+  };
+
+  const loadOtherData = async () => {
+    // Load non-critical data
+    Promise.all([
+      // Fetch leads
+      axios.get(`${API}/super-admin/leads`, {
+        params: credentials,
+        timeout: 10000
+      }).then(res => {
+        setLeads(res.data.leads || []);
+        setLeadsStats(res.data.stats);
+      }).catch(e => console.warn('Failed to fetch leads:', e)),
+
+      // Fetch other data...
+    ]);
   };
 
   const getAvailableTabsForUser = (user) => {
