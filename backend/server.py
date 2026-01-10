@@ -10,6 +10,8 @@ import asyncio
 import sqlite3
 import tempfile
 import io
+import time
+import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -17,7 +19,7 @@ from typing import Any, Dict, List, Optional
 import jwt
 import razorpay
 from dotenv import load_dotenv
-from fastapi import APIRouter, Body, Depends, FastAPI, File, Form, HTTPException, UploadFile, status, Query
+from fastapi import APIRouter, Body, Depends, FastAPI, File, Form, HTTPException, UploadFile, status, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -25,12 +27,16 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Import Redis cache service
 from redis_cache import init_redis_cache, cleanup_redis_cache, get_cached_order_service
 
 # Import super admin router
 from super_admin import super_admin_router, set_database as set_super_admin_db
+
+# Import monitoring system
+from monitoring import init_monitoring, collect_metrics_task, monitoring_router
 
 try:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -258,6 +264,67 @@ app.add_middleware(
 
 # Add GZip compression for faster response times (compress responses > 500 bytes)
 app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# Rate limiting and monitoring middleware
+class MonitoringMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        
+        # Rate limiting check
+        client_ip = request.client.host
+        user_agent = request.headers.get("user-agent", "")
+        
+        # Skip rate limiting for health checks and monitoring endpoints
+        if request.url.path in ["/health", "/api/monitoring/health", "/nginx_status"]:
+            response = await call_next(request)
+            return response
+        
+        # Check rate limits using Redis if available
+        try:
+            from redis_cache import redis_cache
+            if redis_cache and redis_cache.is_connected():
+                # Different rate limits for different endpoints
+                if request.url.path.startswith("/api/auth/"):
+                    rate_limit_key = f"rate_limit:auth:{client_ip}"
+                    if not await redis_cache.check_rate_limit(rate_limit_key, 10, 60):  # 10 requests per minute
+                        raise HTTPException(status_code=429, detail="Too many authentication requests")
+                elif request.url.path.startswith("/api/orders/"):
+                    rate_limit_key = f"rate_limit:orders:{client_ip}"
+                    if not await redis_cache.check_rate_limit(rate_limit_key, 200, 60):  # 200 requests per minute
+                        raise HTTPException(status_code=429, detail="Too many order requests")
+                else:
+                    rate_limit_key = f"rate_limit:general:{client_ip}"
+                    if not await redis_cache.check_rate_limit(rate_limit_key, 100, 60):  # 100 requests per minute
+                        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+        except Exception as e:
+            # Continue without rate limiting if Redis is unavailable
+            print(f"Rate limiting error: {e}")
+        
+        # Process request
+        try:
+            response = await call_next(request)
+            is_error = response.status_code >= 400
+        except Exception as e:
+            is_error = True
+            response = Response(content=str(e), status_code=500)
+        
+        # Record metrics
+        response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+        
+        try:
+            from monitoring import metrics_collector
+            if metrics_collector:
+                metrics_collector.record_request(response_time, is_error)
+        except Exception as e:
+            print(f"Metrics recording error: {e}")
+        
+        # Add performance headers
+        response.headers["X-Response-Time"] = f"{response_time:.2f}ms"
+        response.headers["X-Server-Instance"] = os.getenv("SERVER_INSTANCE", "1")
+        
+        return response
+
+app.add_middleware(MonitoringMiddleware)
 
 
 # Currency symbols mapping
@@ -3063,6 +3130,15 @@ async def create_menu_item(
     doc = menu_obj.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     await db.menu_items.insert_one(doc)
+    
+    # Invalidate menu cache
+    try:
+        cached_service = get_cached_order_service()
+        await cached_service.invalidate_menu_caches(user_org_id)
+        print(f"🗑️ Menu cache invalidated for new item {menu_obj.id}")
+    except Exception as e:
+        print(f"⚠️ Menu cache invalidation error: {e}")
+    
     return menu_obj
 
 
@@ -3071,13 +3147,24 @@ async def get_menu(current_user: dict = Depends(get_current_user)):
     # Get user's organization_id
     user_org_id = get_secure_org_id(current_user)
 
-    items = await db.menu_items.find(
-        {"organization_id": user_org_id}, {"_id": 0}
-    ).to_list(1000)
-    for item in items:
-        if isinstance(item["created_at"], str):
-            item["created_at"] = datetime.fromisoformat(item["created_at"])
-    return items
+    try:
+        # Use Redis-cached service for menu items
+        cached_service = get_cached_order_service()
+        items = await cached_service.get_menu_items(user_org_id, use_cache=True)
+        print(f"🚀 Returned {len(items)} menu items (Redis cached)")
+        return items
+        
+    except Exception as e:
+        print(f"❌ Error fetching menu from cache: {e}")
+        # Fallback to direct MongoDB query
+        items = await db.menu_items.find(
+            {"organization_id": user_org_id}, {"_id": 0}
+        ).to_list(1000)
+        for item in items:
+            if isinstance(item["created_at"], str):
+                item["created_at"] = datetime.fromisoformat(item["created_at"])
+        print(f"📊 Fallback: Returned {len(items)} menu items from MongoDB")
+        return items
 
 
 @api_router.get("/menu/{item_id}", response_model=MenuItem)
@@ -3163,10 +3250,19 @@ async def get_tables(current_user: dict = Depends(get_current_user)):
     # Get user's organization_id
     user_org_id = get_secure_org_id(current_user)
 
-    tables = await db.tables.find({"organization_id": user_org_id}, {"_id": 0}).to_list(
-        1000
-    )
-    return tables
+    try:
+        # Use Redis-cached service for tables
+        cached_service = get_cached_order_service()
+        tables = await cached_service.get_tables(user_org_id, use_cache=True)
+        print(f"🚀 Returned {len(tables)} tables (Redis cached)")
+        return tables
+        
+    except Exception as e:
+        print(f"❌ Error fetching tables from cache: {e}")
+        # Fallback to direct MongoDB query
+        tables = await db.tables.find({"organization_id": user_org_id}, {"_id": 0}).to_list(1000)
+        print(f"📊 Fallback: Returned {len(tables)} tables from MongoDB")
+        return tables
 
 
 @api_router.put("/tables/{table_id}", response_model=Table)
@@ -6255,6 +6351,18 @@ async def startup_validation():
         print(f"⚠️ Redis cache initialization failed: {e}")
         print("📝 Continuing without Redis cache (MongoDB only)")
     
+    # Initialize monitoring system
+    try:
+        from redis_cache import redis_cache
+        init_monitoring(db, redis_cache)
+        
+        # Start background metrics collection
+        asyncio.create_task(collect_metrics_task(db))
+        print("✅ Monitoring system initialized")
+    except Exception as e:
+        print(f"⚠️ Monitoring initialization failed: {e}")
+        print("📝 Continuing without monitoring")
+    
     # Start background cache cleanup task
     asyncio.create_task(periodic_cache_cleanup())
     print("✅ Background cache cleanup task started")
@@ -8781,6 +8889,9 @@ async def get_public_pricing():
 # Include super admin routes and set database
 set_super_admin_db(db)
 app.include_router(super_admin_router)
+
+# Include monitoring routes
+app.include_router(monitoring_router)
 
 
 # ============ APP VERSION MANAGEMENT (Super Admin Only) ============

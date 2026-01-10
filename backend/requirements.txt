@@ -124,3 +124,12 @@ websockets==15.0.1
 yarl==1.22.0
 zipp==3.23.0
 pywebpush==2.0.0
+
+# Production server
+gunicorn==21.2.0
+
+# Monitoring and metrics
+psutil==5.9.6
+
+# Additional utilities
+aiofiles==23.2.1

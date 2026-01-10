@@ -271,6 +271,279 @@ class RedisCache:
         except Exception as e:
             print(f"❌ Redis set stats error: {e}")
             return False
+    
+    # ============ MENU CACHE ============
+    
+    async def get_menu_items(self, org_id: str) -> Optional[List[Dict]]:
+        """Get cached menu items"""
+        if not self.is_connected():
+            return None
+            
+        try:
+            cache_key = f"menu_items:{org_id}"
+            cached_data = await self.redis.get(cache_key)
+            
+            if cached_data:
+                items = json.loads(cached_data)
+                print(f"🚀 Cache HIT: {len(items)} menu items for org {org_id}")
+                return items
+            else:
+                print(f"💾 Cache MISS: menu items for org {org_id}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Redis get menu error: {e}")
+            return None
+    
+    async def set_menu_items(self, org_id: str, items: List[Dict], ttl: int = 1800):
+        """Cache menu items (30 min TTL)"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            cache_key = f"menu_items:{org_id}"
+            
+            # Convert datetime objects to ISO strings
+            serializable_items = []
+            for item in items:
+                item_copy = item.copy()
+                if isinstance(item_copy.get('created_at'), datetime):
+                    item_copy['created_at'] = item_copy['created_at'].isoformat()
+                serializable_items.append(item_copy)
+            
+            await self.redis.setex(cache_key, ttl, json.dumps(serializable_items))
+            print(f"💾 Cached {len(items)} menu items for org {org_id} (TTL: {ttl}s)")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Redis set menu error: {e}")
+            return False
+    
+    async def invalidate_menu_items(self, org_id: str):
+        """Invalidate menu items cache"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            cache_key = f"menu_items:{org_id}"
+            await self.redis.delete(cache_key)
+            print(f"🗑️ Invalidated menu items cache for org {org_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Redis delete menu error: {e}")
+            return False
+    
+    # ============ TABLES CACHE ============
+    
+    async def get_tables(self, org_id: str) -> Optional[List[Dict]]:
+        """Get cached tables"""
+        if not self.is_connected():
+            return None
+            
+        try:
+            cache_key = f"tables:{org_id}"
+            cached_data = await self.redis.get(cache_key)
+            
+            if cached_data:
+                tables = json.loads(cached_data)
+                print(f"🚀 Cache HIT: {len(tables)} tables for org {org_id}")
+                return tables
+            else:
+                print(f"💾 Cache MISS: tables for org {org_id}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Redis get tables error: {e}")
+            return None
+    
+    async def set_tables(self, org_id: str, tables: List[Dict], ttl: int = 900):
+        """Cache tables (15 min TTL)"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            cache_key = f"tables:{org_id}"
+            await self.redis.setex(cache_key, ttl, json.dumps(tables))
+            print(f"💾 Cached {len(tables)} tables for org {org_id} (TTL: {ttl}s)")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Redis set tables error: {e}")
+            return False
+    
+    async def invalidate_tables(self, org_id: str):
+        """Invalidate tables cache"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            cache_key = f"tables:{org_id}"
+            await self.redis.delete(cache_key)
+            print(f"🗑️ Invalidated tables cache for org {org_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Redis delete tables error: {e}")
+            return False
+    
+    # ============ USER SETTINGS CACHE ============
+    
+    async def get_user_settings(self, user_id: str) -> Optional[Dict]:
+        """Get cached user settings"""
+        if not self.is_connected():
+            return None
+            
+        try:
+            cache_key = f"user_settings:{user_id}"
+            cached_data = await self.redis.get(cache_key)
+            
+            if cached_data:
+                settings = json.loads(cached_data)
+                print(f"🚀 Cache HIT: user settings for {user_id}")
+                return settings
+            else:
+                print(f"💾 Cache MISS: user settings for {user_id}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Redis get user settings error: {e}")
+            return None
+    
+    async def set_user_settings(self, user_id: str, settings: Dict, ttl: int = 3600):
+        """Cache user settings (1 hour TTL)"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            cache_key = f"user_settings:{user_id}"
+            
+            # Convert datetime objects to ISO strings
+            settings_copy = settings.copy()
+            if isinstance(settings_copy.get('created_at'), datetime):
+                settings_copy['created_at'] = settings_copy['created_at'].isoformat()
+            if isinstance(settings_copy.get('subscription_expires_at'), datetime):
+                settings_copy['subscription_expires_at'] = settings_copy['subscription_expires_at'].isoformat()
+            
+            await self.redis.setex(cache_key, ttl, json.dumps(settings_copy))
+            print(f"💾 Cached user settings for {user_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Redis set user settings error: {e}")
+            return False
+    
+    async def invalidate_user_settings(self, user_id: str):
+        """Invalidate user settings cache"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            cache_key = f"user_settings:{user_id}"
+            await self.redis.delete(cache_key)
+            print(f"🗑️ Invalidated user settings cache for {user_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Redis delete user settings error: {e}")
+            return False
+    
+    # ============ REPORTS CACHE ============
+    
+    async def get_reports_data(self, org_id: str, report_type: str, date_range: str) -> Optional[Dict]:
+        """Get cached reports data"""
+        if not self.is_connected():
+            return None
+            
+        try:
+            cache_key = f"reports:{org_id}:{report_type}:{date_range}"
+            cached_data = await self.redis.get(cache_key)
+            
+            if cached_data:
+                reports = json.loads(cached_data)
+                print(f"🚀 Cache HIT: {report_type} reports for org {org_id}")
+                return reports
+            else:
+                print(f"💾 Cache MISS: {report_type} reports for org {org_id}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Redis get reports error: {e}")
+            return None
+    
+    async def set_reports_data(self, org_id: str, report_type: str, date_range: str, data: Dict, ttl: int = 600):
+        """Cache reports data (10 min TTL)"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            cache_key = f"reports:{org_id}:{report_type}:{date_range}"
+            
+            # Convert datetime objects to ISO strings
+            data_copy = data.copy()
+            if 'orders' in data_copy:
+                for order in data_copy['orders']:
+                    if isinstance(order.get('created_at'), datetime):
+                        order['created_at'] = order['created_at'].isoformat()
+            
+            await self.redis.setex(cache_key, ttl, json.dumps(data_copy))
+            print(f"💾 Cached {report_type} reports for org {org_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Redis set reports error: {e}")
+            return False
+    
+    async def invalidate_reports_data(self, org_id: str):
+        """Invalidate all reports cache for organization"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            # Use pattern matching to delete all report caches for this org
+            pattern = f"reports:{org_id}:*"
+            keys = await self.redis.keys(pattern)
+            if keys:
+                await self.redis.delete(*keys)
+                print(f"🗑️ Invalidated {len(keys)} report caches for org {org_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Redis delete reports error: {e}")
+            return False
+    
+    # ============ RATE LIMITING ============
+    
+    async def check_rate_limit(self, key: str, limit: int, window: int) -> bool:
+        """Check if request is within rate limit"""
+        if not self.is_connected():
+            return True  # Allow if Redis is down
+            
+        try:
+            current = await self.redis.incr(key)
+            if current == 1:
+                await self.redis.expire(key, window)
+            
+            return current <= limit
+            
+        except Exception as e:
+            print(f"❌ Redis rate limit error: {e}")
+            return True  # Allow if error
+    
+    async def get_rate_limit_remaining(self, key: str, limit: int) -> int:
+        """Get remaining requests in rate limit window"""
+        if not self.is_connected():
+            return limit
+            
+        try:
+            current = await self.redis.get(key)
+            if current is None:
+                return limit
+            return max(0, limit - int(current))
+            
+        except Exception as e:
+            print(f"❌ Redis rate limit check error: {e}")
+            return limit
 
 # ============ CACHE-ENHANCED ORDER SERVICE ============
 
@@ -344,6 +617,114 @@ class CachedOrderService:
         
         return order
     
+    async def get_menu_items(self, org_id: str, use_cache: bool = True) -> List[Dict]:
+        """Get menu items with caching"""
+        
+        # Try cache first
+        if use_cache:
+            cached_items = await self.cache.get_menu_items(org_id)
+            if cached_items is not None:
+                return cached_items
+        
+        # Fallback to MongoDB
+        print(f"📊 Fetching menu items from MongoDB for org {org_id}")
+        
+        items = await self.db.menu_items.find(
+            {"organization_id": org_id}, 
+            {"_id": 0}
+        ).sort("category", 1).to_list(1000)
+        
+        # Convert datetime objects
+        for item in items:
+            if isinstance(item.get("created_at"), str):
+                item["created_at"] = datetime.fromisoformat(item["created_at"])
+        
+        # Cache the results
+        if use_cache:
+            await self.cache.set_menu_items(org_id, items, ttl=1800)  # 30 min cache
+        
+        print(f"📊 Found {len(items)} menu items for org {org_id}")
+        return items
+    
+    async def get_tables(self, org_id: str, use_cache: bool = True) -> List[Dict]:
+        """Get tables with caching"""
+        
+        # Try cache first
+        if use_cache:
+            cached_tables = await self.cache.get_tables(org_id)
+            if cached_tables is not None:
+                return cached_tables
+        
+        # Fallback to MongoDB
+        print(f"📊 Fetching tables from MongoDB for org {org_id}")
+        
+        tables = await self.db.tables.find(
+            {"organization_id": org_id}, 
+            {"_id": 0}
+        ).sort("table_number", 1).to_list(1000)
+        
+        # Cache the results
+        if use_cache:
+            await self.cache.set_tables(org_id, tables, ttl=900)  # 15 min cache
+        
+        print(f"📊 Found {len(tables)} tables for org {org_id}")
+        return tables
+    
+    async def get_user_settings(self, user_id: str, use_cache: bool = True) -> Optional[Dict]:
+        """Get user settings with caching"""
+        
+        # Try cache first
+        if use_cache:
+            cached_settings = await self.cache.get_user_settings(user_id)
+            if cached_settings is not None:
+                return cached_settings
+        
+        # Fallback to MongoDB
+        user = await self.db.users.find_one(
+            {"id": user_id}, 
+            {"_id": 0, "password": 0}  # Exclude password for security
+        )
+        
+        if user:
+            # Convert datetime objects
+            if isinstance(user.get("created_at"), str):
+                user["created_at"] = datetime.fromisoformat(user["created_at"])
+            if isinstance(user.get("subscription_expires_at"), str):
+                user["subscription_expires_at"] = datetime.fromisoformat(user["subscription_expires_at"])
+            
+            # Cache the result
+            if use_cache:
+                await self.cache.set_user_settings(user_id, user, ttl=3600)  # 1 hour cache
+        
+        return user
+    
+    async def get_reports_data(self, org_id: str, report_type: str, date_range: str, use_cache: bool = True) -> Optional[Dict]:
+        """Get reports data with caching"""
+        
+        # Try cache first
+        if use_cache:
+            cached_reports = await self.cache.get_reports_data(org_id, report_type, date_range)
+            if cached_reports is not None:
+                return cached_reports
+        
+        # Fallback to MongoDB - implement based on report type
+        print(f"📊 Generating {report_type} reports from MongoDB for org {org_id}")
+        
+        # This would contain the actual report generation logic
+        # For now, return a placeholder
+        reports_data = {
+            "type": report_type,
+            "date_range": date_range,
+            "generated_at": datetime.now().isoformat(),
+            "data": {}
+        }
+        
+        # Cache the results
+        if use_cache:
+            await self.cache.set_reports_data(org_id, report_type, date_range, reports_data, ttl=600)  # 10 min cache
+        
+        return reports_data
+    
     async def invalidate_order_caches(self, org_id: str, order_id: str = None):
         """Invalidate caches when orders change"""
         
@@ -354,9 +735,24 @@ class CachedOrderService:
         if order_id:
             await self.cache.invalidate_order(order_id, org_id)
         
+        # Invalidate reports since order data changed
+        await self.cache.invalidate_reports_data(org_id)
+        
         # Publish real-time update
         if order_id:
             await self.cache.publish_order_update(org_id, order_id, "cache_invalidated")
+    
+    async def invalidate_menu_caches(self, org_id: str):
+        """Invalidate menu-related caches"""
+        await self.cache.invalidate_menu_items(org_id)
+    
+    async def invalidate_table_caches(self, org_id: str):
+        """Invalidate table-related caches"""
+        await self.cache.invalidate_tables(org_id)
+    
+    async def invalidate_user_caches(self, user_id: str):
+        """Invalidate user-related caches"""
+        await self.cache.invalidate_user_settings(user_id)
 
 # Global cache instance
 redis_cache = RedisCache()
