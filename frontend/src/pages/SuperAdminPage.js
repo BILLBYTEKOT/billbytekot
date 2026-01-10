@@ -1664,6 +1664,7 @@ const SuperAdminPage = () => {
           ))}
         </div>
 
+        <div>
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && hasPermission('analytics') && (
           <div>
@@ -3639,6 +3640,7 @@ const SuperAdminPage = () => {
             </Card>
           </div>
         )}
+        </div>
       </div>
 
       {/* App Version Modal */}

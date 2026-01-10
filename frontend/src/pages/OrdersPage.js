@@ -2427,6 +2427,7 @@ const OrdersPage = ({ user }) => {
               </CardContent>
             </Card>
           </div>
+          </div>
         )}
       </div>
     </Layout>
