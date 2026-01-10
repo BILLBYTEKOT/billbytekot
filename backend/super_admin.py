@@ -91,11 +91,6 @@ async def get_super_admin_dashboard(
         # Log the error and return a safe response
         print(f"Super admin dashboard error: {e}")
         raise HTTPException(status_code=500, detail=f"Dashboard error: {str(e)}")
-        },
-        "users": users,
-        "tickets": tickets,
-        "recent_orders": recent_orders[:100]
-    }
 
 
 @super_admin_router.get("/users")
