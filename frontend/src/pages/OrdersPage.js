@@ -166,6 +166,13 @@ const OrdersPage = ({ user }) => {
     return () => clearInterval(interval);
   }, [activeTab]);
 
+  // Refetch orders when tab changes
+  useEffect(() => {
+    if (dataLoadedRef.current) {
+      fetchOrders(); // Fetch appropriate orders for the current tab
+    }
+  }, [activeTab]);
+
   const loadInitialData = async () => {
     try {
       // Load critical data first (orders and tables), then secondary data
@@ -221,8 +228,23 @@ const OrdersPage = ({ user }) => {
     if (showLoader) setRefreshing(true);
     
     try {
-      const response = await axios.get(`${API}/orders`);
-      const ordersData = Array.isArray(response.data) ? response.data : [];
+      let ordersData = [];
+      
+      if (activeTab === 'active') {
+        // Fetch active orders (pending, preparing, ready)
+        const response = await axios.get(`${API}/orders`);
+        ordersData = Array.isArray(response.data) ? response.data : [];
+      } else {
+        // Fetch completed orders for today's bills
+        const [completedRes, cancelledRes] = await Promise.all([
+          axios.get(`${API}/orders?status=completed`).catch(() => ({ data: [] })),
+          axios.get(`${API}/orders?status=cancelled`).catch(() => ({ data: [] }))
+        ]);
+        
+        const completedOrders = Array.isArray(completedRes.data) ? completedRes.data : [];
+        const cancelledOrders = Array.isArray(cancelledRes.data) ? cancelledRes.data : [];
+        ordersData = [...completedOrders, ...cancelledOrders];
+      }
       
       // Validate and clean order data
       const validOrders = ordersData.filter(order => {
@@ -249,7 +271,7 @@ const OrdersPage = ({ user }) => {
       setOrders(validOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
       
       if (showLoader) {
-        toast.success('Orders refreshed successfully');
+        toast.success(`${activeTab === 'active' ? 'Active orders' : 'Today\'s bills'} refreshed successfully`);
       }
     } catch (error) {
       console.error('Failed to fetch orders', error);
@@ -260,7 +282,7 @@ const OrdersPage = ({ user }) => {
       } else if (error.response?.status >= 500) {
         toast.error('Server error. Please try again later.');
       } else if (showLoader) {
-        toast.error('Failed to refresh orders');
+        toast.error(`Failed to refresh ${activeTab === 'active' ? 'orders' : 'bills'}`);
       }
     } finally {
       if (showLoader) setRefreshing(false);

@@ -453,22 +453,8 @@ const SuperAdminPage = () => {
 
   // Load additional data in background after login
   const loadAdditionalDataInBackground = () => {
-    // Load data progressively with delays to avoid overwhelming free tier MongoDB
-    setTimeout(() => {
-      loadUsersData();
-    }, 1000);
-    
-    setTimeout(() => {
-      loadTicketsData();
-    }, 2000);
-    
-    setTimeout(() => {
-      loadOrdersData();
-    }, 3000);
-    
-    setTimeout(() => {
-      loadOtherData();
-    }, 4000);
+    // Don't load all data at once - let user click to load what they need
+    console.log('✅ Login successful. Data will be loaded on-demand when you switch tabs.');
   };
 
   const loadUsersData = async () => {
@@ -477,12 +463,26 @@ const SuperAdminPage = () => {
     try {
       const response = await axios.get(`${API}/super-admin/users`, {
         params: { ...credentials, limit: 20 }, // Small limit
-        timeout: 10000
+        timeout: 30000 // Increased timeout to 30 seconds
       });
       setUsers(response.data.users || []);
+      toast.success(`Loaded ${response.data.users?.length || 0} users`);
     } catch (error) {
-      console.warn('Failed to load users:', error);
-      toast.error('Failed to load users data');
+      console.error('Failed to load users:', error);
+      
+      // Provide specific error messages
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        toast.error('Request timed out. The server might be slow. Please try again.');
+      } else if (error.response?.status === 500) {
+        toast.error('Server error loading users. Please try again in a moment.');
+      } else if (error.response?.status === 403) {
+        toast.error('Access denied. Please check your credentials.');
+      } else {
+        toast.error('Failed to load users data. Please try again.');
+      }
+      
+      // Set empty array to show retry button
+      setUsers([]);
     } finally {
       setLoadingUsers(false);
     }
@@ -494,12 +494,22 @@ const SuperAdminPage = () => {
     try {
       const response = await axios.get(`${API}/super-admin/tickets/recent`, {
         params: { ...credentials, limit: 10 }, // Small limit
-        timeout: 10000
+        timeout: 30000 // Increased timeout
       });
       setTickets(response.data.tickets || []);
+      toast.success(`Loaded ${response.data.tickets?.length || 0} tickets`);
     } catch (error) {
-      console.warn('Failed to load tickets:', error);
-      toast.error('Failed to load tickets data');
+      console.error('Failed to load tickets:', error);
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        toast.error('Tickets request timed out. Please try again.');
+      } else if (error.response?.status === 500) {
+        toast.error('Server error loading tickets. Please try again.');
+      } else {
+        toast.error('Failed to load tickets data. Please try again.');
+      }
+      
+      setTickets([]);
     } finally {
       setLoadingTickets(false);
     }
@@ -511,16 +521,24 @@ const SuperAdminPage = () => {
     try {
       const response = await axios.get(`${API}/super-admin/orders/recent`, {
         params: { ...credentials, days: 7, limit: 10 }, // Small limits
-        timeout: 10000
+        timeout: 30000 // Increased timeout
       });
       // Update dashboard with recent orders
       setDashboard(prev => ({
         ...prev,
         recent_orders: response.data.orders || []
       }));
+      toast.success(`Loaded ${response.data.orders?.length || 0} recent orders`);
     } catch (error) {
-      console.warn('Failed to load orders:', error);
-      toast.error('Failed to load orders data');
+      console.error('Failed to load orders:', error);
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        toast.error('Orders request timed out. Please try again.');
+      } else if (error.response?.status === 500) {
+        toast.error('Server error loading orders. Please try again.');
+      } else {
+        toast.error('Failed to load orders data. Please try again.');
+      }
     } finally {
       setLoadingOrders(false);
     }
@@ -1648,7 +1666,45 @@ const SuperAdminPage = () => {
 
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && hasPermission('analytics') && (
-          dashboard ? (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Dashboard Overview</h2>
+              <Button
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const dashboardResponse = await axios.get(`${API}/super-admin/dashboard`, {
+                      params: credentials,
+                      timeout: 15000
+                    });
+                    setDashboard(dashboardResponse.data);
+                    toast.success('Dashboard refreshed');
+                  } catch (error) {
+                    console.error('Dashboard refresh failed:', error);
+                    toast.error('Failed to refresh dashboard');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></div>
+                    Refreshing...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh Dashboard
+                  </div>
+                )}
+              </Button>
+            </div>
+            
+            {dashboard ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -1708,6 +1764,7 @@ const SuperAdminPage = () => {
               </CardContent>
             </Card>
           )
+          </div>
         )}
 
         {/* Users Tab */}
