@@ -3624,63 +3624,223 @@ async def get_orders(
     print(f"🔒 User {current_user['email']} (org: {user_org_id}) fetching orders with status: {status}")
 
     try:
-        # Use Redis-cached order service for active orders (no status filter or status != completed/cancelled)
+        # Strategy 1: Try Redis-cached order service for active orders
         if not status or status not in ["completed", "cancelled"]:
             try:
                 cached_service = get_cached_order_service()
                 
                 if not status:
-                    # Get all active orders (fast Redis cache)
+                    # Get all active orders (Redis cache with MongoDB fallback)
                     orders = await cached_service.get_active_orders(user_org_id, use_cache=True)
-                    print(f"🚀 Returned {len(orders)} active orders (Redis cached)")
+                    print(f"🚀 Returned {len(orders)} active orders (cached service)")
                     return orders
                 else:
                     # Get active orders and filter by status
                     active_orders = await cached_service.get_active_orders(user_org_id, use_cache=True)
                     filtered_orders = [order for order in active_orders if order.get("status") == status]
-                    print(f"🚀 Returned {len(filtered_orders)} orders with status '{status}' (Redis cached)")
+                    print(f"🚀 Returned {len(filtered_orders)} orders with status '{status}' (cached service)")
                     return filtered_orders
+                    
             except Exception as cache_error:
-                print(f"❌ Redis cache error: {cache_error}, falling back to MongoDB")
-                # Fall through to MongoDB query
+                print(f"❌ Cached service error: {cache_error}, falling back to direct MongoDB")
+                # Continue to Strategy 2
         
-        # For completed/cancelled orders, or if Redis fails, query MongoDB directly
+        # Strategy 2: Direct MongoDB query (for completed/cancelled orders or if cache fails)
+        print(f"📊 Fetching orders directly from MongoDB for org {user_org_id}")
+        
         query = {"organization_id": user_org_id}
         if status:
             query["status"] = status
         elif not status:
-            # If no status specified and Redis failed, get active orders from MongoDB
+            # If no status specified, get active orders from MongoDB
             query["status"] = {"$nin": ["completed", "cancelled"]}
 
-        orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).limit(1000).to_list(1000)
+        try:
+            orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).limit(1000).to_list(1000)
+            
+            # Convert datetime objects for consistency
+            for order in orders:
+                if isinstance(order.get("created_at"), str):
+                    try:
+                        order["created_at"] = datetime.fromisoformat(order["created_at"])
+                    except:
+                        pass
+                if isinstance(order.get("updated_at"), str):
+                    try:
+                        order["updated_at"] = datetime.fromisoformat(order["updated_at"])
+                    except:
+                        pass
+            
+            print(f"📊 Returned {len(orders)} orders from MongoDB (status: {status})")
+            return orders
+            
+        except Exception as db_error:
+            print(f"❌ MongoDB query error: {db_error}")
+            # Continue to Strategy 3
         
-        # Convert datetime objects
-        for order in orders:
-            if isinstance(order["created_at"], str):
-                order["created_at"] = datetime.fromisoformat(order["created_at"])
-            if isinstance(order["updated_at"], str):
-                order["updated_at"] = datetime.fromisoformat(order["updated_at"])
+        # Strategy 3: Final fallback with minimal query
+        print(f"🆘 Using minimal fallback query for org {user_org_id}")
         
-        print(f"📊 Returned {len(orders)} orders from MongoDB (status: {status})")
-        return orders
+        try:
+            # Most basic query possible
+            basic_query = {"organization_id": user_org_id}
+            orders = await db.orders.find(basic_query, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
+            
+            # Filter by status if needed
+            if status:
+                orders = [order for order in orders if order.get("status") == status]
+            elif not status:
+                # Filter to active orders only
+                orders = [order for order in orders if order.get("status") not in ["completed", "cancelled"]]
+            
+            # Basic datetime conversion
+            for order in orders:
+                try:
+                    if isinstance(order.get("created_at"), str):
+                        order["created_at"] = datetime.fromisoformat(order["created_at"])
+                    if isinstance(order.get("updated_at"), str):
+                        order["updated_at"] = datetime.fromisoformat(order["updated_at"])
+                except:
+                    # If datetime conversion fails, leave as string
+                    pass
+            
+            print(f"🆘 Fallback returned {len(orders)} orders")
+            return orders
+            
+        except Exception as final_error:
+            print(f"❌ Final fallback failed: {final_error}")
+            # Return empty list rather than crash
+            return []
         
     except Exception as e:
-        print(f"❌ Error fetching orders: {e}")
-        # Final fallback to basic MongoDB query
-        query = {"organization_id": user_org_id}
-        if status:
-            query["status"] = status
-
-        orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).limit(1000).to_list(1000)
-        
-        for order in orders:
-            if isinstance(order["created_at"], str):
-                order["created_at"] = datetime.fromisoformat(order["created_at"])
-            if isinstance(order["updated_at"], str):
-                order["updated_at"] = datetime.fromisoformat(order["updated_at"])
+        print(f"❌ Critical error in get_orders: {e}")
+        # Last resort: return empty list to prevent API crash
+        return []
         
         print(f"📊 Final fallback: Returned {len(orders)} orders from MongoDB")
         return orders
+
+
+@api_router.get("/orders/today-bills", response_model=List[Order])
+async def get_todays_bills(current_user: dict = Depends(get_current_user)):
+    """Get today's completed/paid bills with Redis caching and MongoDB fallback"""
+    # Get user's organization_id - CRITICAL for data isolation
+    user_org_id = current_user.get("organization_id")
+    
+    # SECURITY: Ensure organization_id is valid
+    if not user_org_id:
+        print(f"🚨 SECURITY ALERT: User {current_user.get('email')} attempted to fetch today's bills without organization_id!")
+        raise HTTPException(status_code=403, detail="Organization not configured. Contact support.")
+
+    # Security log
+    print(f"🔒 User {current_user['email']} (org: {user_org_id}) fetching today's bills")
+
+    try:
+        # Use IST (Indian Standard Time) for "today" calculation
+        from datetime import timedelta
+        IST = timezone(timedelta(hours=5, minutes=30))
+        
+        # Get current time in IST and find start of today in IST
+        now_ist = datetime.now(IST)
+        today_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Convert to UTC for database query
+        today_utc = today_ist.astimezone(timezone.utc)
+        
+        # Strategy 1: Try Redis-cached service first
+        try:
+            cached_service = get_cached_order_service()
+            
+            # Check if we have today's bills cached
+            cache_key = f"todays_bills:{user_org_id}:{today_ist.strftime('%Y-%m-%d')}"
+            
+            # For now, go directly to MongoDB since we need specific today filtering
+            # TODO: Implement specific today's bills caching in Redis
+            print(f"📊 Fetching today's bills directly from MongoDB for org {user_org_id}")
+            
+        except Exception as cache_error:
+            print(f"❌ Cached service error: {cache_error}, falling back to direct MongoDB")
+        
+        # Strategy 2: Direct MongoDB query for today's completed/paid orders
+        print(f"📊 Fetching today's bills from MongoDB for org {user_org_id} (from {today_utc.isoformat()})")
+        
+        try:
+            # Query for today's completed or paid orders
+            query = {
+                "organization_id": user_org_id,
+                "created_at": {"$gte": today_utc.isoformat()},
+                "$or": [
+                    {"status": "completed"},
+                    {"status": "paid"},
+                    {"payment_received": {"$gt": 0}},  # Any order with payment received
+                    {"is_credit": False, "total": {"$gt": 0}}  # Non-credit orders with total
+                ]
+            }
+            
+            orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).limit(500).to_list(500)
+            
+            # Convert datetime objects for consistency
+            for order in orders:
+                if isinstance(order.get("created_at"), str):
+                    try:
+                        order["created_at"] = datetime.fromisoformat(order["created_at"])
+                    except:
+                        pass
+                if isinstance(order.get("updated_at"), str):
+                    try:
+                        order["updated_at"] = datetime.fromisoformat(order["updated_at"])
+                    except:
+                        pass
+            
+            print(f"📊 Found {len(orders)} today's bills for org {user_org_id}")
+            return orders
+            
+        except Exception as db_error:
+            print(f"❌ MongoDB error in get_todays_bills: {db_error}")
+            # Continue to fallback
+        
+        # Strategy 3: Final fallback with basic query and client-side filtering
+        print(f"🆘 Using fallback query for today's bills org {user_org_id}")
+        
+        try:
+            # Get recent orders and filter on the server side
+            basic_query = {
+                "organization_id": user_org_id,
+                "status": {"$in": ["completed", "paid", "cancelled"]}
+            }
+            
+            orders = await db.orders.find(basic_query, {"_id": 0}).sort("created_at", -1).limit(200).to_list(200)
+            
+            # Filter to today's orders
+            todays_orders = []
+            for order in orders:
+                try:
+                    if isinstance(order.get("created_at"), str):
+                        order_date = datetime.fromisoformat(order["created_at"])
+                    else:
+                        order_date = order.get("created_at")
+                    
+                    if order_date and order_date >= today_utc:
+                        # Only include completed, paid, or orders with payment
+                        if (order.get("status") in ["completed", "paid"] or 
+                            order.get("payment_received", 0) > 0 or
+                            (not order.get("is_credit", False) and order.get("total", 0) > 0)):
+                            todays_orders.append(order)
+                            
+                except Exception as date_error:
+                    print(f"⚠️ Date parsing error for order {order.get('id', 'unknown')}: {date_error}")
+                    continue
+            
+            print(f"🆘 Fallback returned {len(todays_orders)} today's bills")
+            return todays_orders
+            
+        except Exception as final_error:
+            print(f"❌ Final fallback failed: {final_error}")
+            return []
+        
+    except Exception as e:
+        print(f"❌ Critical error in get_todays_bills: {e}")
+        return []
 
 
 @api_router.get("/orders/{order_id}", response_model=Order)

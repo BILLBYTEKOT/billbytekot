@@ -59,6 +59,7 @@ const playSound = (type) => {
 
 const OrdersPage = ({ user }) => {
   const [orders, setOrders] = useState([]);
+  const [todaysBills, setTodaysBills] = useState([]);
   const [tables, setTables] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [businessSettings, setBusinessSettings] = useState(null);
@@ -116,34 +117,6 @@ const OrdersPage = ({ user }) => {
   const navigate = useNavigate();
   const dataLoadedRef = useRef(false);
 
-  // Helper function to check if order is from today (using IST timezone)
-  const isToday = (dateString) => {
-    if (!dateString) return false;
-    
-    try {
-      const orderDate = new Date(dateString);
-      
-      // Check if date is valid
-      if (isNaN(orderDate.getTime())) {
-        console.warn('Invalid date string:', dateString);
-        return false;
-      }
-      
-      const now = new Date();
-      
-      // Get IST date strings for comparison
-      // IST is UTC+5:30, so we use 'Asia/Kolkata' timezone
-      const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
-      const orderDateIST = orderDate.toLocaleDateString('en-CA', options); // YYYY-MM-DD format
-      const todayIST = now.toLocaleDateString('en-CA', options);
-      
-      return orderDateIST === todayIST;
-    } catch (error) {
-      console.warn('Error checking if date is today:', error, dateString);
-      return false;
-    }
-  };
-
   // Get unique categories from menu items
   const categories = ['all', ...new Set(menuItems.map(item => item.category).filter(Boolean))];
 
@@ -154,11 +127,13 @@ const OrdersPage = ({ user }) => {
     }
   }, []);
 
-  // Add real-time polling for active orders (every 30 seconds)
+  // Add real-time polling for active orders and today's bills (every 30 seconds)
   useEffect(() => {
     const interval = setInterval(() => {
       if (activeTab === 'active') {
         fetchOrders(); // Refresh orders when viewing active tab
+      } else if (activeTab === 'history') {
+        fetchTodaysBills(); // Refresh today's bills when viewing history tab
       }
     }, 30000); // Poll every 30 seconds
 
@@ -167,15 +142,28 @@ const OrdersPage = ({ user }) => {
 
   const loadInitialData = async () => {
     try {
-      // Load critical data first (orders and tables), then secondary data
-      const [ordersRes, tablesRes] = await Promise.all([
+      // Load critical data first (orders, today's bills, and tables), then secondary data
+      const [ordersRes, todaysBillsRes, tablesRes] = await Promise.all([
         axios.get(`${API}/orders`).catch(() => ({ data: [] })),
+        axios.get(`${API}/orders/today-bills`).catch(() => ({ data: [] })),
         axios.get(`${API}/tables`).catch(() => ({ data: [] }))
       ]);
       
       // Process orders data
       const ordersData = Array.isArray(ordersRes.data) ? ordersRes.data : [];
       const validOrders = ordersData.filter(order => {
+        return order && order.id && order.created_at && order.status && typeof order.total === 'number';
+      }).map(order => ({
+        ...order,
+        customer_name: order.customer_name || '',
+        table_number: order.table_number || 0,
+        payment_method: order.payment_method || 'cash',
+        created_at: order.created_at || new Date().toISOString()
+      }));
+      
+      // Process today's bills data
+      const billsData = Array.isArray(todaysBillsRes.data) ? todaysBillsRes.data : [];
+      const validBills = billsData.filter(order => {
         return order && order.id && order.created_at && order.status && typeof order.total === 'number';
       }).map(order => ({
         ...order,
@@ -192,6 +180,7 @@ const OrdersPage = ({ user }) => {
       });
       
       setOrders(validOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+      setTodaysBills(validBills.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
       setTables(validTables);
       
       // Load secondary data in background
@@ -208,6 +197,7 @@ const OrdersPage = ({ user }) => {
       console.error('Failed to load initial data', error);
       // Set empty defaults to prevent crashes
       setOrders([]);
+      setTodaysBills([]);
       setTables([]);
       setMenuItems([]);
       setBusinessSettings({});
@@ -247,6 +237,46 @@ const OrdersPage = ({ user }) => {
     } catch (error) {
       console.error('Failed to fetch orders', error);
       setOrders([]);
+      // Show user-friendly error
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+      } else if (error.response?.status >= 500) {
+        toast.error('Server error. Please try again later.');
+      }
+    }
+  };
+
+  const fetchTodaysBills = async () => {
+    try {
+      const response = await axios.get(`${API}/orders/today-bills`);
+      const billsData = Array.isArray(response.data) ? response.data : [];
+      
+      // Validate and clean bills data
+      const validBills = billsData.filter(order => {
+        // Ensure order has required fields
+        return order && 
+               order.id && 
+               order.created_at && 
+               order.status && 
+               typeof order.total === 'number' &&
+               Array.isArray(order.items);
+      }).map(order => ({
+        ...order,
+        // Ensure all required fields have default values
+        customer_name: order.customer_name || '',
+        table_number: order.table_number || 0,
+        payment_method: order.payment_method || 'cash',
+        payment_received: order.payment_received || 0,
+        balance_amount: order.balance_amount || 0,
+        is_credit: order.is_credit || false,
+        // Ensure date is valid
+        created_at: order.created_at || new Date().toISOString()
+      }));
+      
+      setTodaysBills(validBills.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+    } catch (error) {
+      console.error('Failed to fetch today\'s bills', error);
+      setTodaysBills([]);
       // Show user-friendly error
       if (error.response?.status === 401) {
         toast.error('Session expired. Please login again.');
@@ -1339,7 +1369,7 @@ const OrdersPage = ({ user }) => {
             <CheckCircle className="w-4 h-4" />
             Today's Bills
             <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'history' ? 'bg-violet-100 text-violet-700' : 'bg-gray-200'}`}>
-              {loading ? '...' : orders.filter(o => ['completed', 'cancelled'].includes(o.status) && isToday(o.created_at)).length}
+              {loading ? '...' : todaysBills.length}
             </span>
           </button>
         </div>
@@ -1551,7 +1581,7 @@ const OrdersPage = ({ user }) => {
         {/* Today's Bills Tab */}
         {!loading && activeTab === 'history' && (
           <div className="space-y-3">
-            {orders.filter(order => ['completed', 'cancelled'].includes(order.status) && isToday(order.created_at)).length === 0 && (
+            {todaysBills.length === 0 && (
               <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-3xl">📋</span>
@@ -1560,7 +1590,7 @@ const OrdersPage = ({ user }) => {
                 <p className="text-gray-500 text-sm">Completed orders will appear here</p>
               </div>
             )}
-            {orders.filter(order => ['completed', 'cancelled'].includes(order.status) && isToday(order.created_at)).map((order) => {
+            {todaysBills.map((order) => {
               const isCompleted = order.status === 'completed';
               const isCancelled = order.status === 'cancelled';
               const hasCredit = order.is_credit || order.credit_amount > 0;
