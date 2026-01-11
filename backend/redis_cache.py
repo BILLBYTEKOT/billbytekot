@@ -352,6 +352,28 @@ class RedisCache:
         except Exception as e:
             print(f"❌ Redis publish error: {e}")
         return False
+    
+    async def check_rate_limit(self, key: str, limit: int, window: int) -> bool:
+        """Check if request is within rate limit"""
+        if not self.is_connected():
+            return True  # Allow if Redis is not available
+        
+        try:
+            if self.use_upstash and self.upstash:
+                # Use Upstash Redis for rate limiting
+                current = await self.upstash.incr(key)
+                if current == 1:
+                    await self.upstash.expire(key, window)
+                return current <= limit
+            elif self.redis:
+                # Use traditional Redis for rate limiting
+                current = await self.redis.incr(key)
+                if current == 1:
+                    await self.redis.expire(key, window)
+                return current <= limit
+        except Exception as e:
+            print(f"❌ Redis rate limit error: {e}")
+        return True  # Allow if error occurs
 
     # ============ ACTIVE ORDERS CACHE ============
     
@@ -506,6 +528,119 @@ class RedisCache:
         except Exception as e:
             print(f"❌ Redis publish error: {e}")
             return False
+    
+    # ============ SUPER ADMIN CACHE ============
+    
+    async def get_super_admin_users(self, skip: int = 0, limit: int = 50) -> Optional[Dict]:
+        """Get cached super admin users data"""
+        if not self.is_connected():
+            return None
+            
+        try:
+            cache_key = f"super_admin:users:{skip}:{limit}"
+            cached_data = await self.get(cache_key)
+            
+            if cached_data:
+                users_data = json.loads(cached_data)
+                print(f"🚀 Cache HIT: super admin users (skip={skip}, limit={limit})")
+                return users_data
+            else:
+                print(f"💾 Cache MISS: super admin users (skip={skip}, limit={limit})")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Redis get super admin users error: {e}")
+            return None
+    
+    async def set_super_admin_users(self, users_data: Dict, skip: int = 0, limit: int = 50, ttl: int = 180):
+        """Cache super admin users data"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            cache_key = f"super_admin:users:{skip}:{limit}"
+            
+            # Convert datetime objects to ISO strings for JSON serialization
+            serializable_data = users_data.copy()
+            if 'users' in serializable_data:
+                for user in serializable_data['users']:
+                    if isinstance(user.get('created_at'), datetime):
+                        user['created_at'] = user['created_at'].isoformat()
+                    if isinstance(user.get('subscription_expires_at'), datetime):
+                        user['subscription_expires_at'] = user['subscription_expires_at'].isoformat()
+            
+            success = await self.setex(cache_key, ttl, json.dumps(serializable_data))
+            if success:
+                print(f"💾 Cached super admin users (skip={skip}, limit={limit}, TTL: {ttl}s)")
+            return success
+            
+        except Exception as e:
+            print(f"❌ Redis set super admin users error: {e}")
+            return False
+    
+    async def invalidate_super_admin_users(self):
+        """Invalidate all super admin users cache"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            # Get all super admin users cache keys
+            pattern = "super_admin:users:*"
+            keys = await self.keys(pattern)
+            
+            if keys:
+                success = await self.delete(*keys)
+                if success:
+                    print(f"🗑️ Invalidated {len(keys)} super admin users cache entries")
+                return success > 0
+            return True
+            
+        except Exception as e:
+            print(f"❌ Redis invalidate super admin users error: {e}")
+            return False
+    
+    async def get_super_admin_analytics(self, days: int = 30) -> Optional[Dict]:
+        """Get cached super admin analytics data"""
+        if not self.is_connected():
+            return None
+            
+        try:
+            cache_key = f"super_admin:analytics:{days}"
+            cached_data = await self.get(cache_key)
+            
+            if cached_data:
+                analytics_data = json.loads(cached_data)
+                print(f"🚀 Cache HIT: super admin analytics (days={days})")
+                return analytics_data
+            else:
+                print(f"💾 Cache MISS: super admin analytics (days={days})")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Redis get super admin analytics error: {e}")
+            return None
+    
+    async def set_super_admin_analytics(self, analytics_data: Dict, days: int = 30, ttl: int = 300):
+        """Cache super admin analytics data"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            cache_key = f"super_admin:analytics:{days}"
+            
+            # Convert datetime objects to ISO strings for JSON serialization
+            serializable_data = analytics_data.copy()
+            if 'cached_at' in serializable_data and isinstance(serializable_data['cached_at'], datetime):
+                serializable_data['cached_at'] = serializable_data['cached_at'].isoformat()
+            
+            success = await self.setex(cache_key, ttl, json.dumps(serializable_data))
+            if success:
+                print(f"💾 Cached super admin analytics (days={days}, TTL: {ttl}s)")
+            return success
+            
+        except Exception as e:
+            print(f"❌ Redis set super admin analytics error: {e}")
+            return False
 
 # ============ CACHE-ENHANCED ORDER SERVICE ============
 
@@ -612,6 +747,53 @@ class CachedOrderService:
         # Publish real-time update
         if order_id:
             await self.cache.publish_order_update(org_id, order_id, "cache_invalidated")
+    
+    async def get_tables(self, org_id: str, use_cache: bool = True) -> List[Dict]:
+        """Get tables with Redis caching and robust fallback"""
+        
+        # Try cache first if enabled and Redis is connected
+        if use_cache and self.cache.is_connected():
+            try:
+                cache_key = f"tables:{org_id}"
+                cached_data = await self.cache.get(cache_key)
+                
+                if cached_data:
+                    tables = json.loads(cached_data)
+                    print(f"🚀 Cache HIT: {len(tables)} tables for org {org_id}")
+                    return tables
+                else:
+                    print(f"💾 Cache MISS: tables for org {org_id}")
+            except Exception as cache_error:
+                print(f"❌ Redis cache error: {cache_error}, falling back to MongoDB")
+        
+        # Fallback to MongoDB
+        print(f"📊 Fetching tables from MongoDB for org {org_id}")
+        
+        try:
+            # Query tables for the organization
+            query = {"organization_id": org_id}
+            
+            tables = await self.db.tables.find(
+                query, 
+                {"_id": 0}
+            ).sort("table_number", 1).to_list(100)
+            
+            # Try to cache the results if Redis is available
+            if use_cache and self.cache.is_connected():
+                try:
+                    cache_key = f"tables:{org_id}"
+                    await self.cache.setex(cache_key, 600, json.dumps(tables))  # 10 min cache
+                    print(f"💾 Cached {len(tables)} tables for org {org_id}")
+                except Exception as cache_set_error:
+                    print(f"⚠️ Failed to cache tables: {cache_set_error}")
+            
+            print(f"📊 Found {len(tables)} tables for org {org_id}")
+            return tables
+            
+        except Exception as db_error:
+            print(f"❌ MongoDB error in get_tables: {db_error}")
+            # Return empty list rather than crash
+            return []
 
 # Global cache instance
 redis_cache = RedisCache()

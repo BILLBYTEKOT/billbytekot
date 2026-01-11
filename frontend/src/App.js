@@ -30,6 +30,7 @@ import OrderDisplayPage from './pages/OrderDisplayPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import HelpPage from './pages/HelpPage';
 import SuperAdminPage from './pages/SuperAdminPage';
+import OpsPanel from './pages/OpsPanel';
 import RestaurantBillingSoftwarePage from './pages/RestaurantBillingSoftwarePage';
 import KOTSoftwarePage from './pages/KOTSoftwarePage';
 import POSSoftwarePage from './pages/POSSoftwarePage';
@@ -812,7 +813,7 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/help" element={<PrivateRoute isAuthChecking={isAuthChecking}><HelpPage user={user} /></PrivateRoute>} />
-          <Route path="/ops" element={<SuperAdminPage />} />
+          <Route path="/ops" element={<OpsPanel />} />
           <Route path="/pwa" element={<PWAHomePage />} />
           {/* 404 Not Found Route - Must be last */}
           <Route path="*" element={<NotFound />} />

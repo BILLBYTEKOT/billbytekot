@@ -15,6 +15,8 @@ const BillingPage = ({ user }) => {
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [receivedAmount, setReceivedAmount] = useState('');
+  const [showReceivedAmount, setShowReceivedAmount] = useState(false);
   const [loading, setLoading] = useState(false);
   const [businessSettings, setBusinessSettings] = useState(null);
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
@@ -94,6 +96,34 @@ const BillingPage = ({ user }) => {
   const getCurrencySymbol = () => {
     const symbols = { 'INR': '₹', 'USD': '$', 'EUR': '€', 'GBP': '£' };
     return symbols[businessSettings?.currency || 'INR'] || '₹';
+  };
+
+  const calculateReceivedAmount = () => {
+    return parseFloat(receivedAmount) || 0;
+  };
+
+  const calculateBalanceAmount = () => {
+    const total = calculateTotal();
+    const received = calculateReceivedAmount();
+    return Math.max(0, total - received);
+  };
+
+  const calculateChangeAmount = () => {
+    const total = calculateTotal();
+    const received = calculateReceivedAmount();
+    return Math.max(0, received - total);
+  };
+
+  const isPartialPayment = () => {
+    const total = calculateTotal();
+    const received = calculateReceivedAmount();
+    return received > 0 && received < total;
+  };
+
+  const isOverPayment = () => {
+    const total = calculateTotal();
+    const received = calculateReceivedAmount();
+    return received > total;
   };
 
   // Memoized calculations to prevent unnecessary recalculations
@@ -213,27 +243,38 @@ const BillingPage = ({ user }) => {
     if (!order) return;
     const updated = await updateOrderItems();
     if (!updated) return;
+    
+    const total = calculateTotal();
+    const received = showReceivedAmount ? calculateReceivedAmount() : total;
+    const balance = Math.max(0, total - received);
+    const isCredit = balance > 0;
+    
+    if (showReceivedAmount && received <= 0) {
+      toast.error('Please enter a valid received amount');
+      return;
+    }
+    
     setLoading(true);
     try {
       // Create payment record
       await axios.post(`${API}/payments/create-order`, { 
         order_id: orderId, 
-        amount: calculateTotal(), 
+        amount: received, 
         payment_method: paymentMethod 
       });
       
       // Update order with completed status and payment details
       await axios.put(`${API}/orders/${orderId}`, {
-        status: 'completed',
+        status: isCredit ? 'pending' : 'completed',
         payment_method: paymentMethod,
-        payment_received: calculateTotal(),
-        balance_amount: 0,
-        is_credit: false,
+        payment_received: received,
+        balance_amount: balance,
+        is_credit: isCredit,
         discount: calculateDiscountAmount(),
         discount_type: discountType,
         discount_value: parseFloat(discountValue) || 0,
         discount_amount: calculateDiscountAmount(),
-        total: calculateTotal(),
+        total: total,
         updated_at: new Date().toISOString(),
         // Ensure items are included for proper order completion
         items: orderItems,
@@ -242,11 +283,13 @@ const BillingPage = ({ user }) => {
         tax_rate: getEffectiveTaxRate()
       });
       
-      toast.success('Payment completed!');
+      toast.success(isCredit ? 'Partial payment recorded!' : 'Payment completed!');
       setPaymentCompleted(true);
       
-      // Release table (backend should also do this, but frontend ensures it)
-      await releaseTable();
+      // Release table only if fully paid
+      if (!isCredit) {
+        await releaseTable();
+      }
       
       // Print receipt
       const discountAmt = calculateDiscountAmount();
@@ -255,12 +298,15 @@ const BillingPage = ({ user }) => {
         items: orderItems, 
         subtotal: calculateSubtotal(), 
         tax: calculateTax(), 
-        total: calculateTotal(), 
+        total: total, 
         discount: discountAmt, 
         discount_amount: discountAmt, 
         tax_rate: getEffectiveTaxRate(),
-        status: 'completed',
-        payment_method: paymentMethod
+        status: isCredit ? 'pending' : 'completed',
+        payment_method: paymentMethod,
+        payment_received: received,
+        balance_amount: balance,
+        is_credit: isCredit
       }, businessSettings);
       
     } catch (error) {
@@ -645,9 +691,76 @@ const BillingPage = ({ user }) => {
                 </button>
               ))}
             </div>
+            
+            {/* Received Amount Section */}
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm">
+                  <input 
+                    type="checkbox" 
+                    checked={showReceivedAmount} 
+                    onChange={(e) => {
+                      setShowReceivedAmount(e.target.checked);
+                      if (!e.target.checked) setReceivedAmount('');
+                    }}
+                    className="rounded"
+                  />
+                  Custom Amount Received
+                </label>
+              </div>
+              
+              {showReceivedAmount && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Amount Received:</span>
+                    <input 
+                      type="number" 
+                      value={receivedAmount} 
+                      onChange={(e) => setReceivedAmount(e.target.value)} 
+                      placeholder={calculateTotal().toFixed(0)}
+                      className="flex-1 h-8 px-2 text-sm border rounded-lg text-center" 
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  
+                  {/* Payment Summary */}
+                  {receivedAmount && (
+                    <div className="bg-gray-50 p-2 rounded-lg text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span>Total Bill:</span>
+                        <span>{currency}{calculateTotal().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Amount Received:</span>
+                        <span>{currency}{calculateReceivedAmount().toFixed(2)}</span>
+                      </div>
+                      {isPartialPayment() && (
+                        <div className="flex justify-between text-red-600 font-medium">
+                          <span>Balance Due:</span>
+                          <span>{currency}{calculateBalanceAmount().toFixed(2)}</span>
+                        </div>
+                      )}
+                      {isOverPayment() && (
+                        <div className="flex justify-between text-green-600 font-medium">
+                          <span>Change to Return:</span>
+                          <span>{currency}{calculateChangeAmount().toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             {!paymentCompleted ? (
               <Button onClick={handlePayment} disabled={loading} className="w-full h-12 mt-3 text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg">
-                {loading ? <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" /> : <>Pay {currency}{calculateTotal().toFixed(0)}</>}
+                {loading ? <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" /> : (
+                  showReceivedAmount && receivedAmount ? (
+                    isPartialPayment() ? `Record Partial Payment ${currency}${calculateReceivedAmount().toFixed(0)}` :
+                    isOverPayment() ? `Pay ${currency}${calculateReceivedAmount().toFixed(0)} (Change: ${currency}${calculateChangeAmount().toFixed(0)})` :
+                    `Pay ${currency}${calculateReceivedAmount().toFixed(0)}`
+                  ) : `Pay ${currency}${calculateTotal().toFixed(0)}`
+                )}
               </Button>
             ) : (
               <div className="bg-green-100 border border-green-300 rounded-lg p-2 mt-3 flex items-center gap-2">

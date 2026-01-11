@@ -65,6 +65,9 @@ load_dotenv(ROOT_DIR / ".env")
 # Import super admin router AFTER loading .env
 from super_admin import super_admin_router, set_database as set_super_admin_db, set_redis_cache as set_super_admin_cache
 
+# Import ops panel router
+from ops_panel import ops_router, set_database as set_ops_db, set_redis_cache as set_ops_cache
+
 # MongoDB connection with SSL configuration
 mongo_url = os.getenv(
     "MONGO_URL",
@@ -6685,7 +6688,9 @@ async def startup_validation():
         # Set Redis cache for super admin after initialization
         from redis_cache import redis_cache
         set_super_admin_cache(redis_cache)
+        set_ops_cache(redis_cache)
         print("✅ Super admin Redis cache configured")
+        print("✅ Ops panel Redis cache configured")
     except Exception as e:
         print(f"⚠️ Redis cache initialization failed: {e}")
         print("📝 Continuing without Redis cache (MongoDB only)")
@@ -9229,6 +9234,10 @@ async def get_public_pricing():
 set_super_admin_db(db)
 # Redis cache will be set during startup in lifespan
 app.include_router(super_admin_router)
+
+# Include ops panel router
+set_ops_db(db)
+app.include_router(ops_router)
 
 # Include monitoring routes
 app.include_router(monitoring_router)

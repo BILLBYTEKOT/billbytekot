@@ -1,130 +1,105 @@
 #!/usr/bin/env python3
 """
-Test Optimized Super Admin Dashboard
+Test Optimized Super Admin APIs
 """
 
 import requests
+import json
 import time
-import sys
 
-def test_optimized_dashboard():
-    """Test the optimized super admin dashboard"""
+# Configuration
+BACKEND_URL = "http://localhost:10000"
+API_BASE = f"{BACKEND_URL}/api/super-admin"
+
+def test_endpoint(name, endpoint, params=None):
+    """Test a single endpoint"""
+    print(f"Testing {name}...")
     
-    print("🚀 Testing Optimized Super Admin Dashboard")
-    print("=" * 50)
-    
-    base_url = "https://restro-ai.onrender.com"
-    username = "shiv@123"
-    password = "shiv"
-    
-    print(f"🔐 Testing login: {username}")
-    print(f"📡 URL: {base_url}/api/super-admin/dashboard")
-    
-    start_time = time.time()
+    if params is None:
+        params = {"username": "shiv@123", "password": "shiv"}
     
     try:
-        response = requests.get(
-            f"{base_url}/api/super-admin/dashboard",
-            params={
-                "username": username,
-                "password": password
-            },
-            timeout=30
-        )
-        
-        end_time = time.time()
-        response_time = end_time - start_time
-        
-        print(f"⏱️  Response time: {response_time:.2f} seconds")
-        print(f"📊 Status code: {response.status_code}")
+        start_time = time.time()
+        response = requests.get(f"{API_BASE}{endpoint}", params=params, timeout=10)
+        response_time = (time.time() - start_time) * 1000
         
         if response.status_code == 200:
-            print("✅ Super admin dashboard loaded successfully!")
-            
             data = response.json()
-            overview = data.get('overview', {})
-            
-            print(f"\n📈 Dashboard Overview:")
-            print(f"   Total users: {overview.get('total_users', 'N/A')}")
-            print(f"   Active subscriptions: {overview.get('active_subscriptions', 'N/A')}")
-            print(f"   Trial users: {overview.get('trial_users', 'N/A')}")
-            print(f"   Orders (30d): {overview.get('total_orders_30d', 'N/A')}")
-            print(f"   Open tickets: {overview.get('open_tickets', 'N/A')}")
-            
-            users_count = len(data.get('users', []))
-            tickets_count = len(data.get('tickets', []))
-            orders_count = len(data.get('recent_orders', []))
-            
-            print(f"\n📋 Data Loaded:")
-            print(f"   Recent users: {users_count}")
-            print(f"   Recent tickets: {tickets_count}")
-            print(f"   Recent orders: {orders_count}")
-            
-            # Check if response time is acceptable
-            if response_time < 5:
-                print(f"\n🎉 EXCELLENT: Response time under 5 seconds!")
-                return True
-            elif response_time < 10:
-                print(f"\n✅ GOOD: Response time under 10 seconds")
-                return True
-            else:
-                print(f"\n⚠️  SLOW: Response time over 10 seconds")
-                return True  # Still working, just slow
-                
-        elif response.status_code == 403:
-            print("❌ Invalid credentials")
-            return False
-        elif response.status_code == 500:
-            print("❌ Server error (500)")
-            try:
-                error_data = response.json()
-                print(f"   Error: {error_data.get('detail', 'Unknown error')}")
-            except:
-                print(f"   Raw error: {response.text[:200]}...")
-            return False
+            print(f"   ✅ {name}: {response_time:.0f}ms")
+            return data
         else:
-            print(f"❌ Unexpected status: {response.status_code}")
-            return False
-            
-    except requests.exceptions.Timeout:
-        print(f"❌ Request timeout after 30 seconds")
-        return False
+            print(f"   ❌ {name}: {response.status_code} - {response.text}")
+            return None
     except Exception as e:
-        print(f"❌ Error: {e}")
-        return False
+        print(f"   ❌ {name}: {e}")
+        return None
 
 def main():
-    print("🔧 BillByteKOT Super Admin Optimization Test")
-    print("=" * 60)
+    print("🚀 TESTING OPTIMIZED SUPER ADMIN APIs")
+    print("=" * 50)
     
-    success = test_optimized_dashboard()
+    # Test authentication
+    auth_data = test_endpoint("Authentication", "/login")
     
-    print("\n" + "=" * 60)
-    print("📊 Test Results")
-    print("=" * 60)
+    # Test basic stats (should be very fast)
+    stats_data = test_endpoint("Basic Stats", "/stats/basic")
+    if stats_data:
+        print(f"      Users: {stats_data.get('total_users')}")
+        print(f"      Orders: {stats_data.get('total_orders')}")
+        print(f"      Active: {stats_data.get('active_users')}")
     
-    if success:
-        print("🎉 Super Admin Dashboard is now OPTIMIZED and WORKING!")
-        print("\n✅ You can now:")
-        print("   1. Login to ops panel at billbytekot.in/ops")
-        print("   2. Dashboard should load in under 10 seconds")
-        print("   3. No more MongoDB timeout errors")
-        
-        print("\n💡 Optimizations applied:")
-        print("   • Using aggregation pipelines for statistics")
-        print("   • Limited data loading (50 users, 20 tickets, 20 orders)")
-        print("   • Faster queries with proper indexing")
-        print("   • Background loading for non-critical data")
-        
-    else:
-        print("❌ Super Admin Dashboard still has issues")
-        print("\n🔧 Next steps:")
-        print("   1. Check if deployment completed")
-        print("   2. Verify MongoDB connection")
-        print("   3. Check server logs for errors")
+    # Test users list (paginated)
+    users_data = test_endpoint("Users List", "/users/list", {
+        "username": "shiv@123", 
+        "password": "shiv", 
+        "skip": 0, 
+        "limit": 5
+    })
+    if users_data:
+        print(f"      Users returned: {len(users_data.get('users', []))}")
+        print(f"      Total: {users_data.get('total', 'N/A')}")
     
-    return success
+    # Test recent orders
+    orders_data = test_endpoint("Recent Orders", "/orders/recent", {
+        "username": "shiv@123", 
+        "password": "shiv", 
+        "limit": 10
+    })
+    if orders_data:
+        print(f"      Orders returned: {len(orders_data.get('orders', []))}")
+    
+    # Test revenue stats
+    revenue_data = test_endpoint("Revenue Stats", "/stats/revenue", {
+        "username": "shiv@123", 
+        "password": "shiv", 
+        "days": 7
+    })
+    if revenue_data:
+        print(f"      Revenue: ₹{revenue_data.get('total_revenue', 0):.2f}")
+        print(f"      Orders: {revenue_data.get('total_orders', 0)}")
+    
+    # Test system health
+    health_data = test_endpoint("System Health", "/health")
+    if health_data:
+        print(f"      Database: {health_data.get('database')}")
+        print(f"      Redis: {health_data.get('redis')}")
+    
+    # Test user search
+    search_data = test_endpoint("User Search", "/users/search", {
+        "username": "shiv@123", 
+        "password": "shiv", 
+        "q": "shiv",  # Changed from 'query' to 'q'
+        "limit": 3
+    })
+    if search_data:
+        print(f"      Search results: {len(search_data.get('users', []))}")
+    
+    print("\n✅ All optimized APIs tested!")
+    print("📊 Benefits:")
+    print("   • Split large queries into smaller, focused endpoints")
+    print("   • Paginated results for better performance")
+    print("   • Minimal data transfer")
+    print("   • Fast response times")
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    main()

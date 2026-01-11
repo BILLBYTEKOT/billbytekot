@@ -208,7 +208,15 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
   
   let html = '';
   
-  if (settings.show_logo && b.logo_url) html += `<div class="center mb-1"><img src="${b.logo_url}" alt="Logo" style="max-width:70px;max-height:50px;" onerror="this.style.display='none'"/></div>`;
+  if (settings.show_logo && b.logo_url) {
+    const logoSizes = {
+      small: 'max-width:40px;max-height:30px;',
+      medium: 'max-width:70px;max-height:50px;',
+      large: 'max-width:100px;max-height:70px;'
+    };
+    const logoSize = logoSizes[settings.logo_size] || logoSizes.medium;
+    html += `<div class="center mb-1"><img src="${b.logo_url}" alt="Logo" style="${logoSize}" onerror="this.style.display='none'"/></div>`;
+  }
   html += `<div class="center header-logo">${b.restaurant_name || 'Restaurant'}</div>`;
   if (settings.show_tagline && b.tagline) html += `<div class="center small mb-1">${b.tagline}</div>`;
   if (settings.show_fssai && b.fssai) html += `<div class="center xsmall bold">FSSAI NO: ${b.fssai}</div>`;
@@ -277,6 +285,12 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
     
     if (payment_received > 0) {
       html += `<div class="total-row"><span>Amount Received</span><span>${payment_received.toFixed(2)}</span></div>`;
+      
+      // Show change if overpaid
+      if (payment_received > total) {
+        const change = payment_received - total;
+        html += `<div class="total-row" style="color:green"><span>Change to Return</span><span>${change.toFixed(2)}</span></div>`;
+      }
     }
     
     if (is_credit || balance_amount > 0) {
@@ -380,7 +394,14 @@ export const generatePlainTextReceipt = (order, businessOverride = null) => {
   } else {
     const methodDisplay = { cash: 'CASH', card: 'CARD', upi: 'UPI', credit: 'CREDIT' }[payment_method] || 'CASH';
     r += `Payment Mode:                  ${methodDisplay.padStart(8)}\n`;
-    if (payment_received > 0) r += `Amount Received:               ${payment_received.toFixed(2).padStart(8)}\n`;
+    if (payment_received > 0) {
+      r += `Amount Received:               ${payment_received.toFixed(2).padStart(8)}\n`;
+      // Show change if overpaid
+      if (payment_received > tot) {
+        const change = payment_received - tot;
+        r += `Change to Return:              ${change.toFixed(2).padStart(8)}\n`;
+      }
+    }
     if (is_credit || balance_amount > 0) {
       r += `BALANCE DUE:                   ${balance_amount.toFixed(2).padStart(8)}\n`;
     } else if (payment_received >= tot) {

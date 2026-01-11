@@ -155,61 +155,6 @@ async def get_users_list(
         print(f"❌ Users list error: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-# ============ SEARCH USERS (LIGHTWEIGHT) - MUST BE BEFORE /users/{user_email} ============
-
-@super_admin_router.get("/users/search")
-async def search_users(
-    username: str = Query(...),
-    password: str = Query(...),
-    q: str = Query(...),
-    limit: int = Query(5)
-):
-    """Search users by email/username - LIGHTWEIGHT"""
-    if not verify_super_admin(username, password):
-        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
-    
-    if not q.strip():
-        return {"users": [], "query": q, "count": 0}
-    
-    db = get_db()
-    limit = min(limit, 5)
-    
-    try:
-        print(f"📊 Searching users: '{q}' (limit={limit})...")
-        
-        search_filter = {
-            "$or": [
-                {"email": {"$regex": q, "$options": "i"}},
-                {"username": {"$regex": q, "$options": "i"}}
-            ]
-        }
-        
-        users = await db.users.find(
-            search_filter,
-            {
-                "_id": 0,
-                "email": 1,
-                "username": 1,
-                "role": 1,
-                "subscription_active": 1
-            }
-        ).limit(limit).to_list(limit)
-        
-        result = {
-            "users": users,
-            "query": q,
-            "count": len(users),
-            "limit": limit,
-            "cached_at": datetime.now(timezone.utc).isoformat()
-        }
-        
-        print(f"✅ Search results: {len(users)} users found")
-        return result
-        
-    except Exception as e:
-        print(f"❌ Search error: {e}")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
-
 # ============ USER DETAILS (INDIVIDUAL) ============
 
 @super_admin_router.get("/users/{user_email}")
@@ -229,7 +174,7 @@ async def get_user_details(
         
         user = await db.users.find_one(
             {"email": user_email},
-            {"_id": 0, "password": 0, "razorpay_key_secret": 0}
+            {"_id": 0, "password": 0, "razorpay_key_secret": 0}  # Exclude sensitive data
         )
         
         if not user:
@@ -258,13 +203,15 @@ async def get_user_details(
 async def get_recent_orders(
     username: str = Query(...),
     password: str = Query(...),
-    limit: int = Query(20)
+    limit: int = Query(20)  # Small limit
 ):
     """Get recent orders across all users - LIMITED for performance"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
     db = get_db()
+    
+    # Limit to 20 for performance
     limit = min(limit, 20)
     
     try:
@@ -304,21 +251,25 @@ async def get_recent_orders(
 async def get_revenue_stats(
     username: str = Query(...),
     password: str = Query(...),
-    days: int = Query(7)
+    days: int = Query(7)  # Default 7 days
 ):
     """Get revenue statistics - AGGREGATED for performance"""
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
     db = get_db()
+    
+    # Limit to 30 days max
     days = min(days, 30)
     
     try:
         print(f"📊 Fetching revenue stats (last {days} days)...")
         
+        # Calculate date range
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=days)
         
+        # Aggregation pipeline for revenue stats
         pipeline = [
             {
                 "$match": {
@@ -340,7 +291,7 @@ async def get_revenue_stats(
         
         if result:
             stats = result[0]
-            stats.pop("_id", None)
+            stats.pop("_id", None)  # Remove MongoDB _id
         else:
             stats = {
                 "total_revenue": 0,
@@ -407,3 +358,61 @@ async def get_system_health(
     except Exception as e:
         print(f"❌ Health check error: {e}")
         raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
+
+# ============ SEARCH USERS (LIGHTWEIGHT) ============
+
+@super_admin_router.get("/users/search")
+async def search_users(
+    username: str = Query(...),
+    password: str = Query(...),
+    query: str = Query(...),
+    limit: int = Query(5)  # Very small limit for search
+):
+    """Search users by email/username - LIGHTWEIGHT"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    if not query.strip():
+        return {"users": [], "query": query, "count": 0}
+    
+    db = get_db()
+    
+    # Limit to 5 for search performance
+    limit = min(limit, 5)
+    
+    try:
+        print(f"📊 Searching users: '{query}' (limit={limit})...")
+        
+        # Simple regex search on email and username only
+        search_filter = {
+            "$or": [
+                {"email": {"$regex": query, "$options": "i"}},
+                {"username": {"$regex": query, "$options": "i"}}
+            ]
+        }
+        
+        users = await db.users.find(
+            search_filter,
+            {
+                "_id": 0,
+                "email": 1,
+                "username": 1,
+                "role": 1,
+                "subscription_active": 1
+            }
+        ).limit(limit).to_list(limit)
+        
+        result = {
+            "users": users,
+            "query": query,
+            "count": len(users),
+            "limit": limit,
+            "cached_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        print(f"✅ Search results: {len(users)} users found")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Search error: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")

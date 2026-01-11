@@ -138,12 +138,49 @@ const InventoryPage = ({ user }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!formData.name?.trim()) {
+      toast.error('Item name is required');
+      return;
+    }
+    if (!formData.quantity || parseFloat(formData.quantity) < 0) {
+      toast.error('Valid quantity is required');
+      return;
+    }
+    if (!formData.unit?.trim()) {
+      toast.error('Unit is required');
+      return;
+    }
+    if (!formData.min_quantity || parseFloat(formData.min_quantity) < 0) {
+      toast.error('Valid minimum quantity is required');
+      return;
+    }
+    if (!formData.price_per_unit || parseFloat(formData.price_per_unit) <= 0) {
+      toast.error('Valid selling price is required');
+      return;
+    }
+
     try {
+      // Prepare data with proper type conversion
+      const submitData = {
+        ...formData,
+        quantity: parseFloat(formData.quantity) || 0,
+        min_quantity: parseFloat(formData.min_quantity) || 0,
+        max_quantity: formData.max_quantity ? parseFloat(formData.max_quantity) : null,
+        price_per_unit: parseFloat(formData.price_per_unit) || 0,
+        cost_price: formData.cost_price ? parseFloat(formData.cost_price) : null,
+        reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : null,
+        reorder_quantity: formData.reorder_quantity ? parseFloat(formData.reorder_quantity) : null,
+        category_id: formData.category_id ? parseInt(formData.category_id) : null,
+        supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null,
+      };
+
       if (editingItem) {
-        await axios.put(`${API}/inventory/${editingItem.id}`, formData);
+        await axios.put(`${API}/inventory/${editingItem.id}`, submitData);
         toast.success('Inventory item updated!');
       } else {
-        await axios.post(`${API}/inventory`, formData);
+        await axios.post(`${API}/inventory`, submitData);
         toast.success('Inventory item created!');
       }
       setDialogOpen(false);
@@ -151,7 +188,10 @@ const InventoryPage = ({ user }) => {
       const lowStockItems = updatedInventory.filter(item => item.quantity <= item.min_quantity);
       setLowStock(lowStockItems);
       resetForm();
-    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to save inventory item'); }
+    } catch (error) { 
+      console.error('Inventory save error:', error);
+      toast.error(error.response?.data?.detail || error.response?.data?.message || 'Failed to save inventory item'); 
+    }
   };
 
   const handleSupplierSubmit = async (e) => {

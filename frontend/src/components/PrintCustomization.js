@@ -33,6 +33,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
         font_size: ps.font_size || 'medium',
         header_style: ps.header_style || 'centered',
         show_logo: ps.show_logo ?? true,
+        logo_size: ps.logo_size || 'medium',
         show_address: ps.show_address ?? true,
         show_phone: ps.show_phone ?? true,
         show_email: ps.show_email ?? false,
@@ -64,6 +65,7 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
         font_size: 'medium',
         header_style: 'centered',
         show_logo: true,
+        logo_size: 'medium',
         show_address: true,
         show_phone: true,
         show_email: false,
@@ -841,6 +843,26 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                     checked={customization.show_logo}
                     onChange={(v) => updateCustomization({ show_logo: v })}
                   />
+                  {customization.show_logo && (
+                    <div className="ml-4 mt-2">
+                      <Label>Logo Size</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {['small', 'medium', 'large'].map(size => (
+                          <button
+                            key={size}
+                            onClick={() => updateCustomization({ logo_size: size })}
+                            className={`p-2 border-2 rounded-lg capitalize text-xs transition-all ${
+                              customization.logo_size === size 
+                                ? 'border-violet-600 bg-violet-50' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <ToggleSwitch 
                     label="Show Tagline" 
                     checked={customization.show_tagline}
