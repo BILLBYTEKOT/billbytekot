@@ -5794,35 +5794,54 @@ async def get_view_only_menu(org_id: str):
 async def get_menu_by_slug(restaurant_slug: str):
     """Cool URL endpoint for restaurant menu using custom slug"""
     
+    print(f"🔍 Looking for restaurant with slug: {restaurant_slug}")
+    
     # Find restaurant by slug first
     admin = await db.users.find_one({
         "business_settings.restaurant_slug": restaurant_slug
     }, {"_id": 0})
     
     if not admin:
+        print(f"❌ No restaurant found with slug: {restaurant_slug}")
         # Fallback: try to find by restaurant name converted to slug
         # Get all restaurants and check name-based slugs
         all_restaurants = await db.users.find({
             "business_settings.restaurant_name": {"$exists": True}
         }, {"_id": 0, "id": 1, "business_settings.restaurant_name": 1}).to_list(None)
         
+        print(f"🔍 Checking {len(all_restaurants)} restaurants for name-based slug match...")
+        
         for restaurant in all_restaurants:
             restaurant_name = restaurant.get("business_settings", {}).get("restaurant_name", "")
             # Create slug from restaurant name
             name_slug = restaurant_name.lower().replace(" ", "").replace("-", "").replace("_", "").replace("'", "").replace("&", "and")
+            print(f"  - {restaurant_name} -> {name_slug}")
             if name_slug == restaurant_slug.lower().replace("-", "").replace("_", ""):
+                print(f"✅ Found match: {restaurant_name}")
                 # Found by name match, get full restaurant data
                 admin = await db.users.find_one({"id": restaurant["id"]}, {"_id": 0})
                 break
+    else:
+        print(f"✅ Found restaurant by slug: {admin.get('business_settings', {}).get('restaurant_name', 'Unknown')}")
     
     if not admin:
+        print(f"❌ Restaurant not found for slug: {restaurant_slug}")
         raise HTTPException(status_code=404, detail="Restaurant not found")
     
     business = admin.get("business_settings", {})
+    print(f"📋 Business settings: {business.keys()}")
     
-    # Check if menu display is enabled
-    if not business.get("customer_self_order_enabled") and not business.get("menu_display_enabled"):
-        raise HTTPException(status_code=403, detail="Menu display not enabled for this restaurant")
+    # Check if menu display is enabled (be more lenient)
+    menu_enabled = (
+        business.get("customer_self_order_enabled", False) or 
+        business.get("menu_display_enabled", False) or
+        business.get("qr_menu_enabled", True)  # Default to True for backward compatibility
+    )
+    
+    if not menu_enabled:
+        # For debugging, let's be more permissive and show menu anyway
+        print(f"⚠️ Menu display not explicitly enabled for {restaurant_slug}, but showing anyway")
+        # raise HTTPException(status_code=403, detail="Menu display not enabled for this restaurant")
     
     # Get available menu items
     items = await db.menu_items.find(

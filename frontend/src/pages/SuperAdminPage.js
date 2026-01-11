@@ -457,15 +457,15 @@ const SuperAdminPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Try ops panel login
-      const response = await axios.get(`${API}/ops/auth/login`, {
+      // Use super admin login endpoint
+      const response = await axios.get(`${API}/super-admin/login`, {
         params: credentials
       });
       
       if (response.data.success) {
         setUserType('super-admin');
         setAuthenticated(true);
-        toast.success('Ops Panel access granted');
+        toast.success('Super Admin access granted');
         fetchAllData();
       } else {
         toast.error('Invalid credentials');
@@ -489,27 +489,34 @@ const SuperAdminPage = () => {
 
   const fetchAllData = async () => {
     try {
-      // Fetch users using ops panel endpoint
-      const usersRes = await axios.get(`${API}/ops/users/search`, {
-        params: credentials
+      // Fetch users using super admin endpoint
+      const usersRes = await axios.get(`${API}/super-admin/users/search`, {
+        params: { ...credentials, q: '' }
       });
       setUsers(usersRes.data.users || []);
 
-      // Fetch dashboard data
-      const dashboardRes = await axios.get(`${API}/ops/dashboard/overview`, {
+      // Fetch dashboard data using super admin basic stats
+      const dashboardRes = await axios.get(`${API}/super-admin/stats/basic`, {
         params: credentials
       });
-      setDashboard(dashboardRes.data);
+      setDashboard({
+        overview: {
+          total_users: dashboardRes.data.total_users,
+          total_orders: dashboardRes.data.total_orders,
+          active_users: dashboardRes.data.active_users,
+          recent_orders: dashboardRes.data.recent_orders
+        }
+      });
 
-      // For now, set empty arrays for features not yet implemented in ops panel
+      // For now, set empty arrays for features not yet implemented in super admin
       setTickets([]);
       setLeads([]);
       setLeadsStats(null);
       setTeamMembers([]);
       setTeamStats(null);
 
-      // Fetch analytics
-      const analyticsRes = await axios.get(`${API}/super-admin/analytics`, {
+      // Fetch analytics using revenue stats
+      const analyticsRes = await axios.get(`${API}/super-admin/stats/revenue`, {
         params: { ...credentials, days: 30 }
       });
       setAnalytics(analyticsRes.data);
