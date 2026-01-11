@@ -191,6 +191,13 @@ const SuperAdminPage = () => {
     };
   }, [authenticated, autoRefresh, refreshInterval]);
 
+  // Load dashboard data when authenticated
+  useEffect(() => {
+    if (authenticated && activeTab === 'dashboard') {
+      fetchDashboard();
+    }
+  }, [authenticated]);
+
   // Fetch real-time statistics
   const fetchRealTimeStats = async () => {
     try {
@@ -270,7 +277,7 @@ const SuperAdminPage = () => {
       setSelectedUsers([]);
       setBulkAction('');
       setShowBulkModal(false);
-      fetchAllData();
+      fetchUsers(); // Only refresh users after bulk action
     } catch (error) {
       toast.error('Bulk action failed: ' + (error.response?.data?.detail || error.message));
     } finally {
@@ -346,7 +353,7 @@ const SuperAdminPage = () => {
       label: 'User Analytics',
       icon: BarChart3,
       color: 'bg-orange-500',
-      action: () => setActiveTab('analytics')
+      action: () => handleTabSwitch('analytics')
     }
   ];
 
@@ -466,7 +473,8 @@ const SuperAdminPage = () => {
         setUserType('super-admin');
         setAuthenticated(true);
         toast.success('Super Admin access granted');
-        fetchAllData();
+        // Only fetch dashboard data initially
+        fetchDashboard();
       } else {
         toast.error('Invalid credentials');
       }
@@ -487,15 +495,9 @@ const SuperAdminPage = () => {
     return tabs.length > 0 ? tabs : ['tickets'];
   };
 
-  const fetchAllData = async () => {
+  // Individual fetch functions for each tab
+  const fetchDashboard = async () => {
     try {
-      // Fetch users using super admin endpoint
-      const usersRes = await axios.get(`${API}/super-admin/users/search`, {
-        params: { ...credentials, q: '' }
-      });
-      setUsers(usersRes.data.users || []);
-
-      // Fetch dashboard data using super admin basic stats
       const dashboardRes = await axios.get(`${API}/super-admin/stats/basic`, {
         params: credentials
       });
@@ -507,55 +509,181 @@ const SuperAdminPage = () => {
           recent_orders: dashboardRes.data.recent_orders
         }
       });
+    } catch (e) {
+      console.error('Failed to fetch dashboard data', e);
+    }
+  };
 
-      // For now, set empty arrays for features not yet implemented in super admin
-      setTickets([]);
+  const fetchUsers = async () => {
+    try {
+      const usersRes = await axios.get(`${API}/super-admin/users/list`, {
+        params: credentials
+      });
+      setUsers(usersRes.data.users || []);
+    } catch (e) {
+      console.error('Failed to fetch users', e);
+      setUsers([]);
+    }
+  };
+
+  const fetchLeads = async () => {
+    try {
+      const leadsRes = await axios.get(`${API}/super-admin/leads`, {
+        params: credentials
+      });
+      setLeads(leadsRes.data.leads || []);
+      setLeadsStats(leadsRes.data.stats || null);
+    } catch (e) {
+      console.error('Failed to fetch leads', e);
       setLeads([]);
       setLeadsStats(null);
+    }
+  };
+
+  const fetchTeam = async () => {
+    try {
+      const teamRes = await axios.get(`${API}/super-admin/team`, {
+        params: credentials
+      });
+      setTeamMembers(teamRes.data.team_members || []);
+      setTeamStats(teamRes.data.stats || null);
+    } catch (e) {
+      console.error('Failed to fetch team members', e);
       setTeamMembers([]);
       setTeamStats(null);
+    }
+  };
 
-      // Fetch analytics using revenue stats
+  const fetchTickets = async () => {
+    try {
+      const ticketsRes = await axios.get(`${API}/super-admin/tickets`, {
+        params: credentials
+      });
+      setTickets(ticketsRes.data.tickets || []);
+    } catch (e) {
+      console.error('Failed to fetch tickets', e);
+      setTickets([]);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
       const analyticsRes = await axios.get(`${API}/super-admin/stats/revenue`, {
         params: { ...credentials, days: 30 }
       });
       setAnalytics(analyticsRes.data);
+    } catch (e) {
+      console.error('Failed to fetch analytics', e);
+    }
+  };
 
-      // Fetch app versions
+  const fetchAppVersions = async () => {
+    try {
       const appVersionsRes = await axios.get(`${API}/super-admin/app-versions`, {
         params: credentials
       });
       setAppVersions(appVersionsRes.data.versions || []);
+    } catch (e) {
+      console.error('Failed to fetch app versions', e);
+      setAppVersions([]);
+    }
+  };
 
-      // Fetch sale/offer settings
-      try {
-        const saleOfferRes = await axios.get(`${API}/super-admin/sale-offer`, {
-          params: credentials
-        });
-        if (saleOfferRes.data) {
-          // Merge with default state to ensure all fields exist
-          setSaleOffer(prev => ({
-            ...prev, ...saleOfferRes.data
-          }));
-        }
-      } catch (e) {
-        // Sale offer not configured yet
+  const fetchPricing = async () => {
+    try {
+      const pricingRes = await axios.get(`${API}/super-admin/pricing`, {
+        params: credentials
+      });
+      if (pricingRes.data) {
+        setPricing(pricingRes.data);
       }
+    } catch (e) {
+      console.log('Pricing endpoint not available');
+    }
+  };
 
-      // Fetch pricing settings
-      try {
-        const pricingRes = await axios.get(`${API}/super-admin/pricing`, {
-          params: credentials
-        });
-        if (pricingRes.data) {
-          setPricing(pricingRes.data);
-        }
-      } catch (e) {
-        // Pricing not configured yet
+  const fetchPromotions = async () => {
+    try {
+      const campaignsRes = await axios.get(`${API}/super-admin/campaigns`, {
+        params: credentials
+      });
+      // Set campaigns data (you may need to add state for this)
+      setCampaigns(campaignsRes.data.campaigns || []);
+      
+      // Also fetch sale offer
+      const saleOfferRes = await axios.get(`${API}/super-admin/sale-offer`, {
+        params: credentials
+      });
+      setSaleOffer(prev => ({
+        ...prev, ...saleOfferRes.data
+      }));
+    } catch (e) {
+      console.error('Failed to fetch promotions', e);
+      setCampaigns([]);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const notificationsRes = await axios.get(`${API}/super-admin/notifications`, {
+        params: credentials
+      });
+      setNotifications(notificationsRes.data.notifications || []);
+    } catch (e) {
+      console.log('Notifications endpoint not available');
+      setNotifications([]);
+    }
+  };
+
+  // Function to fetch data based on active tab
+  const fetchTabData = async (tab) => {
+    setLoading(true);
+    try {
+      switch (tab) {
+        case 'dashboard':
+          await fetchDashboard();
+          break;
+        case 'users':
+          await fetchUsers();
+          break;
+        case 'leads':
+          await fetchLeads();
+          break;
+        case 'team':
+          await fetchTeam();
+          break;
+        case 'tickets':
+          await fetchTickets();
+          break;
+        case 'analytics':
+          await fetchAnalytics();
+          break;
+        case 'app-versions':
+          await fetchAppVersions();
+          break;
+        case 'pricing':
+          await fetchPricing();
+          break;
+        case 'promotions':
+          await fetchPromotions();
+          break;
+        case 'notifications':
+          await fetchNotifications();
+          break;
+        default:
+          break;
       }
     } catch (error) {
-      console.error('Failed to fetch data', error);
+      console.error(`Failed to fetch ${tab} data:`, error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // Handle tab switching with data fetching
+  const handleTabSwitch = (tab) => {
+    setActiveTab(tab);
+    fetchTabData(tab);
   };
 
   const fetchTeamData = async (token, user) => {
@@ -624,7 +752,8 @@ const SuperAdminPage = () => {
         toast.success('Invoice email sent to user');
       }
       resetSubscriptionModal();
-      fetchAllData();
+      // Refresh current tab data
+      fetchTabData(activeTab);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to activate subscription');
     }
@@ -656,7 +785,7 @@ const SuperAdminPage = () => {
         { params: credentials }
       );
       toast.success('Ticket updated');
-      fetchAllData();
+      fetchTickets(); // Only refresh tickets
     } catch (error) {
       toast.error('Failed to update ticket');
     }
@@ -669,7 +798,7 @@ const SuperAdminPage = () => {
         params: credentials
       });
       toast.success('User deleted');
-      fetchAllData();
+      fetchUsers(); // Only refresh users
     } catch (error) {
       toast.error('Failed to delete user');
     }
@@ -686,7 +815,7 @@ const SuperAdminPage = () => {
         { params: credentials }
       );
       toast.success(`Trial extended by ${days} days! Total trial: ${response.data.total_trial_days} days`);
-      fetchAllData();
+      fetchUsers(); // Only refresh users
     } catch (error) {
       toast.error('Failed to extend trial');
     }
@@ -728,7 +857,7 @@ const SuperAdminPage = () => {
         params: credentials
       });
       toast.success('Subscription deactivated');
-      fetchAllData();
+      fetchUsers(); // Only refresh users
     } catch (error) {
       toast.error('Failed to deactivate subscription');
     }
@@ -871,7 +1000,7 @@ const SuperAdminPage = () => {
           {getAvailableTabs().map(tab => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => handleTabSwitch(tab)}
               className={`px-4 py-2 font-medium capitalize whitespace-nowrap ${
                 activeTab === tab
                   ? 'border-b-2 border-purple-600 text-purple-600'
@@ -945,7 +1074,7 @@ const SuperAdminPage = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    fetchAllData();
+                    fetchTabData(activeTab); // Refresh current tab
                     fetchRealTimeStats();
                     fetchSystemHealth();
                     fetchPerformanceMetrics();

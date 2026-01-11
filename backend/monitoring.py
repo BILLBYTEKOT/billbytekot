@@ -152,12 +152,15 @@ class MetricsCollector:
             self.system_metrics.append(metrics)
             
             # Store in Redis if available
-            if self.redis_cache and self.redis_cache.is_connected():
-                await self.redis_cache.redis.setex(
-                    "metrics:system:latest", 
-                    300,  # 5 min TTL
-                    json.dumps(asdict(metrics))
-                )
+            if self.redis_cache and self.redis_cache.is_connected() and self.redis_cache.redis:
+                try:
+                    await self.redis_cache.redis.setex(
+                        "metrics:system:latest", 
+                        300,  # 5 min TTL
+                        json.dumps(asdict(metrics))
+                    )
+                except Exception as redis_error:
+                    logger.debug(f"Redis metrics storage failed: {redis_error}")
             
             return metrics
             
@@ -221,12 +224,15 @@ class MetricsCollector:
             self.app_metrics.append(metrics)
             
             # Store in Redis if available
-            if self.redis_cache and self.redis_cache.is_connected():
-                await self.redis_cache.redis.setex(
-                    "metrics:app:latest", 
-                    300,  # 5 min TTL
-                    json.dumps(asdict(metrics))
-                )
+            if self.redis_cache and self.redis_cache.is_connected() and self.redis_cache.redis:
+                try:
+                    await self.redis_cache.redis.setex(
+                        "metrics:app:latest", 
+                        300,  # 5 min TTL
+                        json.dumps(asdict(metrics))
+                    )
+                except Exception as redis_error:
+                    logger.debug(f"Redis metrics storage failed: {redis_error}")
             
             return metrics
             

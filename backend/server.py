@@ -10246,6 +10246,379 @@ async def get_push_history(username: str, password: str, limit: int = 50):
     return {"notifications": notifications}
 
 
+# ==========================================
+# PROMOTIONAL/CAMPAIGN MANAGEMENT ENDPOINTS
+# ==========================================
+
+import uuid
+from datetime import datetime, timezone, timedelta
+
+class Campaign(BaseModel):
+    """Campaign/Promotion model"""
+    model_config = ConfigDict(extra="allow")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: str
+    discount_type: str = "percentage"  # percentage, fixed, buy_one_get_one
+    discount_value: float = 10.0
+    min_order_amount: float = 0.0
+    max_discount: float = 0.0  # 0 = unlimited
+    coupon_code: Optional[str] = None
+    start_date: datetime
+    end_date: datetime
+    is_active: bool = True
+    banner_text: Optional[str] = None
+    banner_color: str = "violet"  # violet, red, green, blue, orange, pink
+    show_on_landing: bool = True
+    usage_limit: int = 0  # 0 = unlimited
+    used_count: int = 0
+    target_audience: str = "all"  # all, new_users, existing_users
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class CampaignCreate(BaseModel):
+    title: str
+    description: str
+    discount_type: str = "percentage"
+    discount_value: float = 10.0
+    min_order_amount: float = 0.0
+    max_discount: float = 0.0
+    coupon_code: Optional[str] = None
+    start_date: str  # ISO format
+    end_date: str    # ISO format
+    is_active: bool = True
+    banner_text: Optional[str] = None
+    banner_color: str = "violet"
+    show_on_landing: bool = True
+    usage_limit: int = 0
+    target_audience: str = "all"
+
+class SaleOffer(BaseModel):
+    """Sale/Offer configuration"""
+    model_config = ConfigDict(extra="allow")
+    enabled: bool = False
+    title: str = "Special Offer!"
+    subtitle: str = "Limited Time Deal"
+    discount_text: str = "50% OFF"
+    badge_text: str = "SALE"
+    bg_color: str = "from-red-500 to-orange-500"
+    end_date: Optional[str] = None
+    valid_until: Optional[str] = None
+    theme: str = "default"  # default, diwali, christmas, newyear, flash, blackfriday
+    banner_design: str = "gradient-wave"
+    discount_percent: float = 20.0
+    original_price: float = 1999.0
+    sale_price: float = 1599.0
+    cta_text: str = "Grab This Deal Now!"
+    urgency_text: str = "⚡ Limited slots available. Offer ends soon!"
+
+class PricingConfig(BaseModel):
+    """Pricing configuration"""
+    model_config = ConfigDict(extra="allow")
+    regular_price: float = 1999.0
+    regular_price_display: str = "₹1999"
+    campaign_price: float = 1799.0
+    campaign_price_display: str = "₹1799"
+    campaign_active: bool = False
+    campaign_name: str = ""
+    campaign_discount_percent: float = 10.0
+    campaign_start_date: Optional[str] = None
+    campaign_end_date: Optional[str] = None
+    trial_expired_discount: float = 10.0
+    trial_days: int = 7
+    subscription_months: int = 12
+
+@api_router.get("/super-admin/campaigns")
+async def get_campaigns(username: str, password: str):
+    """Get all campaigns - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    try:
+        campaigns = await db.campaigns.find({}, {"_id": 0}).to_list(100)
+        
+        # Calculate active campaigns
+        current_time = datetime.now(timezone.utc)
+        active_campaigns = []
+        expired_campaigns = []
+        
+        for campaign in campaigns:
+            end_date = datetime.fromisoformat(campaign.get('end_date', '').replace('Z', '+00:00'))
+            if end_date > current_time and campaign.get('is_active', False):
+                active_campaigns.append(campaign)
+            else:
+                expired_campaigns.append(campaign)
+        
+        stats = {
+            "total_campaigns": len(campaigns),
+            "active_campaigns": len(active_campaigns),
+            "expired_campaigns": len(expired_campaigns),
+            "total_usage": sum(c.get('used_count', 0) for c in campaigns)
+        }
+        
+        return {
+            "campaigns": campaigns,
+            "active_campaigns": active_campaigns,
+            "stats": stats
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/super-admin/campaigns")
+async def create_campaign(campaign: CampaignCreate, username: str, password: str):
+    """Create new campaign - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    try:
+        # Convert string dates to datetime
+        start_date = datetime.fromisoformat(campaign.start_date.replace('Z', '+00:00'))
+        end_date = datetime.fromisoformat(campaign.end_date.replace('Z', '+00:00'))
+        
+        campaign_doc = {
+            "id": str(uuid.uuid4()),
+            "title": campaign.title,
+            "description": campaign.description,
+            "discount_type": campaign.discount_type,
+            "discount_value": campaign.discount_value,
+            "min_order_amount": campaign.min_order_amount,
+            "max_discount": campaign.max_discount,
+            "coupon_code": campaign.coupon_code,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "is_active": campaign.is_active,
+            "banner_text": campaign.banner_text,
+            "banner_color": campaign.banner_color,
+            "show_on_landing": campaign.show_on_landing,
+            "usage_limit": campaign.usage_limit,
+            "used_count": 0,
+            "target_audience": campaign.target_audience,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.campaigns.insert_one(campaign_doc)
+        campaign_doc.pop("_id", None)
+        
+        return {"success": True, "campaign": campaign_doc}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/super-admin/campaigns/{campaign_id}")
+async def update_campaign(campaign_id: str, campaign: CampaignCreate, username: str, password: str):
+    """Update campaign - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    try:
+        start_date = datetime.fromisoformat(campaign.start_date.replace('Z', '+00:00'))
+        end_date = datetime.fromisoformat(campaign.end_date.replace('Z', '+00:00'))
+        
+        update_data = {
+            "title": campaign.title,
+            "description": campaign.description,
+            "discount_type": campaign.discount_type,
+            "discount_value": campaign.discount_value,
+            "min_order_amount": campaign.min_order_amount,
+            "max_discount": campaign.max_discount,
+            "coupon_code": campaign.coupon_code,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "is_active": campaign.is_active,
+            "banner_text": campaign.banner_text,
+            "banner_color": campaign.banner_color,
+            "show_on_landing": campaign.show_on_landing,
+            "usage_limit": campaign.usage_limit,
+            "target_audience": campaign.target_audience,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        result = await db.campaigns.update_one(
+            {"id": campaign_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        return {"success": True, "message": "Campaign updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/super-admin/campaigns/{campaign_id}")
+async def delete_campaign(campaign_id: str, username: str, password: str):
+    """Delete campaign - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    try:
+        result = await db.campaigns.delete_one({"id": campaign_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        return {"success": True, "message": "Campaign deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/super-admin/sale-offer")
+async def get_sale_offer(username: str, password: str):
+    """Get sale offer configuration - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    try:
+        sale_offer = await db.sale_offers.find_one({}, {"_id": 0})
+        
+        if not sale_offer:
+            # Return default configuration
+            sale_offer = {
+                "enabled": False,
+                "title": "Special Offer!",
+                "subtitle": "Limited Time Deal",
+                "discount_text": "50% OFF",
+                "badge_text": "SALE",
+                "bg_color": "from-red-500 to-orange-500",
+                "theme": "default",
+                "banner_design": "gradient-wave",
+                "discount_percent": 20.0,
+                "original_price": 1999.0,
+                "sale_price": 1599.0,
+                "cta_text": "Grab This Deal Now!",
+                "urgency_text": "⚡ Limited slots available. Offer ends soon!"
+            }
+        
+        return sale_offer
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/super-admin/sale-offer")
+async def update_sale_offer(sale_offer: SaleOffer, username: str, password: str):
+    """Update sale offer configuration - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    try:
+        sale_offer_doc = sale_offer.model_dump()
+        sale_offer_doc["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        await db.sale_offers.replace_one(
+            {},
+            sale_offer_doc,
+            upsert=True
+        )
+        
+        return {"success": True, "message": "Sale offer updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/super-admin/pricing")
+async def get_pricing_config(username: str, password: str):
+    """Get pricing configuration - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    try:
+        pricing = await db.pricing_config.find_one({}, {"_id": 0})
+        
+        if not pricing:
+            # Return default pricing
+            pricing = {
+                "regular_price": 1999.0,
+                "regular_price_display": "₹1999",
+                "campaign_price": 1799.0,
+                "campaign_price_display": "₹1799",
+                "campaign_active": False,
+                "campaign_name": "",
+                "campaign_discount_percent": 10.0,
+                "trial_expired_discount": 10.0,
+                "trial_days": 7,
+                "subscription_months": 12
+            }
+        
+        return pricing
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/super-admin/pricing")
+async def update_pricing_config(pricing: PricingConfig, username: str, password: str):
+    """Update pricing configuration - Super Admin Only"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid credentials")
+    
+    try:
+        pricing_doc = pricing.model_dump()
+        pricing_doc["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        await db.pricing_config.replace_one(
+            {},
+            pricing_doc,
+            upsert=True
+        )
+        
+        return {"success": True, "message": "Pricing configuration updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Public endpoints for campaigns and offers
+@api_router.get("/public/active-campaigns")
+async def get_active_campaigns():
+    """Get active campaigns for public display"""
+    try:
+        current_time = datetime.now(timezone.utc)
+        
+        campaigns = await db.campaigns.find({
+            "is_active": True,
+            "show_on_landing": True,
+            "start_date": {"$lte": current_time.isoformat()},
+            "end_date": {"$gte": current_time.isoformat()}
+        }, {"_id": 0}).to_list(10)
+        
+        return {"campaigns": campaigns}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/public/sale-offer")
+async def get_public_sale_offer():
+    """Get active sale offer for public display"""
+    try:
+        sale_offer = await db.sale_offers.find_one({"enabled": True}, {"_id": 0})
+        
+        if not sale_offer:
+            return {"enabled": False}
+        
+        # Check if offer is still valid
+        if sale_offer.get("valid_until"):
+            valid_until = datetime.fromisoformat(sale_offer["valid_until"].replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) > valid_until:
+                return {"enabled": False}
+        
+        return sale_offer
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/public/pricing")
+async def get_public_pricing():
+    """Get current pricing for public display"""
+    try:
+        pricing = await db.pricing_config.find_one({}, {"_id": 0})
+        
+        if not pricing:
+            return {
+                "regular_price": 1999.0,
+                "regular_price_display": "₹1999",
+                "campaign_active": False
+            }
+        
+        # Check if campaign is still active
+        if pricing.get("campaign_active") and pricing.get("campaign_end_date"):
+            end_date = datetime.fromisoformat(pricing["campaign_end_date"].replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) > end_date:
+                pricing["campaign_active"] = False
+        
+        return pricing
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Include all API routes (must be after all route definitions)
 app.include_router(api_router)
 
