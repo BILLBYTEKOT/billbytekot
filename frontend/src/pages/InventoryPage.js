@@ -72,6 +72,10 @@ const InventoryPage = ({ user }) => {
   });
 
   useEffect(() => {
+    console.log('InventoryPage mounted, user:', user);
+    console.log('User role:', user?.role);
+    console.log('Auth token exists:', !!localStorage.getItem('token'));
+    
     const loadData = async () => {
       await fetchInventory();
       Promise.all([fetchCategories(), fetchSuppliers(), fetchBusinessSettings()]);
@@ -89,12 +93,16 @@ const InventoryPage = ({ user }) => {
 
   const fetchInventory = async () => {
     try {
+      console.log('Fetching inventory...');
       setLoading(true); setError(null);
       const response = await axios.get(`${API}/inventory`);
+      console.log('Inventory fetch successful:', response.data.length, 'items');
       setInventory(response.data);
       return response.data;
     } catch (error) {
       console.error('Inventory fetch error:', error);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
       setError(error.response?.data?.detail || error.message);
       toast.error('Failed to fetch inventory');
       return [];
@@ -139,6 +147,9 @@ const InventoryPage = ({ user }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log('Form submission started', formData);
+    console.log('User role:', user?.role);
+    
     // Validate required fields
     if (!formData.name?.trim()) {
       toast.error('Item name is required');
@@ -164,23 +175,34 @@ const InventoryPage = ({ user }) => {
     try {
       // Prepare data with proper type conversion
       const submitData = {
-        ...formData,
+        name: formData.name.trim(),
         quantity: parseFloat(formData.quantity) || 0,
+        unit: formData.unit.trim(),
         min_quantity: parseFloat(formData.min_quantity) || 0,
         max_quantity: formData.max_quantity ? parseFloat(formData.max_quantity) : null,
         price_per_unit: parseFloat(formData.price_per_unit) || 0,
         cost_price: formData.cost_price ? parseFloat(formData.cost_price) : null,
         reorder_point: formData.reorder_point ? parseFloat(formData.reorder_point) : null,
         reorder_quantity: formData.reorder_quantity ? parseFloat(formData.reorder_quantity) : null,
-        category_id: formData.category_id ? parseInt(formData.category_id) : null,
-        supplier_id: formData.supplier_id ? parseInt(formData.supplier_id) : null,
+        category_id: formData.category_id || null,
+        supplier_id: formData.supplier_id || null,
+        sku: formData.sku?.trim() || null,
+        barcode: formData.barcode?.trim() || null,
+        description: formData.description?.trim() || null,
+        location: formData.location?.trim() || null,
+        expiry_date: formData.expiry_date || null,
+        batch_number: formData.batch_number?.trim() || null,
       };
 
+      console.log('Submitting data:', submitData);
+
       if (editingItem) {
-        await axios.put(`${API}/inventory/${editingItem.id}`, submitData);
+        const response = await axios.put(`${API}/inventory/${editingItem.id}`, submitData);
+        console.log('Update response:', response.data);
         toast.success('Inventory item updated!');
       } else {
-        await axios.post(`${API}/inventory`, submitData);
+        const response = await axios.post(`${API}/inventory`, submitData);
+        console.log('Create response:', response.data);
         toast.success('Inventory item created!');
       }
       setDialogOpen(false);
@@ -190,7 +212,16 @@ const InventoryPage = ({ user }) => {
       resetForm();
     } catch (error) { 
       console.error('Inventory save error:', error);
-      toast.error(error.response?.data?.detail || error.response?.data?.message || 'Failed to save inventory item'); 
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      if (error.response?.status === 401) {
+        toast.error('Authentication required. Please login again.');
+      } else if (error.response?.status === 403) {
+        toast.error('Not authorized to perform this action.');
+      } else {
+        toast.error(error.response?.data?.detail || error.response?.data?.message || 'Failed to save inventory item'); 
+      }
     }
   };
 
@@ -547,7 +578,11 @@ const InventoryPage = ({ user }) => {
                   <Filter className="w-4 h-4 mr-2" />{filterLowStock ? 'Low Stock' : 'All Items'}
                 </Button>
                 {['admin', 'cashier'].includes(user?.role) && (
-                  <Button className="bg-gradient-to-r from-violet-600 to-purple-600" onClick={() => { resetForm(); setDialogOpen(true); }}>
+                  <Button className="bg-gradient-to-r from-violet-600 to-purple-600" onClick={() => { 
+                    console.log('Add Item button clicked');
+                    resetForm(); 
+                    setDialogOpen(true); 
+                  }}>
                     <Plus className="w-4 h-4 mr-2" />Add Item
                   </Button>
                 )}
@@ -861,7 +896,11 @@ const InventoryPage = ({ user }) => {
         </Tabs>
 
         {/* Add/Edit Item Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { 
+          console.log('Dialog open state changed:', open);
+          setDialogOpen(open); 
+          if (!open) resetForm(); 
+        }}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">

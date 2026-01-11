@@ -17,6 +17,10 @@ const BillingPage = ({ user }) => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [showReceivedAmount, setShowReceivedAmount] = useState(false);
+  const [splitPayment, setSplitPayment] = useState(false);
+  const [cashAmount, setCashAmount] = useState('');
+  const [cardAmount, setCardAmount] = useState('');
+  const [upiAmount, setUpiAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [businessSettings, setBusinessSettings] = useState(null);
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
@@ -99,6 +103,9 @@ const BillingPage = ({ user }) => {
   };
 
   const calculateReceivedAmount = () => {
+    if (splitPayment) {
+      return (parseFloat(cashAmount) || 0) + (parseFloat(cardAmount) || 0) + (parseFloat(upiAmount) || 0);
+    }
     return parseFloat(receivedAmount) || 0;
   };
 
@@ -124,6 +131,10 @@ const BillingPage = ({ user }) => {
     const total = calculateTotal();
     const received = calculateReceivedAmount();
     return received > total;
+  };
+
+  const getTotalSplitAmount = () => {
+    return (parseFloat(cashAmount) || 0) + (parseFloat(cardAmount) || 0) + (parseFloat(upiAmount) || 0);
   };
 
   // Memoized calculations to prevent unnecessary recalculations
@@ -245,11 +256,11 @@ const BillingPage = ({ user }) => {
     if (!updated) return;
     
     const total = calculateTotal();
-    const received = showReceivedAmount ? calculateReceivedAmount() : total;
+    const received = (showReceivedAmount || splitPayment) ? calculateReceivedAmount() : total;
     const balance = Math.max(0, total - received);
     const isCredit = balance > 0;
     
-    if (showReceivedAmount && received <= 0) {
+    if ((showReceivedAmount || splitPayment) && received <= 0) {
       toast.error('Please enter a valid received amount');
       return;
     }
@@ -260,13 +271,13 @@ const BillingPage = ({ user }) => {
       await axios.post(`${API}/payments/create-order`, { 
         order_id: orderId, 
         amount: received, 
-        payment_method: paymentMethod 
+        payment_method: splitPayment ? 'split' : paymentMethod 
       });
       
-      // Update order with completed status and payment details
-      await axios.put(`${API}/orders/${orderId}`, {
+      // Prepare payment data
+      const paymentData = {
         status: isCredit ? 'pending' : 'completed',
-        payment_method: paymentMethod,
+        payment_method: splitPayment ? 'split' : paymentMethod,
         payment_received: received,
         balance_amount: balance,
         is_credit: isCredit,
@@ -276,12 +287,22 @@ const BillingPage = ({ user }) => {
         discount_amount: calculateDiscountAmount(),
         total: total,
         updated_at: new Date().toISOString(),
-        // Ensure items are included for proper order completion
         items: orderItems,
         subtotal: calculateSubtotal() - calculateDiscountAmount(),
         tax: calculateTax(),
         tax_rate: getEffectiveTaxRate()
-      });
+      };
+
+      // Add split payment details if applicable
+      if (splitPayment) {
+        paymentData.cash_amount = parseFloat(cashAmount) || 0;
+        paymentData.card_amount = parseFloat(cardAmount) || 0;
+        paymentData.upi_amount = parseFloat(upiAmount) || 0;
+        paymentData.credit_amount = balance;
+      }
+      
+      // Update order with payment details
+      await axios.put(`${API}/orders/${orderId}`, paymentData);
       
       toast.success(isCredit ? 'Partial payment recorded!' : 'Payment completed!');
       setPaymentCompleted(true);
@@ -293,7 +314,7 @@ const BillingPage = ({ user }) => {
       
       // Print receipt
       const discountAmt = calculateDiscountAmount();
-      printReceipt({ 
+      const receiptData = { 
         ...order, 
         items: orderItems, 
         subtotal: calculateSubtotal(), 
@@ -303,11 +324,21 @@ const BillingPage = ({ user }) => {
         discount_amount: discountAmt, 
         tax_rate: getEffectiveTaxRate(),
         status: isCredit ? 'pending' : 'completed',
-        payment_method: paymentMethod,
+        payment_method: splitPayment ? 'split' : paymentMethod,
         payment_received: received,
         balance_amount: balance,
         is_credit: isCredit
-      }, businessSettings);
+      };
+
+      // Add split payment details to receipt
+      if (splitPayment) {
+        receiptData.cash_amount = parseFloat(cashAmount) || 0;
+        receiptData.card_amount = parseFloat(cardAmount) || 0;
+        receiptData.upi_amount = parseFloat(upiAmount) || 0;
+        receiptData.credit_amount = balance;
+      }
+
+      printReceipt(receiptData, businessSettings);
       
     } catch (error) {
       console.error('Payment error:', error);
@@ -684,69 +715,199 @@ const BillingPage = ({ user }) => {
                 <span className="text-violet-600">{currency}{calculateTotal().toFixed(0)}</span>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 mt-3">
-              {[{ id: 'cash', icon: Wallet, label: 'Cash', color: '#22c55e' }, { id: 'card', icon: CreditCard, label: 'Card', color: '#3b82f6' }, { id: 'upi', icon: Smartphone, label: 'UPI', color: '#8b5cf6' }].map(m => (
-                <button key={m.id} onClick={() => setPaymentMethod(m.id)} className={`py-2 rounded-lg flex flex-col items-center gap-1 border-2 ${paymentMethod === m.id ? 'text-white border-transparent' : 'bg-white border-gray-200'}`} style={paymentMethod === m.id ? { backgroundColor: m.color } : {}}>
-                  <m.icon className="w-5 h-5" /><span className="text-xs font-medium">{m.label}</span>
-                </button>
-              ))}
-            </div>
-            
-            {/* Received Amount Section */}
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm">
-                  <input 
-                    type="checkbox" 
-                    checked={showReceivedAmount} 
-                    onChange={(e) => {
-                      setShowReceivedAmount(e.target.checked);
-                      if (!e.target.checked) setReceivedAmount('');
-                    }}
-                    className="rounded"
-                  />
-                  Custom Amount Received
-                </label>
+            {/* Payment Method Selection */}
+            <div className="bg-gray-50 p-3 rounded-lg mt-3">
+              <h4 className="font-semibold text-sm mb-2">Payment Method</h4>
+              <div className="grid grid-cols-3 gap-2">
+                {[{ id: 'cash', icon: Wallet, label: 'Cash', color: '#22c55e' }, { id: 'card', icon: CreditCard, label: 'Card', color: '#3b82f6' }, { id: 'upi', icon: Smartphone, label: 'UPI', color: '#8b5cf6' }].map(m => (
+                  <button 
+                    key={m.id} 
+                    onClick={() => {
+                      setPaymentMethod(m.id);
+                      setSplitPayment(false);
+                    }} 
+                    className={`py-2 rounded-lg flex flex-col items-center gap-1 border-2 transition-all ${paymentMethod === m.id && !splitPayment ? 'text-white border-transparent' : 'bg-white border-gray-200'}`} 
+                    style={paymentMethod === m.id && !splitPayment ? { backgroundColor: m.color } : {}}
+                  >
+                    <m.icon className="w-5 h-5" />
+                    <span className="text-xs font-medium">{m.label}</span>
+                  </button>
+                ))}
               </div>
               
-              {showReceivedAmount && (
+              {/* Split Payment Option */}
+              <div className="mt-3">
+                <button 
+                  onClick={() => {
+                    setSplitPayment(!splitPayment);
+                    if (!splitPayment) {
+                      setShowReceivedAmount(false);
+                      setReceivedAmount('');
+                    }
+                  }}
+                  className={`w-full py-2 px-3 rounded-lg border-2 transition-all ${splitPayment ? 'bg-purple-600 text-white border-purple-600' : 'bg-white border-gray-200 hover:border-purple-300'}`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <CreditCard className="w-4 h-4" />
+                    <span className="text-sm font-medium">Split Payment</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+            
+            {/* Payment Amount Options */}
+            <div className="bg-blue-50 p-3 rounded-lg mt-3">
+              <h4 className="font-semibold text-sm mb-2">Payment Amount</h4>
+              
+              {!splitPayment && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Amount Received:</span>
                     <input 
-                      type="number" 
-                      value={receivedAmount} 
-                      onChange={(e) => setReceivedAmount(e.target.value)} 
-                      placeholder={calculateTotal().toFixed(0)}
-                      className="flex-1 h-8 px-2 text-sm border rounded-lg text-center" 
-                      min="0"
-                      step="0.01"
+                      type="radio" 
+                      id="fullPayment" 
+                      name="paymentType" 
+                      checked={!showReceivedAmount} 
+                      onChange={() => {
+                        setShowReceivedAmount(false);
+                        setReceivedAmount('');
+                      }}
+                      className="rounded"
                     />
+                    <label htmlFor="fullPayment" className="text-sm font-medium">
+                      Full Payment: {currency}{calculateTotal().toFixed(2)}
+                    </label>
                   </div>
                   
-                  {/* Payment Summary */}
-                  {receivedAmount && (
-                    <div className="bg-gray-50 p-2 rounded-lg text-xs space-y-1">
-                      <div className="flex justify-between">
-                        <span>Total Bill:</span>
-                        <span>{currency}{calculateTotal().toFixed(2)}</span>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="radio" 
+                      id="customPayment" 
+                      name="paymentType" 
+                      checked={showReceivedAmount} 
+                      onChange={() => setShowReceivedAmount(true)}
+                      className="rounded"
+                    />
+                    <label htmlFor="customPayment" className="text-sm font-medium">
+                      Custom Amount (Partial/Overpayment)
+                    </label>
+                  </div>
+                  
+                  {showReceivedAmount && (
+                    <div className="ml-6 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600 min-w-[100px]">Amount Received:</span>
+                        <input 
+                          type="number" 
+                          value={receivedAmount} 
+                          onChange={(e) => setReceivedAmount(e.target.value)} 
+                          placeholder={calculateTotal().toFixed(0)}
+                          className="flex-1 h-8 px-2 text-sm border rounded-lg text-center" 
+                          min="0"
+                          step="0.01"
+                        />
                       </div>
-                      <div className="flex justify-between">
-                        <span>Amount Received:</span>
-                        <span>{currency}{calculateReceivedAmount().toFixed(2)}</span>
+                      
+                      {/* Quick Amount Buttons */}
+                      <div className="flex gap-1">
+                        <button 
+                          onClick={() => setReceivedAmount((calculateTotal() * 0.5).toFixed(2))}
+                          className="px-2 py-1 text-xs bg-yellow-100 border border-yellow-300 rounded hover:bg-yellow-200"
+                        >
+                          50%
+                        </button>
+                        <button 
+                          onClick={() => setReceivedAmount(calculateTotal().toFixed(2))}
+                          className="px-2 py-1 text-xs bg-green-100 border border-green-300 rounded hover:bg-green-200"
+                        >
+                          Full
+                        </button>
+                        <button 
+                          onClick={() => setReceivedAmount(Math.ceil(calculateTotal()).toString())}
+                          className="px-2 py-1 text-xs bg-blue-100 border border-blue-300 rounded hover:bg-blue-200"
+                        >
+                          Round Up
+                        </button>
                       </div>
-                      {isPartialPayment() && (
-                        <div className="flex justify-between text-red-600 font-medium">
-                          <span>Balance Due:</span>
-                          <span>{currency}{calculateBalanceAmount().toFixed(2)}</span>
-                        </div>
-                      )}
-                      {isOverPayment() && (
-                        <div className="flex justify-between text-green-600 font-medium">
-                          <span>Change to Return:</span>
-                          <span>{currency}{calculateChangeAmount().toFixed(2)}</span>
-                        </div>
-                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Split Payment Inputs */}
+              {splitPayment && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-xs text-gray-600">Cash</label>
+                      <input 
+                        type="number" 
+                        value={cashAmount} 
+                        onChange={(e) => setCashAmount(e.target.value)} 
+                        placeholder="0.00"
+                        className="w-full h-8 px-2 text-sm border rounded-lg text-center" 
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">Card</label>
+                      <input 
+                        type="number" 
+                        value={cardAmount} 
+                        onChange={(e) => setCardAmount(e.target.value)} 
+                        placeholder="0.00"
+                        className="w-full h-8 px-2 text-sm border rounded-lg text-center" 
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600">UPI</label>
+                      <input 
+                        type="number" 
+                        value={upiAmount} 
+                        onChange={(e) => setUpiAmount(e.target.value)} 
+                        placeholder="0.00"
+                        className="w-full h-8 px-2 text-sm border rounded-lg text-center" 
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs text-gray-600 text-center">
+                    Total Split: {currency}{getTotalSplitAmount().toFixed(2)} / {currency}{calculateTotal().toFixed(2)}
+                  </div>
+                </div>
+              )}
+              
+              {/* Payment Summary */}
+              {((showReceivedAmount && receivedAmount) || splitPayment) && (
+                <div className="bg-white p-2 rounded border mt-2 text-xs space-y-1">
+                  <div className="flex justify-between font-medium">
+                    <span>Bill Total:</span>
+                    <span>{currency}{calculateTotal().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Amount Received:</span>
+                    <span>{currency}{calculateReceivedAmount().toFixed(2)}</span>
+                  </div>
+                  {isPartialPayment() && (
+                    <div className="flex justify-between text-red-600 font-medium">
+                      <span>Balance Due:</span>
+                      <span>{currency}{calculateBalanceAmount().toFixed(2)}</span>
+                    </div>
+                  )}
+                  {isOverPayment() && (
+                    <div className="flex justify-between text-green-600 font-medium">
+                      <span>Change to Return:</span>
+                      <span>{currency}{calculateChangeAmount().toFixed(2)}</span>
+                    </div>
+                  )}
+                  {calculateReceivedAmount() === calculateTotal() && (
+                    <div className="flex justify-between text-green-600 font-medium">
+                      <span>Status:</span>
+                      <span>EXACT PAYMENT</span>
                     </div>
                   )}
                 </div>
@@ -755,7 +916,12 @@ const BillingPage = ({ user }) => {
             {!paymentCompleted ? (
               <Button onClick={handlePayment} disabled={loading} className="w-full h-12 mt-3 text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg">
                 {loading ? <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" /> : (
-                  showReceivedAmount && receivedAmount ? (
+                  splitPayment ? (
+                    getTotalSplitAmount() === 0 ? 'Enter Split Payment Amounts' :
+                    getTotalSplitAmount() < calculateTotal() ? `Record Split Payment ${currency}${getTotalSplitAmount().toFixed(0)} (Due: ${currency}${(calculateTotal() - getTotalSplitAmount()).toFixed(0)})` :
+                    getTotalSplitAmount() > calculateTotal() ? `Pay Split ${currency}${getTotalSplitAmount().toFixed(0)} (Change: ${currency}${(getTotalSplitAmount() - calculateTotal()).toFixed(0)})` :
+                    `Pay Split ${currency}${getTotalSplitAmount().toFixed(0)}`
+                  ) : showReceivedAmount && receivedAmount ? (
                     isPartialPayment() ? `Record Partial Payment ${currency}${calculateReceivedAmount().toFixed(0)}` :
                     isOverPayment() ? `Pay ${currency}${calculateReceivedAmount().toFixed(0)} (Change: ${currency}${calculateChangeAmount().toFixed(0)})` :
                     `Pay ${currency}${calculateReceivedAmount().toFixed(0)}`
