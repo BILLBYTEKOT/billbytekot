@@ -1028,7 +1028,15 @@ const BillingPage = ({ user }) => {
             ) : (
               <div className="bg-green-100 border border-green-300 rounded-lg p-2 mt-3 flex items-center gap-2">
                 <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-4 h-4 text-white" /></div>
-                <div><p className="font-bold text-green-800 text-sm">Paid!</p><p className="text-xs text-green-600">{currency}{calculateTotal().toFixed(0)} via {paymentMethod}</p></div>
+                <div>
+                  <p className="font-bold text-green-800 text-sm">Paid!</p>
+                  <p className="text-xs text-green-600">
+                    {currency}{calculateReceivedAmount().toFixed(0)} received via {paymentMethod}
+                    {calculateReceivedAmount() < calculateTotal() && (
+                      <span className="block text-red-600">Balance Due: {currency}{(calculateTotal() - calculateReceivedAmount()).toFixed(0)}</span>
+                    )}
+                  </p>
+                </div>
               </div>
             )}
             <div className="grid grid-cols-3 gap-2 mt-3">
@@ -1173,16 +1181,127 @@ const BillingPage = ({ user }) => {
                 </button>
               ))}
             </div>
+            
+            {/* Payment Amount Options - Desktop */}
+            <div className="mt-6 bg-blue-50 p-4 rounded-xl">
+              <h4 className="font-semibold text-base mb-3">Payment Amount</h4>
+              
+              {!splitPayment && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="radio" 
+                      id="fullPaymentDesktop" 
+                      name="paymentTypeDesktop" 
+                      checked={!showReceivedAmount} 
+                      onChange={() => {
+                        setShowReceivedAmount(false);
+                        setReceivedAmount('');
+                      }}
+                      className="rounded"
+                    />
+                    <label htmlFor="fullPaymentDesktop" className="text-base font-medium">
+                      Full Payment: {currency}{calculateTotal().toFixed(2)}
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="radio" 
+                      id="customPaymentDesktop" 
+                      name="paymentTypeDesktop" 
+                      checked={showReceivedAmount} 
+                      onChange={() => setShowReceivedAmount(true)}
+                      className="rounded"
+                    />
+                    <label htmlFor="customPaymentDesktop" className="text-base font-medium">
+                      Custom Amount (Partial/Overpayment)
+                    </label>
+                  </div>
+                  
+                  {showReceivedAmount && (
+                    <div className="ml-6 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-base text-gray-600 min-w-[120px]">Amount Received:</span>
+                        <input 
+                          type="number" 
+                          value={receivedAmount} 
+                          onChange={(e) => setReceivedAmount(e.target.value)} 
+                          placeholder={calculateTotal().toFixed(0)}
+                          className="flex-1 h-10 px-3 text-base border rounded-lg text-center" 
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                      
+                      {/* Quick Amount Buttons */}
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => setReceivedAmount((calculateTotal() * 0.5).toFixed(2))}
+                          className="px-3 py-2 text-sm bg-yellow-100 border border-yellow-300 rounded-lg hover:bg-yellow-200 font-medium"
+                        >
+                          50%
+                        </button>
+                        <button 
+                          onClick={() => setReceivedAmount(calculateTotal().toFixed(2))}
+                          className="px-3 py-2 text-sm bg-green-100 border border-green-300 rounded-lg hover:bg-green-200 font-medium"
+                        >
+                          Full
+                        </button>
+                        <button 
+                          onClick={() => setReceivedAmount(Math.ceil(calculateTotal()).toString())}
+                          className="px-3 py-2 text-sm bg-blue-100 border border-blue-300 rounded-lg hover:bg-blue-200 font-medium"
+                        >
+                          Round Up
+                        </button>
+                      </div>
+                      
+                      {/* Payment Summary */}
+                      <div className="bg-white p-3 rounded-lg border">
+                        <div className="flex justify-between text-sm">
+                          <span>Bill Total:</span>
+                          <span className="font-semibold">{currency}{calculateTotal().toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Amount Received:</span>
+                          <span className="font-semibold">{currency}{calculateReceivedAmount().toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm font-bold border-t pt-1 mt-1">
+                          <span className={calculateReceivedAmount() < calculateTotal() ? 'text-red-600' : 'text-green-600'}>
+                            {calculateReceivedAmount() < calculateTotal() ? 'Balance Due:' : 'Change:'}
+                          </span>
+                          <span className={calculateReceivedAmount() < calculateTotal() ? 'text-red-600' : 'text-green-600'}>
+                            {currency}{Math.abs(calculateTotal() - calculateReceivedAmount()).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="p-6 flex-1 flex flex-col">
             {!paymentCompleted ? (
               <Button onClick={handlePayment} disabled={loading} className="w-full h-16 text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl shadow-xl">
-                {loading ? <div className="animate-spin w-6 h-6 border-3 border-white border-t-transparent rounded-full" /> : <>Pay {currency}{calculateTotal().toFixed(0)}</>}
+                {loading ? <div className="animate-spin w-6 h-6 border-3 border-white border-t-transparent rounded-full" /> : (
+                  showReceivedAmount ? 
+                    `Pay ${currency}${calculateReceivedAmount().toFixed(0)}` : 
+                    `Pay ${currency}${calculateTotal().toFixed(0)}`
+                )}
               </Button>
             ) : (
               <div className="bg-green-50 border-2 border-green-300 rounded-xl p-5 flex items-center gap-4">
                 <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-8 h-8 text-white" /></div>
-                <div><p className="text-2xl font-bold text-green-800">Payment Successful!</p><p className="text-green-600 text-lg">{currency}{calculateTotal().toFixed(0)} paid via {paymentMethod.toUpperCase()}</p></div>
+                <div>
+                  <p className="text-2xl font-bold text-green-800">Payment Successful!</p>
+                  <p className="text-green-600 text-lg">
+                    {currency}{calculateReceivedAmount().toFixed(0)} received via {paymentMethod.toUpperCase()}
+                    {calculateReceivedAmount() < calculateTotal() && (
+                      <span className="block text-red-600 text-base">Balance Due: {currency}{(calculateTotal() - calculateReceivedAmount()).toFixed(0)}</span>
+                    )}
+                  </p>
+                </div>
               </div>
             )}
             <div className="grid grid-cols-3 gap-4 mt-6">

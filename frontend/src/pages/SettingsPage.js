@@ -16,12 +16,32 @@ import ValidationAlert from '../components/ValidationAlert';
 
 const SettingsPage = ({ user }) => {
   const [activeTab, setActiveTab] = useState('business');
+  
+  // Helper function to generate slug from restaurant name
+  const generateSlugFromName = (name) => {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+      .replace(/\s+/g, '') // Remove spaces
+      .substring(0, 20); // Limit length
+  };
+  
+  // Helper function to get menu URL (cool URL if slug exists, otherwise fallback)
+  const getMenuUrl = () => {
+    if (businessSettings.restaurant_slug) {
+      return `${window.location.origin}/r/${businessSettings.restaurant_slug}/menu`;
+    }
+    return `${window.location.origin}/menu/${user?.organization_id || user?.id}`;
+  };
+  
   const [razorpaySettings, setRazorpaySettings] = useState({
     razorpay_key_id: '',
     razorpay_key_secret: ''
   });
   const [businessSettings, setBusinessSettings] = useState({
     restaurant_name: '',
+    restaurant_slug: '', // Cool URL slug
     address: '',
     phone: '',
     email: '',
@@ -674,7 +694,7 @@ const SettingsPage = ({ user }) => {
                     <div className="flex flex-col md:flex-row gap-4 items-start">
                       <div className="bg-white p-4 rounded-lg border shadow-sm" id="menu-qr-container">
                         <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/menu/${user?.organization_id || user?.id}`)}`}
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getMenuUrl())}`}
                           alt="Menu QR Code"
                           className="w-48 h-48"
                         />
@@ -685,7 +705,7 @@ const SettingsPage = ({ user }) => {
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Menu Link:</p>
                           <code className="block p-2 bg-white rounded text-xs break-all border">
-                            {window.location.origin}/menu/{user?.organization_id || user?.id}
+                            {getMenuUrl()}
                           </code>
                         </div>
                         
@@ -694,7 +714,7 @@ const SettingsPage = ({ user }) => {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              const link = `${window.location.origin}/menu/${user?.organization_id || user?.id}`;
+                              const link = getMenuUrl();
                               navigator.clipboard.writeText(link);
                               toast.success('Link copied to clipboard!');
                             }}
@@ -708,7 +728,7 @@ const SettingsPage = ({ user }) => {
                             variant="outline"
                             onClick={() => {
                               const printWindow = window.open('', '_blank');
-                              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}/menu/${user?.organization_id || user?.id}`)}`;
+                              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(getMenuUrl())}`;
                               const restaurantName = businessSettings.restaurant_name || 'Restaurant';
                               printWindow.document.write(`
                                 <html>
@@ -754,7 +774,7 @@ const SettingsPage = ({ user }) => {
                               variant="outline"
                               onClick={() => {
                                 const restaurantName = businessSettings.restaurant_name || 'Restaurant';
-                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${window.location.origin}/menu/${user?.organization_id || user?.id}`)}`;
+                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(getMenuUrl())}`;
                                 
                                 const canvas = document.createElement('canvas');
                                 canvas.width = 600;
@@ -813,7 +833,7 @@ const SettingsPage = ({ user }) => {
                               variant="outline"
                               onClick={() => {
                                 const restaurantName = businessSettings.restaurant_name || 'Restaurant';
-                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${window.location.origin}/menu/${user?.organization_id || user?.id}`)}`;
+                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(getMenuUrl())}`;
                                 
                                 const canvas = document.createElement('canvas');
                                 canvas.width = 600;
@@ -891,7 +911,7 @@ const SettingsPage = ({ user }) => {
                               variant="outline"
                               onClick={() => {
                                 const restaurantName = businessSettings.restaurant_name || 'Restaurant';
-                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${window.location.origin}/menu/${user?.organization_id || user?.id}`)}`;
+                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(getMenuUrl())}`;
                                 
                                 const canvas = document.createElement('canvas');
                                 canvas.width = 500;
@@ -942,7 +962,7 @@ const SettingsPage = ({ user }) => {
                               variant="outline"
                               onClick={() => {
                                 const restaurantName = businessSettings.restaurant_name || 'Restaurant';
-                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}/menu/${user?.organization_id || user?.id}`)}`;
+                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(getMenuUrl())}`;
                                 
                                 const canvas = document.createElement('canvas');
                                 canvas.width = 400;
@@ -1224,9 +1244,43 @@ const SettingsPage = ({ user }) => {
                 <Label>Restaurant Name *</Label>
                 <Input
                   value={businessSettings.restaurant_name}
-                  onChange={(e) => setBusinessSettings({ ...businessSettings, restaurant_name: e.target.value })}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setBusinessSettings({ 
+                      ...businessSettings, 
+                      restaurant_name: name,
+                      // Auto-generate slug if not manually set
+                      restaurant_slug: businessSettings.restaurant_slug || generateSlugFromName(name)
+                    });
+                  }}
                   placeholder="Your Restaurant Name"
                 />
+              </div>
+
+              <div>
+                <Label>Cool Menu URL</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <span className="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-l-md border border-r-0">
+                      {window.location.origin}/r/
+                    </span>
+                    <Input
+                      value={businessSettings.restaurant_slug}
+                      onChange={(e) => {
+                        const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        setBusinessSettings({ ...businessSettings, restaurant_slug: slug });
+                      }}
+                      placeholder="myrestaurant"
+                      className="rounded-l-none"
+                    />
+                    <span className="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-r-md border border-l-0">
+                      /menu
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Create a cool URL for your menu like: <strong>{window.location.origin}/r/{businessSettings.restaurant_slug || 'myrestaurant'}/menu</strong>
+                  </p>
+                </div>
               </div>
 
               <div>

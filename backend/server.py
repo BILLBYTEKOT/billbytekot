@@ -5790,6 +5790,73 @@ async def get_view_only_menu(org_id: str):
     }
 
 
+@app.get("/r/{restaurant_slug}/menu")
+async def get_menu_by_slug(restaurant_slug: str):
+    """Cool URL endpoint for restaurant menu using custom slug"""
+    
+    # Find restaurant by slug first
+    admin = await db.users.find_one({
+        "business_settings.restaurant_slug": restaurant_slug
+    }, {"_id": 0})
+    
+    if not admin:
+        # Fallback: try to find by restaurant name converted to slug
+        # Get all restaurants and check name-based slugs
+        all_restaurants = await db.users.find({
+            "business_settings.restaurant_name": {"$exists": True}
+        }, {"_id": 0, "id": 1, "business_settings.restaurant_name": 1}).to_list(None)
+        
+        for restaurant in all_restaurants:
+            restaurant_name = restaurant.get("business_settings", {}).get("restaurant_name", "")
+            # Create slug from restaurant name
+            name_slug = restaurant_name.lower().replace(" ", "").replace("-", "").replace("_", "").replace("'", "").replace("&", "and")
+            if name_slug == restaurant_slug.lower().replace("-", "").replace("_", ""):
+                # Found by name match, get full restaurant data
+                admin = await db.users.find_one({"id": restaurant["id"]}, {"_id": 0})
+                break
+    
+    if not admin:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+    
+    business = admin.get("business_settings", {})
+    
+    # Check if menu display is enabled
+    if not business.get("customer_self_order_enabled") and not business.get("menu_display_enabled"):
+        raise HTTPException(status_code=403, detail="Menu display not enabled for this restaurant")
+    
+    # Get available menu items
+    items = await db.menu_items.find(
+        {"organization_id": admin["id"], "available": True},
+        {"_id": 0, "organization_id": 0}
+    ).to_list(1000)
+    
+    # Group by category
+    categories = {}
+    for item in items:
+        cat = item.get("category", "Other")
+        if cat not in categories:
+            categories[cat] = []
+        categories[cat].append(item)
+    
+    # Get currency symbol
+    currency_symbols = {"INR": "₹", "USD": "$", "EUR": "€", "GBP": "£", "AED": "د.إ", "PKR": "₨"}
+    currency_code = business.get("currency", "INR")
+    currency_symbol = currency_symbols.get(currency_code, "₹")
+    
+    return {
+        "restaurant_name": business.get("restaurant_name", "Restaurant"),
+        "restaurant_slug": restaurant_slug,
+        "tagline": business.get("tagline", ""),
+        "logo_url": business.get("logo_url", ""),
+        "currency": currency_code,
+        "currency_symbol": currency_symbol,
+        "categories": categories,
+        "items": items,
+        "allow_ordering": business.get("customer_self_order_enabled", False),
+        "cool_url": True
+    }
+
+
 @app.get("/api/public/tables/{org_id}")
 async def get_public_tables(org_id: str):
     """Public endpoint to get available tables for self-ordering"""

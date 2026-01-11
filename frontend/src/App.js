@@ -806,6 +806,7 @@ function App() {
           <Route path="/track/:trackingToken" element={<TrackOrderPage />} />
           <Route path="/order/:orgId" element={<CustomerOrderPage />} />
           <Route path="/menu/:orgId" element={<PublicMenuPage />} />
+          <Route path="/r/:restaurantSlug/menu" element={<PublicMenuPage />} />
           <Route path="/download" element={<DownloadPage />} />
           <Route path="/downloads" element={<DownloadPage />} />
           <Route path="/blog" element={<BlogPage />} />
@@ -814,6 +815,8 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/help" element={<PrivateRoute isAuthChecking={isAuthChecking}><HelpPage user={user} /></PrivateRoute>} />
           <Route path="/ops" element={<OpsPanel />} />
+          <Route path="/super-admin" element={<SuperAdminPage />} />
+          <Route path="/admin" element={<SuperAdminPage />} />
           <Route path="/pwa" element={<PWAHomePage />} />
           {/* 404 Not Found Route - Must be last */}
           <Route path="*" element={<NotFound />} />

@@ -5,7 +5,7 @@ import { API } from '../App';
 import { ChefHat, Search, Leaf, Drumstick, Star, Clock, Phone } from 'lucide-react';
 
 const PublicMenuPage = () => {
-  const { orgId } = useParams();
+  const { orgId, restaurantSlug } = useParams();
   const [menuData, setMenuData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,11 +14,18 @@ const PublicMenuPage = () => {
 
   useEffect(() => {
     fetchMenu();
-  }, [orgId]);
+  }, [orgId, restaurantSlug]);
 
   const fetchMenu = async () => {
     try {
-      const response = await axios.get(`${API}/public/view-menu/${orgId}`);
+      let response;
+      if (restaurantSlug) {
+        // Use cool URL endpoint
+        response = await axios.get(`${API.replace('/api', '')}/r/${restaurantSlug}/menu`);
+      } else {
+        // Use traditional orgId endpoint
+        response = await axios.get(`${API}/public/view-menu/${orgId}`);
+      }
       setMenuData(response.data);
       setError(null);
     } catch (err) {
