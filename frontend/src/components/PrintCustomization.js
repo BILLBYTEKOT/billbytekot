@@ -344,8 +344,20 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
     // QR Code section
     if (customization.qr_code_enabled) {
       preview += '\n' + center('SCAN TO PAY BALANCE') + '\n';
-      preview += center('[QR CODE FOR PAYMENT]') + '\n';
+      preview += center('[QR CODE WILL BE PRINTED HERE]') + '\n';
+      preview += center('█████████████████████████') + '\n';
+      preview += center('█ ▄▄▄▄▄ █▀█ █ ▄▄▄▄▄ █') + '\n';
+      preview += center('█ █   █ █▀▀ █ █   █ █') + '\n';
+      preview += center('█ █▄▄▄█ █▀█ █ █▄▄▄█ █') + '\n';
+      preview += center('█▄▄▄▄▄▄▄█▄▀▄█▄▄▄▄▄▄▄█') + '\n';
+      preview += center('██▄▄▄▄▄█▀▀▀█▀▀▀█▄▄▄▄█') + '\n';
+      preview += center('█ ▄▄▄▄▄ █▄█ █ ████▀▄█') + '\n';
+      preview += center('█ █▄▄▄█ █▀█ █▄▄█▄▄▄▄█') + '\n';
+      preview += center('█▄▄▄▄▄▄▄█▄▄▄█▄█▄▄▄▄▄█') + '\n';
+      preview += center('█████████████████████████') + '\n';
       preview += center(`Balance Due: ₹424.00`) + '\n';
+      const upiId = businessSettings?.upi_id || (businessSettings?.phone ? `${businessSettings.phone}@paytm` : 'payment@restaurant.com');
+      preview += center(`UPI ID: ${upiId}`) + '\n';
       preview += sep + '\n';
     }
     

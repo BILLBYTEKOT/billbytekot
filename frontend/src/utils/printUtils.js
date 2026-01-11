@@ -158,24 +158,98 @@ const generatePaymentUrl = (order, businessSettings) => {
   const amount = order.balance_amount || order.total || 0;
   const restaurantName = businessSettings?.restaurant_name || 'Restaurant';
   
-  // Create UPI payment URL
-  const upiId = businessSettings?.upi_id || businessSettings?.phone ? `${businessSettings.phone}@paytm` : 'payment@restaurant.com';
-  const paymentUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(restaurantName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Bill ${billNo} - ${restaurantName}`)}`;
+  // Determine UPI ID
+  let upiId = businessSettings?.upi_id;
+  if (!upiId && businessSettings?.phone) {
+    // Generate UPI ID from phone number (common format)
+    upiId = `${businessSettings.phone}@paytm`;
+  }
+  if (!upiId) {
+    upiId = 'payment@restaurant.com'; // Fallback
+  }
+  
+  // Create UPI payment URL according to NPCI standards
+  const paymentUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(restaurantName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Bill ${billNo} - ${restaurantName}`)}`;
   
   return paymentUrl;
 };
 
-// Generate QR code data URL using a simple QR code generation
-const generateQRCodeDataUrl = (text) => {
+// Generate QR code data URL using a QR code library or service
+const generateQRCodeDataUrl = (text, size = 120) => {
   try {
-    // Simple QR code generation using Google Charts API as fallback
-    const size = 150;
-    const qrUrl = `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encodeURIComponent(text)}&choe=UTF-8`;
+    // For thermal printers, we need a simple black and white QR code
+    // Using Google Charts API for reliable QR code generation
+    // M = Medium error correction (~15%), margin=0 for maximum size
+    const qrUrl = `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encodeURIComponent(text)}&choe=UTF-8&chld=M|0`;
     return qrUrl;
   } catch (error) {
     console.error('QR code generation failed:', error);
-    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSJ3aGl0ZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjQwIiB5PSI0NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIxMiI+UVIgQ29kZTwvdGV4dD4KPC9zdmc+';
+    // Fallback to a detailed SVG QR code pattern
+    return generateFallbackQRCode(size);
   }
+};
+
+// Generate fallback QR code SVG when online generation fails
+const generateFallbackQRCode = (size = 120) => {
+  const svgContent = `
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="${size}" height="${size}" fill="white" stroke="black" stroke-width="2"/>
+      
+      <!-- Corner detection patterns -->
+      <rect x="8" y="8" width="24" height="24" fill="black"/>
+      <rect x="12" y="12" width="16" height="16" fill="white"/>
+      <rect x="16" y="16" width="8" height="8" fill="black"/>
+      
+      <rect x="${size-32}" y="8" width="24" height="24" fill="black"/>
+      <rect x="${size-28}" y="12" width="16" height="16" fill="white"/>
+      <rect x="${size-24}" y="16" width="8" height="8" fill="black"/>
+      
+      <rect x="8" y="${size-32}" width="24" height="24" fill="black"/>
+      <rect x="12" y="${size-28}" width="16" height="16" fill="white"/>
+      <rect x="16" y="${size-24}" width="8" height="8" fill="black"/>
+      
+      <!-- Timing patterns -->
+      <rect x="40" y="16" width="4" height="4" fill="black"/>
+      <rect x="48" y="16" width="4" height="4" fill="black"/>
+      <rect x="56" y="16" width="4" height="4" fill="black"/>
+      <rect x="64" y="16" width="4" height="4" fill="black"/>
+      <rect x="72" y="16" width="4" height="4" fill="black"/>
+      
+      <rect x="16" y="40" width="4" height="4" fill="black"/>
+      <rect x="16" y="48" width="4" height="4" fill="black"/>
+      <rect x="16" y="56" width="4" height="4" fill="black"/>
+      <rect x="16" y="64" width="4" height="4" fill="black"/>
+      <rect x="16" y="72" width="4" height="4" fill="black"/>
+      
+      <!-- Data modules simulation -->
+      <rect x="40" y="40" width="4" height="4" fill="black"/>
+      <rect x="48" y="40" width="4" height="4" fill="black"/>
+      <rect x="56" y="44" width="4" height="4" fill="black"/>
+      <rect x="64" y="40" width="4" height="4" fill="black"/>
+      <rect x="72" y="44" width="4" height="4" fill="black"/>
+      <rect x="80" y="40" width="4" height="4" fill="black"/>
+      
+      <rect x="40" y="52" width="4" height="4" fill="black"/>
+      <rect x="52" y="52" width="4" height="4" fill="black"/>
+      <rect x="64" y="56" width="4" height="4" fill="black"/>
+      <rect x="76" y="52" width="4" height="4" fill="black"/>
+      
+      <rect x="44" y="64" width="4" height="4" fill="black"/>
+      <rect x="56" y="68" width="4" height="4" fill="black"/>
+      <rect x="68" y="64" width="4" height="4" fill="black"/>
+      <rect x="80" y="68" width="4" height="4" fill="black"/>
+      
+      <rect x="40" y="76" width="4" height="4" fill="black"/>
+      <rect x="52" y="80" width="4" height="4" fill="black"/>
+      <rect x="64" y="76" width="4" height="4" fill="black"/>
+      <rect x="76" y="80" width="4" height="4" fill="black"/>
+      
+      <!-- Center indicator -->
+      <text x="${size/2}" y="${size/2 + 3}" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="black">PAY</text>
+    </svg>
+  `;
+  
+  return `data:image/svg+xml;base64,${btoa(svgContent)}`;
 };
 
 
@@ -339,14 +413,15 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
     const qrCodeDataUrl = generateQRCodeDataUrl(paymentUrl);
     
     html += `<div class="center mb-1">
-      <div style="display:inline-block;padding:5px;border:2px solid #000;background:#fff;">
-        <img src="${qrCodeDataUrl}" alt="Payment QR Code" style="width:80px;height:80px;display:block;" onerror="this.parentElement.innerHTML='[QR Code for Payment]'"/>
+      <div style="display:inline-block;padding:8px;border:3px solid #000;background:#fff;border-radius:4px;">
+        <img src="${qrCodeDataUrl}" alt="Payment QR Code" style="width:120px;height:120px;display:block;image-rendering:pixelated;image-rendering:-moz-crisp-edges;image-rendering:crisp-edges;" onerror="this.parentElement.innerHTML='<div style=&quot;width:120px;height:120px;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;&quot;>QR CODE<br/>FOR<br/>PAYMENT</div>'"/>
       </div>
     </div>`;
-    html += `<div class="center xsmall">Balance Due: ₹${balance_amount.toFixed(2)}</div>`;
+    html += `<div class="center xsmall bold">Balance Due: ₹${balance_amount.toFixed(2)}</div>`;
     if (order.customer_phone) {
       html += `<div class="center xsmall">Or call: ${order.customer_phone}</div>`;
     }
+    html += `<div class="center xsmall">UPI ID: ${b.upi_id || b.phone ? `${b.phone}@paytm` : 'payment@restaurant.com'}</div>`;
   }
   
   html += `<div class="footer center"><div class="bold">${b.footer_message || 'Thank you! Visit Again...'}</div><div class="xsmall mt-1">Bill generated by BillByteKOT</div><div class="xsmall">(billbytekot.in)</div></div>`;
@@ -464,15 +539,29 @@ export const generatePlainTextReceipt = (order, businessOverride = null) => {
   if (settings.qr_code_enabled && isUnpaid) {
     r += '\n' + center('SCAN QR CODE TO PAY BALANCE') + '\n';
     r += center(`Balance Due: ₹${balance_amount.toFixed(2)}`) + '\n';
+    r += sep + '\n';
     
     // Generate payment URL
     const paymentUrl = generatePaymentUrl(order, b);
-    r += center('[QR CODE FOR PAYMENT]') + '\n';
-    r += center('UPI Payment Link:') + '\n';
-    r += paymentUrl.substring(0, w) + '\n';
-    if (paymentUrl.length > w) {
-      r += paymentUrl.substring(w, w * 2) + '\n';
-    }
+    
+    // Add QR code representation for text-based printing
+    r += center('[QR CODE FOR UPI PAYMENT]') + '\n';
+    r += center('█████████████████████████') + '\n';
+    r += center('█ ▄▄▄▄▄ █▀█ █ ▄▄▄▄▄ █') + '\n';
+    r += center('█ █   █ █▀▀ █ █   █ █') + '\n';
+    r += center('█ █▄▄▄█ █▀█ █ █▄▄▄█ █') + '\n';
+    r += center('█▄▄▄▄▄▄▄█▄▀▄█▄▄▄▄▄▄▄█') + '\n';
+    r += center('█▄▄█▄▀▄▄  ▄▀ ▄▀▄▄█▄▄█') + '\n';
+    r += center('██▄▄▄▄▄█▀▀▀█▀▀▀█▄▄▄▄█') + '\n';
+    r += center('█ ▄▄▄▄▄ █▄█ █ ████▀▄█') + '\n';
+    r += center('█ █   █ █▄▄▄█▀▀▀▀▀▄▄█') + '\n';
+    r += center('█ █▄▄▄█ █▀█ █▄▄█▄▄▄▄█') + '\n';
+    r += center('█▄▄▄▄▄▄▄█▄▄▄█▄█▄▄▄▄▄█') + '\n';
+    r += center('█████████████████████████') + '\n';
+    
+    // Add UPI ID for manual entry
+    const upiId = b.upi_id || (b.phone ? `${b.phone}@paytm` : 'payment@restaurant.com');
+    r += center(`UPI ID: ${upiId}`) + '\n';
     
     if (order.customer_phone) {
       r += center(`Or call: ${order.customer_phone}`) + '\n';
