@@ -3339,6 +3339,63 @@ async def delete_table(
     return {"message": "Table deleted successfully"}
 
 
+@api_router.post("/tables/{table_id}/clear")
+async def clear_table_manually(
+    table_id: str, current_user: dict = Depends(get_current_user)
+):
+    """Manually clear a table - useful for unpaid or abandoned orders"""
+    if current_user["role"] not in ["admin", "cashier", "waiter"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Get user's organization_id
+    user_org_id = get_secure_org_id(current_user)
+
+    # Check if table exists
+    existing_table = await db.tables.find_one({"id": table_id, "organization_id": user_org_id}, {"_id": 0})
+    if not existing_table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    
+    # Get current order if any
+    current_order = None
+    if existing_table.get("current_order_id"):
+        current_order = await db.orders.find_one(
+            {"id": existing_table["current_order_id"], "organization_id": user_org_id}, 
+            {"_id": 0}
+        )
+    
+    # Clear the table
+    await db.tables.update_one(
+        {"id": table_id, "organization_id": user_org_id},
+        {"$set": {"status": "available", "current_order_id": None}}
+    )
+    
+    # If there was an active order, mark it as abandoned
+    if current_order:
+        await db.orders.update_one(
+            {"id": current_order["id"], "organization_id": user_org_id},
+            {"$set": {"status": "abandoned", "notes": f"Table cleared manually by {current_user.get('username', 'user')}"}}
+        )
+        print(f"🍽️ Table {existing_table.get('table_number')} cleared manually, order {current_order['id']} marked as abandoned")
+    else:
+        print(f"🍽️ Table {existing_table.get('table_number')} cleared manually (no active order)")
+    
+    # Invalidate caches
+    try:
+        cached_service = get_cached_order_service()
+        await cached_service.invalidate_table_caches(user_org_id)
+        await cached_service.invalidate_order_caches(user_org_id)
+        print(f"🗑️ Caches invalidated for cleared table {table_id}")
+    except Exception as e:
+        print(f"⚠️ Cache invalidation error: {e}")
+    
+    return {
+        "message": f"Table {existing_table.get('table_number')} cleared successfully",
+        "table_id": table_id,
+        "had_active_order": current_order is not None,
+        "order_id": current_order["id"] if current_order else None
+    }
+
+
 # Helper function to generate WhatsApp notification link
 def generate_whatsapp_notification(phone: str, message: str) -> str:
     """Generate WhatsApp link for notification"""
@@ -4079,15 +4136,21 @@ async def update_order(
         except Exception as e:
             print(f"⚠️ Cache invalidation error: {e}")
         
-        # Clear table if payment is fully completed (no balance remaining)
-        if update_data.get("balance_amount", 0) <= 0 and not update_data.get("is_credit", False):
+        # Clear table immediately for any payment update (paid, unpaid, or partial)
+        # This ensures tables don't stay occupied when customers leave
+        should_clear_table = True  # Always clear table when payment is processed
+        
+        if should_clear_table:
             try:
                 # Free up the table
                 await db.tables.update_one(
                     {"id": existing_order.get("table_id"), "organization_id": user_org_id},
                     {"$set": {"status": "available", "current_order_id": None}}
                 )
-                print(f"🍽️ Table freed for completed payment: {existing_order.get('table_id')}")
+                if update_data.get("balance_amount", 0) <= 0:
+                    print(f"🍽️ Table freed for completed payment: {existing_order.get('table_id')}")
+                else:
+                    print(f"🍽️ Table freed for partial/unpaid bill: {existing_order.get('table_id')} (balance: ₹{update_data.get('balance_amount', 0)})")
             except Exception as e:
                 print(f"⚠️ Table clearing error: {e}")
         
@@ -4132,17 +4195,19 @@ async def update_order(
     except Exception as e:
         print(f"⚠️ Cache invalidation error: {e}")
     
-    # Clear table if payment is fully completed (no balance remaining)
-    if (update_data.get("balance_amount", 0) <= 0 and 
-        not update_data.get("is_credit", False) and 
-        update_data.get("payment_received", 0) > 0):
+    # Clear table immediately for any payment processing
+    # This ensures tables are freed when customers finish dining
+    if existing_order.get("table_id") and existing_order.get("table_id") != "counter":
         try:
             # Free up the table
             await db.tables.update_one(
                 {"id": existing_order.get("table_id"), "organization_id": user_org_id},
                 {"$set": {"status": "available", "current_order_id": None}}
             )
-            print(f"🍽️ Table freed for completed payment: {existing_order.get('table_id')}")
+            if update_data.get("balance_amount", 0) <= 0:
+                print(f"🍽️ Table freed for completed payment: {existing_order.get('table_id')}")
+            else:
+                print(f"🍽️ Table freed for partial/unpaid bill: {existing_order.get('table_id')} (balance: ₹{update_data.get('balance_amount', 0)})")
         except Exception as e:
             print(f"⚠️ Table clearing error: {e}")
     

@@ -914,7 +914,7 @@ const SuperAdminPage = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
-              <div>
+              <div></div>
                 <Label className="text-white">Username</Label>
                 <Input
                   type="text"
@@ -925,7 +925,7 @@ const SuperAdminPage = () => {
                   required
                 />
               </div>
-              <div>
+              <div></div>
                 <Label className="text-white">Password</Label>
                 <Input
                   type="password"
@@ -951,15 +951,15 @@ const SuperAdminPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50"></div>
       {/* Top Promotional Banner - Fixed at top */}
       <PromotionalBanner position="top" />
       
       <div className="p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto"></div>
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
-          <div>
+          <div></div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
               <Shield className="w-8 h-8 text-purple-600" />
               {userType === 'super-admin' ? 'Ops Controls' : 'Team Panel'}
@@ -968,17 +968,17 @@ const SuperAdminPage = () => {
               {userType === 'super-admin' ? (
                 'Site Owner Dashboard'
               ) : (
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2"></span>
                   <span className={`px-2 py-0.5 rounded text-xs ${
                     teamUser?.role === 'sales' ? 'bg-blue-100 text-blue-800' :
                     teamUser?.role === 'support' ? 'bg-green-100 text-green-800' :
                     'bg-purple-100 text-purple-800'
-                  }`}>
+                  }`}></span>
                     {teamUser?.role?.toUpperCase()}
                   </span>
                   {teamUser?.full_name || teamUser?.username}
                   {teamUser?.permissions?.length > 0 && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500"></span>
                       ({teamUser.permissions.join(', ')})
                     </span>
                   )}
@@ -1004,7 +1004,7 @@ const SuperAdminPage = () => {
         <PromotionalBanner position="inline" />
 
         {/* Tabs - Show based on permissions */}
-        <div className="mb-6 flex gap-2 border-b overflow-x-auto">
+        <div className="mb-6 flex gap-2 border-b overflow-x-auto"></div>
           {getAvailableTabs().map(tab => (
             <button
               key={tab}
@@ -1021,14 +1021,14 @@ const SuperAdminPage = () => {
         </div>
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && hasPermission('analytics') && (
-          <div className="space-y-6">
+          <div className="space-y-6"></div>
             {/* Enhanced Dashboard Header */}
             <div className="flex items-center justify-between">
-              <div>
+              <div></div>
                 <h2 className="text-2xl font-bold text-gray-900">System Overview</h2>
                 <p className="text-gray-600">Real-time monitoring and analytics</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3"></div>
                 {/* Auto-refresh toggle */}
                 <div className="flex items-center gap-2">
                   <button
@@ -1040,7 +1040,7 @@ const SuperAdminPage = () => {
                   >
                     {autoRefresh ? <PlayCircle className="w-4 h-4" /> : <PauseCircle className="w-4 h-4" />}
                   </button>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500"></span>
                     {autoRefresh ? `${refreshInterval/1000}s` : 'Manual'}
                   </span>
                 </div>
@@ -1058,7 +1058,7 @@ const SuperAdminPage = () => {
                   </Button>
                   
                   {showQuickActions && (
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-50">
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-50"></div>
                       {quickActions.map(action => (
                         <button
                           key={action.id}
@@ -1068,7 +1068,7 @@ const SuperAdminPage = () => {
                           }}
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
                         >
-                          <div className={`w-8 h-8 rounded-lg ${action.color} flex items-center justify-center`}>
+                          <div className={`w-8 h-8 rounded-lg ${action.color} flex items-center justify-center`}></div>
                             <action.icon className="w-4 h-4 text-white" />
                           </div>
                           <span className="text-sm font-medium">{action.label}</span>
@@ -1098,10 +1098,10 @@ const SuperAdminPage = () => {
             {dashboard ? (
               <>
                 {/* Enhanced Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
                   {/* Total Users Card */}
                   <Card className="relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-blue-600/20 rounded-bl-full"></div>
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-blue-600/20 rounded-bl-full">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
                       <div className="p-2 bg-blue-100 rounded-lg">
@@ -1111,14 +1111,14 @@ const SuperAdminPage = () => {
                     <CardContent>
                       <div className="text-3xl font-bold text-gray-900">{dashboard.overview.total_users}</div>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-sm text-green-600 flex items-center gap-1">
+                        <span className="text-sm text-green-600 flex items-center gap-1"></span>
                           <ArrowUp className="w-3 h-3" />
                           {dashboard.overview.active_subscriptions}
                         </span>
                         <span className="text-xs text-gray-500">active subscriptions</span>
                       </div>
                       {realTimeStats?.user_growth && (
-                        <div className="mt-2 text-xs text-gray-500">
+                        <div className="mt-2 text-xs text-gray-500"></div>
                           +{realTimeStats.user_growth.today} today
                         </div>
                       )}
@@ -1127,7 +1127,7 @@ const SuperAdminPage = () => {
 
                   {/* Revenue Card */}
                   <Card className="relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-green-500/10 to-green-600/20 rounded-bl-full"></div>
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-green-500/10 to-green-600/20 rounded-bl-full">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-gray-600">Revenue (30d)</CardTitle>
                       <div className="p-2 bg-green-100 rounded-lg">
@@ -1135,11 +1135,11 @@ const SuperAdminPage = () => {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold text-gray-900">
+                      <div className="text-3xl font-bold text-gray-900"></div>
                         ₹{(dashboard.overview.total_revenue || 0).toLocaleString()}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-sm text-green-600 flex items-center gap-1">
+                        <span className="text-sm text-green-600 flex items-center gap-1"></span>
                           <TrendingUp className="w-3 h-3" />
                           12.5%
                         </span>
@@ -1150,7 +1150,7 @@ const SuperAdminPage = () => {
 
                   {/* Support Tickets Card */}
                   <Card className="relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-orange-500/10 to-orange-600/20 rounded-bl-full"></div>
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-orange-500/10 to-orange-600/20 rounded-bl-full">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-gray-600">Support Tickets</CardTitle>
                       <div className="p-2 bg-orange-100 rounded-lg">
@@ -1162,7 +1162,7 @@ const SuperAdminPage = () => {
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-sm text-orange-600">{dashboard.overview.pending_tickets} pending</span>
                       </div>
-                      <div className="mt-2 text-xs text-gray-500">
+                      <div className="mt-2 text-xs text-gray-500"></div>
                         Avg response: 2.3h
                       </div>
                     </CardContent>
@@ -1170,7 +1170,7 @@ const SuperAdminPage = () => {
 
                   {/* System Health Card */}
                   <Card className="relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-purple-600/20 rounded-bl-full"></div>
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-purple-600/20 rounded-bl-full">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-gray-600">System Health</CardTitle>
                       <div className="p-2 bg-purple-100 rounded-lg">
@@ -1179,7 +1179,7 @@ const SuperAdminPage = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse">
                         <span className="text-lg font-bold text-gray-900">Healthy</span>
                       </div>
                       <div className="mt-2 space-y-1">
@@ -1201,7 +1201,7 @@ const SuperAdminPage = () => {
                 </div>
 
                 {/* Charts and Analytics Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
                   {/* User Growth Chart */}
                   <Card>
                     <CardHeader>
@@ -1211,14 +1211,14 @@ const SuperAdminPage = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="h-48 flex items-end justify-between gap-2">
+                      <div className="h-48 flex items-end justify-between gap-2"></div>
                         {[12, 19, 15, 27, 23, 31, 28].map((value, index) => (
                           <div key={index} className="flex flex-col items-center gap-2">
                             <div 
                               className="w-8 bg-gradient-to-t from-blue-500 to-blue-400 rounded-t"
                               style={{ height: `${(value / 31) * 100}%` }}
                             ></div>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500"></span>
                               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index]}
                             </span>
                           </div>
@@ -1243,7 +1243,7 @@ const SuperAdminPage = () => {
                       </Button>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-3 max-h-48 overflow-y-auto">
+                      <div className="space-y-3 max-h-48 overflow-y-auto"></div>
                         {recentActivities.length > 0 ? recentActivities.map((activity, index) => (
                           <div key={index} className="flex items-start gap-3">
                             <div className={`w-2 h-2 rounded-full mt-2 ${
@@ -1280,25 +1280,25 @@ const SuperAdminPage = () => {
                     <CardContent>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">
+                          <div className="text-2xl font-bold text-gray-900"></div>
                             {performanceMetrics.avg_response_time || '120'}ms
                           </div>
                           <div className="text-sm text-gray-500">Avg Response Time</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">
+                          <div className="text-2xl font-bold text-gray-900"></div>
                             {performanceMetrics.requests_per_minute || '45'}
                           </div>
                           <div className="text-sm text-gray-500">Requests/min</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">
+                          <div className="text-2xl font-bold text-gray-900"></div>
                             {performanceMetrics.error_rate || '0.1'}%
                           </div>
                           <div className="text-sm text-gray-500">Error Rate</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">
+                          <div className="text-2xl font-bold text-gray-900"></div>
                             {performanceMetrics.active_connections || '234'}
                           </div>
                           <div className="text-sm text-gray-500">Active Connections</div>
@@ -1321,12 +1321,12 @@ const SuperAdminPage = () => {
 
         {/* Users Tab */}
         {activeTab === 'users' && hasPermission('users') && (
-          <div className="space-y-6">
+          <div className="space-y-6"></div>
             {/* Enhanced Users Header with Search and Filters */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div></div>
                     <CardTitle className="flex items-center gap-2">
                       <Users className="w-5 h-5" />
                       User Management
@@ -1339,7 +1339,7 @@ const SuperAdminPage = () => {
                   {/* Bulk Actions */}
                   {selectedUsers.length > 0 && (
                     <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-gray-600"></span>
                         {selectedUsers.length} selected
                       </span>
                       <Button
@@ -1358,7 +1358,7 @@ const SuperAdminPage = () => {
               
               <CardContent>
                 {/* Search and Filter Bar */}
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="flex flex-col md:flex-row gap-4 mb-6"></div>
                   {/* Search */}
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -1435,7 +1435,7 @@ const SuperAdminPage = () => {
                   <div className="bg-gray-50 p-4 rounded-lg mb-6 space-y-4">
                     <h4 className="font-medium text-gray-900">Advanced Filters</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
+                      <div></div>
                         <Label className="text-sm">Date Range</Label>
                         <div className="flex gap-2 mt-1">
                           <Input
@@ -1453,7 +1453,7 @@ const SuperAdminPage = () => {
                         </div>
                       </div>
                       
-                      <div>
+                      <div></div>
                         <Label className="text-sm">Export Format</Label>
                         <select
                           value={exportFormat}
@@ -1535,18 +1535,18 @@ const SuperAdminPage = () => {
                           
                           <td className="p-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold"></div>
                                 {user.username.charAt(0).toUpperCase()}
                               </div>
-                              <div>
+                              <div></div>
                                 <div className="font-medium text-gray-900">{user.username}</div>
                                 <div className="text-sm text-gray-500">{user.email}</div>
                                 <div className="flex items-center gap-2 mt-1">
-                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs"></span>
                                     {user.role}
                                   </span>
                                   {user.business_settings?.restaurant_name && (
-                                    <span className="text-xs text-gray-500">
+                                    <span className="text-xs text-gray-500"></span>
                                       {user.business_settings.restaurant_name}
                                     </span>
                                   )}
@@ -1556,21 +1556,21 @@ const SuperAdminPage = () => {
                           </td>
                           
                           <td className="p-3">
-                            <div className="space-y-1">
+                            <div className="space-y-1"></div>
                               {user.subscription_active ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium"></span>
                                   <CheckCircle className="w-3 h-3" />
                                   Active
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium"></span>
                                   <Clock className="w-3 h-3" />
                                   Trial
                                 </span>
                               )}
                               
                               {user.subscription_expires_at && (
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-gray-500"></div>
                                   Expires: {new Date(user.subscription_expires_at).toLocaleDateString()}
                                 </div>
                               )}
@@ -1579,14 +1579,14 @@ const SuperAdminPage = () => {
                           
                           <td className="p-3">
                             <div className="space-y-1">
-                              <div className="text-sm font-medium">
+                              <div className="text-sm font-medium"></div>
                                 ₹{(user.subscription_amount || 0).toLocaleString()}
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-gray-500"></div>
                                 {user.subscription_months || 12} months
                               </div>
                               {user.trial_extension_days > 0 && (
-                                <div className="text-xs text-green-600">
+                                <div className="text-xs text-green-600"></div>
                                   +{user.trial_extension_days} trial days
                                 </div>
                               )}
@@ -1595,17 +1595,17 @@ const SuperAdminPage = () => {
                           
                           <td className="p-3">
                             <div className="space-y-1">
-                              <div className="text-sm font-medium">
+                              <div className="text-sm font-medium"></div>
                                 {user.bill_count || 0} bills
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-gray-500"></div>
                                 Last seen: {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
                               </div>
                             </div>
                           </td>
                           
                           <td className="p-3">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-1"></div>
                               {/* Quick Actions */}
                               {hasPermission('view_details') && (
                                 <Button
@@ -1671,7 +1671,7 @@ const SuperAdminPage = () => {
                                 
                                 {/* Dropdown Menu */}
                                 <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                                  <div className="py-1">
+                                  <div className="py-1"></div>
                                     {hasPermission('export_data') && (
                                       <button
                                         onClick={() => exportUserData(user.id, user.username)}
@@ -1756,25 +1756,25 @@ const SuperAdminPage = () => {
               <CardTitle>Support Tickets</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-4"></div>
                 {tickets.map(ticket => (
                   <div key={ticket.id} className="border rounded-lg p-4 bg-white shadow-sm">
                     <div className="flex items-start justify-between mb-3">
-                      <div>
+                      <div></div>
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-lg">{ticket.subject}</h3>
                           <span className={`px-2 py-0.5 rounded text-xs ${
                             ticket.request_type === 'demo' ? 'bg-purple-100 text-purple-800' :
                             ticket.request_type === 'inquiry' ? 'bg-blue-100 text-blue-800' :
                             'bg-gray-100 text-gray-800'
-                          }`}>
+                          }`}></span>
                             {ticket.request_type || 'support'}
                           </span>
                           <span className={`px-2 py-0.5 rounded text-xs ${
                             ticket.priority === 'high' ? 'bg-red-100 text-red-800' :
                             ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-green-100 text-green-800'
-                          }`}>
+                          }`}></span>
                             {ticket.priority} priority
                           </span>
                         </div>
@@ -1799,17 +1799,17 @@ const SuperAdminPage = () => {
 
                     {/* Contact Details */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 p-3 bg-gray-50 rounded">
-                      <div>
+                      <div></div>
                         <span className="text-xs text-gray-500 block">Name</span>
                         <span className="font-medium">{ticket.name}</span>
                       </div>
-                      <div>
+                      <div></div>
                         <span className="text-xs text-gray-500 block">Email</span>
                         <a href={`mailto:${ticket.email}`} className="text-blue-600 hover:underline">
                           {ticket.email}
                         </a>
                       </div>
-                      <div>
+                      <div></div>
                         <span className="text-xs text-gray-500 block">Phone</span>
                         {ticket.phone ? (
                           <a href={`tel:${ticket.phone}`} className="text-blue-600 hover:underline">
@@ -1839,7 +1839,7 @@ const SuperAdminPage = () => {
                   </div>
                 ))}
                 {tickets.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-gray-500"></div>
                     No support tickets yet.
                   </div>
                 )}
@@ -1858,7 +1858,7 @@ const SuperAdminPage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-4"></div>
                   {/* User Info */}
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">User</p>
@@ -1867,7 +1867,7 @@ const SuperAdminPage = () => {
                   </div>
 
                   {/* Payment ID - Required */}
-                  <div>
+                  <div></div>
                     <Label className="flex items-center gap-2">
                       <FileText className="w-4 h-4" />
                       Payment ID *
@@ -1892,7 +1892,7 @@ const SuperAdminPage = () => {
                   </div>
 
                   {/* Payment Method */}
-                  <div>
+                  <div></div>
                     <Label>Payment Method</Label>
                     <select
                       value={paymentMethod}
@@ -1909,7 +1909,7 @@ const SuperAdminPage = () => {
 
                   {/* Duration & Amount */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
+                    <div></div>
                       <Label className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
                         Duration
@@ -1926,7 +1926,7 @@ const SuperAdminPage = () => {
                         <option value={24}>24 Months</option>
                       </select>
                     </div>
-                    <div>
+                    <div></div>
                       <Label>Amount (₹)</Label>
                       <Input
                         type="number"
@@ -1991,7 +1991,7 @@ const SuperAdminPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div>
+                  <div></div>
                     <Label>Select Action</Label>
                     <select
                       value={bulkAction}
@@ -2050,7 +2050,7 @@ const SuperAdminPage = () => {
                 </Button>
               </CardHeader>
               <CardContent className="overflow-y-auto">
-                <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm space-y-1 max-h-96 overflow-y-auto">
+                <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm space-y-1 max-h-96 overflow-y-auto"></div>
                   {systemLogs.length > 0 ? systemLogs.map((log, index) => (
                     <div key={index} className="flex gap-2">
                       <span className="text-gray-500">[{log.timestamp}]</span>
@@ -2059,13 +2059,13 @@ const SuperAdminPage = () => {
                         log.level === 'WARN' ? 'text-yellow-400' :
                         log.level === 'INFO' ? 'text-blue-400' :
                         'text-green-400'
-                      }`}>
+                      }`}></span>
                         {log.level}
                       </span>
                       <span>{log.message}</span>
                     </div>
                   )) : (
-                    <div className="text-center text-gray-500 py-8">
+                    <div className="text-center text-gray-500 py-8"></div>
                       No logs available
                     </div>
                   )}
@@ -2095,35 +2095,35 @@ const SuperAdminPage = () => {
               <CardContent className="overflow-y-auto">
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div></div>
                       <Label className="text-sm text-gray-500">Restaurant Name</Label>
                       <p className="font-medium">{businessDetails.restaurant_name || 'Not set'}</p>
                     </div>
-                    <div>
+                    <div></div>
                       <Label className="text-sm text-gray-500">Owner Name</Label>
                       <p className="font-medium">{businessDetails.owner_name || 'Not set'}</p>
                     </div>
-                    <div>
+                    <div></div>
                       <Label className="text-sm text-gray-500">Phone</Label>
                       <p className="font-medium">{businessDetails.phone || 'Not set'}</p>
                     </div>
-                    <div>
+                    <div></div>
                       <Label className="text-sm text-gray-500">Email</Label>
                       <p className="font-medium">{businessDetails.email || 'Not set'}</p>
                     </div>
                   </div>
                   
-                  <div>
+                  <div></div>
                     <Label className="text-sm text-gray-500">Address</Label>
                     <p className="font-medium">{businessDetails.address || 'Not set'}</p>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div></div>
                       <Label className="text-sm text-gray-500">GST Number</Label>
                       <p className="font-medium">{businessDetails.gst_number || 'Not set'}</p>
                     </div>
-                    <div>
+                    <div></div>
                       <Label className="text-sm text-gray-500">FSSAI Number</Label>
                       <p className="font-medium">{businessDetails.fssai_number || 'Not set'}</p>
                     </div>
@@ -2133,20 +2133,20 @@ const SuperAdminPage = () => {
                     <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                       <h4 className="font-medium mb-3">Usage Statistics</h4>
                       <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <div className="text-2xl font-bold text-blue-600">
+                        <div></div>
+                          <div className="text-2xl font-bold text-blue-600"></div>
                             {businessDetails.stats.total_bills || 0}
                           </div>
                           <div className="text-sm text-gray-500">Total Bills</div>
                         </div>
-                        <div>
-                          <div className="text-2xl font-bold text-green-600">
+                        <div></div>
+                          <div className="text-2xl font-bold text-green-600"></div>
                             ₹{(businessDetails.stats.total_revenue || 0).toLocaleString()}
                           </div>
                           <div className="text-sm text-gray-500">Revenue</div>
                         </div>
-                        <div>
-                          <div className="text-2xl font-bold text-purple-600">
+                        <div></div>
+                          <div className="text-2xl font-bold text-purple-600"></div>
                             {businessDetails.stats.menu_items || 0}
                           </div>
                           <div className="text-sm text-gray-500">Menu Items</div>
