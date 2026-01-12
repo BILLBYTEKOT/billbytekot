@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API } from '../App';
 import Layout from '../components/Layout';
@@ -46,15 +46,29 @@ const InventoryPage = ({ user }) => {
   const fetchInventory = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setError('Please login to access inventory');
+        toast.error('Please login to access inventory');
+        return;
+      }
+      
       const response = await axios.get(`${API}/inventory`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       setInventory(response.data || []);
       setError(null);
     } catch (error) {
       console.error('Error fetching inventory:', error);
-      setError('Failed to load inventory');
-      toast.error('Failed to load inventory');
+      if (error.response?.status === 401) {
+        setError('Session expired. Please login again.');
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('token');
+      } else {
+        setError('Failed to load inventory');
+        toast.error('Failed to load inventory');
+      }
     } finally {
       setLoading(false);
     }
@@ -69,6 +83,13 @@ const InventoryPage = ({ user }) => {
     }
 
     try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        toast.error('Please login to add/edit items');
+        return;
+      }
+      
       const url = editingItem 
         ? `${API}/inventory/${editingItem.id}`
         : `${API}/inventory`;
@@ -79,7 +100,7 @@ const InventoryPage = ({ user }) => {
         method,
         url,
         data: formData,
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (response.data) {
@@ -90,7 +111,12 @@ const InventoryPage = ({ user }) => {
       }
     } catch (error) {
       console.error('Error saving item:', error);
-      toast.error('Failed to save item');
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('token');
+      } else {
+        toast.error('Failed to save item');
+      }
     }
   };
 
@@ -114,14 +140,26 @@ const InventoryPage = ({ user }) => {
     if (!window.confirm('Are you sure you want to delete this item?')) return;
 
     try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        toast.error('Please login to delete items');
+        return;
+      }
+      
       await axios.delete(`${API}/inventory/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Item deleted successfully');
       fetchInventory();
     } catch (error) {
       console.error('Error deleting item:', error);
-      toast.error('Failed to delete item');
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('token');
+      } else {
+        toast.error('Failed to delete item');
+      }
     }
   };
 
@@ -219,10 +257,17 @@ const InventoryPage = ({ user }) => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="vegetables">Vegetables</SelectItem>
-                            <SelectItem value="meat">Meat</SelectItem>
-                            <SelectItem value="dairy">Dairy</SelectItem>
-                            <SelectItem value="spices">Spices</SelectItem>
+                            <SelectItem value="meat">Meat & Poultry</SelectItem>
+                            <SelectItem value="seafood">Seafood</SelectItem>
+                            <SelectItem value="dairy">Dairy Products</SelectItem>
+                            <SelectItem value="grains">Grains & Cereals</SelectItem>
+                            <SelectItem value="spices">Spices & Herbs</SelectItem>
                             <SelectItem value="beverages">Beverages</SelectItem>
+                            <SelectItem value="oils">Oils & Fats</SelectItem>
+                            <SelectItem value="frozen">Frozen Items</SelectItem>
+                            <SelectItem value="canned">Canned Goods</SelectItem>
+                            <SelectItem value="cleaning">Cleaning Supplies</SelectItem>
+                            <SelectItem value="packaging">Packaging Materials</SelectItem>
                             <SelectItem value="other">Other</SelectItem>
                           </SelectContent>
                         </Select>
@@ -244,14 +289,21 @@ const InventoryPage = ({ user }) => {
                           <Label htmlFor="unit">Unit</Label>
                           <Select value={formData.unit} onValueChange={(value) => setFormData({...formData, unit: value})}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Unit" />
+                              <SelectValue placeholder="Select unit" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="kg">Kg</SelectItem>
-                              <SelectItem value="grams">Grams</SelectItem>
-                              <SelectItem value="liters">Liters</SelectItem>
-                              <SelectItem value="pieces">Pieces</SelectItem>
+                              <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                              <SelectItem value="grams">Grams (g)</SelectItem>
+                              <SelectItem value="liters">Liters (L)</SelectItem>
+                              <SelectItem value="ml">Milliliters (ml)</SelectItem>
+                              <SelectItem value="pieces">Pieces (pcs)</SelectItem>
                               <SelectItem value="packets">Packets</SelectItem>
+                              <SelectItem value="boxes">Boxes</SelectItem>
+                              <SelectItem value="bottles">Bottles</SelectItem>
+                              <SelectItem value="cans">Cans</SelectItem>
+                              <SelectItem value="bags">Bags</SelectItem>
+                              <SelectItem value="dozen">Dozen</SelectItem>
+                              <SelectItem value="units">Units</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -354,7 +406,7 @@ const InventoryPage = ({ user }) => {
                 <div>
                   <p className="text-sm text-gray-600">Total Value</p>
                   <p className="text-2xl font-bold">
-                    Γé╣{inventory.reduce((sum, item) => sum + (item.quantity * (item.cost_price || 0)), 0).toFixed(2)}
+                    ₹{inventory.reduce((sum, item) => sum + (item.quantity * (item.cost_price || 0)), 0).toFixed(2)}
                   </p>
                 </div>
                 <Package className="w-8 h-8 text-green-600" />
@@ -434,7 +486,7 @@ const InventoryPage = ({ user }) => {
                         <div className="text-sm text-gray-600 mt-1">
                           <span>Quantity: {item.quantity} {item.unit}</span>
                           {item.cost_price && (
-                            <span className="ml-4">Cost: Γé╣{item.cost_price}</span>
+                            <span className="ml-4">Cost: ₹{item.cost_price}</span>
                           )}
                           {item.supplier && (
                             <span className="ml-4">Supplier: {item.supplier}</span>
