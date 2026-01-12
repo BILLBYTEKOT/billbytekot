@@ -49,7 +49,12 @@ const SuperAdminPage = ({ user }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await axios.post(`${API}/superadmin/login`, credentials);
+      // Store credentials for API calls
+      localStorage.setItem('superAdminUsername', credentials.username);
+      localStorage.setItem('superAdminPassword', credentials.password);
+      
+      // Test login with POST method
+      const response = await axios.post(`${API}/api/super-admin/login`, credentials);
       if (response.data.success) {
         setAuthenticated(true);
         localStorage.setItem('superAdminAuth', 'true');
@@ -68,13 +73,22 @@ const SuperAdminPage = ({ user }) => {
 
   const fetchAllData = async () => {
     try {
+      const username = localStorage.getItem('superAdminUsername');
+      const password = localStorage.getItem('superAdminPassword');
+      
+      if (!username || !password) {
+        toast.error('Authentication credentials missing');
+        handleLogout();
+        return;
+      }
+
       const [usersRes, subscriptionsRes, ticketsRes, leadsRes, analyticsRes, revenueRes] = await Promise.all([
-        axios.get(`${API}/superadmin/users`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-        axios.get(`${API}/superadmin/subscriptions`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-        axios.get(`${API}/superadmin/tickets`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-        axios.get(`${API}/superadmin/leads`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-        axios.get(`${API}/superadmin/analytics`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-        axios.get(`${API}/superadmin/revenue`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+        axios.get(`${API}/api/super-admin/users?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`),
+        axios.get(`${API}/api/super-admin/subscriptions?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`),
+        axios.get(`${API}/api/super-admin/tickets?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`),
+        axios.get(`${API}/api/super-admin/leads?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`),
+        axios.get(`${API}/api/super-admin/analytics?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`),
+        axios.get(`${API}/api/super-admin/revenue?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`)
       ]);
       
       setUsers(usersRes.data.users || []);
@@ -85,13 +99,20 @@ const SuperAdminPage = ({ user }) => {
       setRevenue(revenueRes.data || {});
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Failed to fetch dashboard data');
+      if (error.response?.status === 403) {
+        toast.error('Authentication failed - please login again');
+        handleLogout();
+      } else {
+        toast.error('Failed to fetch dashboard data');
+      }
     }
   };
 
   const handleLogout = () => {
     setAuthenticated(false);
     localStorage.removeItem('superAdminAuth');
+    localStorage.removeItem('superAdminUsername');
+    localStorage.removeItem('superAdminPassword');
     setCredentials({ username: '', password: '' });
     toast.success('Logged out successfully');
   };

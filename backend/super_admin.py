@@ -44,12 +44,15 @@ def verify_super_admin(username: str, password: str) -> bool:
 
 # ============ AUTHENTICATION ============
 
-@super_admin_router.get("/login")
-async def super_admin_login(
-    username: str = Query(...),
-    password: str = Query(...)
-):
-    """Super admin login verification"""
+@super_admin_router.post("/login")
+async def super_admin_login_post(credentials: dict):
+    """Super admin login verification - POST method"""
+    username = credentials.get("username")
+    password = credentials.get("password")
+    
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Username and password required")
+    
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
@@ -59,7 +62,318 @@ async def super_admin_login(
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
-# ============ BASIC STATS (FAST) ============
+@super_admin_router.get("/login")
+async def super_admin_login_get(
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Super admin login verification - GET method (legacy)"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    return {
+        "success": True,
+        "message": "Super admin authenticated",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+# ============ FRONTEND DATA ENDPOINTS ============
+
+@super_admin_router.get("/users")
+async def get_users_for_frontend(
+    username: str = Query(...),
+    password: str = Query(...),
+    page: int = Query(1),
+    limit: int = Query(50),
+    search: str = Query("")
+):
+    """Get users for frontend - compatible with SuperAdminPage"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
+    skip = (page - 1) * limit
+    limit = min(limit, 100)  # Cap at 100 for performance
+    
+    try:
+        print(f"📊 Fetching users for frontend (page={page}, limit={limit}, search='{search}')...")
+        
+        # Build search filter
+        search_filter = {}
+        if search.strip():
+            search_filter = {
+                "$or": [
+                    {"email": {"$regex": search, "$options": "i"}},
+                    {"username": {"$regex": search, "$options": "i"}}
+                ]
+            }
+        
+        # Get users with all needed fields
+        users = await db.users.find(
+            search_filter,
+            {
+                "_id": 0,
+                "password": 0,
+                "razorpay_key_secret": 0
+            }
+        ).skip(skip).limit(limit).to_list(limit)
+        
+        # Get total count
+        total = await db.users.count_documents(search_filter)
+        
+        result = {
+            "users": users,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "cached_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        print(f"✅ Users for frontend: {len(users)} users returned")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Users frontend error: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@super_admin_router.get("/subscriptions")
+async def get_subscriptions_for_frontend(
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Get subscriptions for frontend"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
+    
+    try:
+        print("📊 Fetching subscriptions for frontend...")
+        
+        # Get users with subscription info
+        subscriptions = await db.users.find(
+            {"subscription_active": True},
+            {
+                "_id": 0,
+                "id": 1,
+                "email": 1,
+                "username": 1,
+                "subscription_active": 1,
+                "subscription_expires_at": 1,
+                "subscription_amount": 1,
+                "subscription_months": 1,
+                "created_at": 1
+            }
+        ).limit(100).to_list(100)
+        
+        # Transform to subscription format
+        subscription_list = []
+        for user in subscriptions:
+            subscription_list.append({
+                "id": user.get("id"),
+                "customer_name": user.get("username"),
+                "customer_email": user.get("email"),
+                "plan_name": "Premium",
+                "status": "active" if user.get("subscription_active") else "inactive",
+                "amount": user.get("subscription_amount", 0),
+                "billing_cycle": "monthly",
+                "next_billing_date": user.get("subscription_expires_at"),
+                "expires_soon": False  # TODO: Calculate based on expiry date
+            })
+        
+        result = {
+            "subscriptions": subscription_list,
+            "cached_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        print(f"✅ Subscriptions for frontend: {len(subscription_list)} subscriptions returned")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Subscriptions frontend error: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@super_admin_router.get("/tickets")
+async def get_tickets_for_frontend(
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Get support tickets for frontend"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Mock data for now - you can implement actual ticket system later
+    tickets = [
+        {
+            "id": "1",
+            "subject": "Payment Issue",
+            "description": "Unable to process payment for subscription",
+            "customer_email": "user@example.com",
+            "priority": "high",
+            "status": "open",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": "2", 
+            "subject": "Feature Request",
+            "description": "Request for new reporting features",
+            "customer_email": "restaurant@example.com",
+            "priority": "medium",
+            "status": "in_progress",
+            "created_at": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        }
+    ]
+    
+    return {
+        "tickets": tickets,
+        "cached_at": datetime.now(timezone.utc).isoformat()
+    }
+
+@super_admin_router.get("/leads")
+async def get_leads_for_frontend(
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Get leads for frontend"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Mock data for now - you can implement actual lead system later
+    leads = [
+        {
+            "id": "1",
+            "name": "John Restaurant",
+            "email": "john@restaurant.com",
+            "phone": "+91-9876543210",
+            "source": "Website",
+            "status": "new",
+            "score": 75,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": "2",
+            "name": "Pizza Corner",
+            "email": "info@pizzacorner.com", 
+            "phone": "+91-9876543211",
+            "source": "Referral",
+            "status": "qualified",
+            "score": 85,
+            "created_at": (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+        }
+    ]
+    
+    return {
+        "leads": leads,
+        "cached_at": datetime.now(timezone.utc).isoformat()
+    }
+
+@super_admin_router.get("/analytics")
+async def get_analytics_for_frontend(
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Get analytics for frontend"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
+    
+    try:
+        print("📊 Fetching analytics for frontend...")
+        
+        # Get basic counts
+        total_users = await db.users.count_documents({})
+        active_subscriptions = await db.users.count_documents({"subscription_active": True})
+        premium_users = await db.users.count_documents({"subscription_active": True})
+        free_users = total_users - premium_users
+        trial_users = await db.users.count_documents({"subscription_active": False, "created_at": {"$gte": datetime.now(timezone.utc) - timedelta(days=7)}})
+        
+        # Get today's new users
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        new_users_today = await db.users.count_documents({"created_at": {"$gte": today}})
+        
+        # Calculate growth (mock for now)
+        subscription_growth = 15  # Mock percentage
+        
+        analytics = {
+            "totalUsers": total_users,
+            "activeSubscriptions": active_subscriptions,
+            "premiumUsers": premium_users,
+            "freeUsers": free_users,
+            "trialUsers": trial_users,
+            "newUsersToday": new_users_today,
+            "subscriptionGrowth": subscription_growth,
+            "openTickets": 5,  # Mock
+            "avgResponseTime": 2.5,  # Mock
+            "conversionRate": 15,  # Mock
+            "clv": 5000,  # Mock Customer Lifetime Value
+            "churnRate": 5,  # Mock
+            "cached_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        print(f"✅ Analytics: {total_users} users, {active_subscriptions} active subscriptions")
+        return analytics
+        
+    except Exception as e:
+        print(f"❌ Analytics error: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@super_admin_router.get("/revenue")
+async def get_revenue_for_frontend(
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Get revenue data for frontend"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    db = get_db()
+    
+    try:
+        print("📊 Fetching revenue for frontend...")
+        
+        # Calculate monthly revenue (mock calculation)
+        # In real implementation, you'd sum subscription amounts
+        active_subscriptions = await db.users.count_documents({"subscription_active": True})
+        avg_subscription_amount = 500  # Mock average subscription amount
+        monthly_revenue = active_subscriptions * avg_subscription_amount
+        
+        revenue = {
+            "monthly": monthly_revenue,
+            "total": monthly_revenue * 12,  # Mock total
+            "mrr": monthly_revenue,  # Monthly Recurring Revenue
+            "growth": 25,  # Mock growth percentage
+            "cached_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        print(f"✅ Revenue: ₹{monthly_revenue} monthly from {active_subscriptions} subscriptions")
+        return revenue
+        
+    except Exception as e:
+        print(f"❌ Revenue error: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@super_admin_router.get("/stats")
+async def get_stats_for_frontend(
+    username: str = Query(...),
+    password: str = Query(...)
+):
+    """Get combined stats for frontend - legacy endpoint"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # This endpoint combines analytics and revenue for backward compatibility
+    analytics_data = await get_analytics_for_frontend(username=username, password=password)
+    revenue_data = await get_revenue_for_frontend(username=username, password=password)
+    
+    # Combine the data
+    combined_stats = {
+        **analytics_data,
+        "totalRevenue": revenue_data["total"],
+        "monthlyGrowth": revenue_data["growth"]
+    }
+    
+    return combined_stats
 
 @super_admin_router.get("/stats/basic")
 async def get_basic_stats(
