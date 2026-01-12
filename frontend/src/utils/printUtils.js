@@ -400,11 +400,18 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
   
   html += '<div class="double-line"></div>';
   
-  // Add QR code for unpaid/overdue bills
+  // Add QR code for unpaid/overdue bills OR if explicitly requested
   const isUnpaid = is_credit || balance_amount > 0;
-  if (settings.qr_code_enabled && isUnpaid) {
+  const showQRForBalance = order.show_qr_for_balance || isUnpaid;
+  
+  if (settings.qr_code_enabled && (isUnpaid || showQRForBalance)) {
     html += '<div class="separator"></div>';
-    html += '<div class="center bold small mb-1">SCAN TO PAY BALANCE</div>';
+    
+    if (balance_amount > 0) {
+      html += '<div class="center bold small mb-1">SCAN TO PAY BALANCE</div>';
+    } else if (showQRForBalance) {
+      html += '<div class="center bold small mb-1">PAYMENT QR CODE</div>';
+    }
     
     // Generate payment URL for QR code
     const paymentUrl = generatePaymentUrl(order, b);
@@ -415,9 +422,14 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
         <img src="${qrCodeDataUrl}" alt="Payment QR Code" style="width:120px;height:120px;display:block;image-rendering:pixelated;image-rendering:-moz-crisp-edges;image-rendering:crisp-edges;" onerror="this.parentElement.innerHTML='<div style=&quot;width:120px;height:120px;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;&quot;>QR CODE<br/>FOR<br/>PAYMENT</div>'"/>
       </div>
     </div>`;
-    html += `<div class="center xsmall bold">Balance Due: ₹${balance_amount.toFixed(2)}</div>`;
-    // Remove the "Or call" line - don't show phone number
-    // Only show UPI ID for payment
+    
+    if (balance_amount > 0) {
+      html += `<div class="center xsmall bold">Balance Due: ₹${balance_amount.toFixed(2)}</div>`;
+    } else {
+      html += `<div class="center xsmall bold">Total Amount: ₹${order.total?.toFixed(2) || '0.00'}</div>`;
+    }
+    
+    // Show UPI ID for payment
     const upiId = b.upi_id || (b.phone ? `${b.phone.replace(/\D/g, '')}@paytm` : 'merchant@upi');
     html += `<div class="center xsmall">UPI ID: ${upiId}</div>`;
   }
@@ -531,12 +543,19 @@ export const generatePlainTextReceipt = (order, businessOverride = null) => {
   }
   r += sep + '\n';
   
-  // Add QR code info for unpaid/overdue bills
+  // Add QR code info for unpaid/overdue bills OR if explicitly requested
   const settings = getPrintSettings();
   const isUnpaid = is_credit || balance_amount > 0;
-  if (settings.qr_code_enabled && isUnpaid) {
-    r += '\n' + center('SCAN QR CODE TO PAY BALANCE') + '\n';
-    r += center(`Balance Due: ₹${balance_amount.toFixed(2)}`) + '\n';
+  const showQRForBalance = order.show_qr_for_balance || isUnpaid;
+  
+  if (settings.qr_code_enabled && (isUnpaid || showQRForBalance)) {
+    if (balance_amount > 0) {
+      r += '\n' + center('SCAN QR CODE TO PAY BALANCE') + '\n';
+      r += center(`Balance Due: ₹${balance_amount.toFixed(2)}`) + '\n';
+    } else if (showQRForBalance) {
+      r += '\n' + center('PAYMENT QR CODE') + '\n';
+      r += center(`Total Amount: ₹${order.total?.toFixed(2) || '0.00'}`) + '\n';
+    }
     r += sep + '\n';
     
     // Generate payment URL

@@ -91,6 +91,47 @@ const BillingPage = ({ user }) => {
     }
   };
 
+  // Function to get latest order data for printing
+  const getLatestOrderDataForPrint = async () => {
+    try {
+      const response = await axios.get(`${API}/orders/${orderId}`);
+      const latestOrder = response.data;
+      
+      const discountAmt = calculateDiscountAmount();
+      return {
+        ...latestOrder,
+        items: orderItems,
+        subtotal: calculateSubtotal(),
+        tax: calculateTax(),
+        total: calculateTotal(),
+        discount: discountAmt,
+        discount_amount: discountAmt,
+        tax_rate: getEffectiveTaxRate(),
+        // Ensure balance amount is current
+        balance_amount: latestOrder.balance_amount || 0,
+        // Show QR code if there's a balance OR if payment was recently processed
+        show_qr_for_balance: (latestOrder.balance_amount || 0) > 0 || paymentCompleted
+      };
+    } catch (error) {
+      console.error('Error fetching latest order data:', error);
+      // Fallback to current orderData
+      const discountAmt = calculateDiscountAmount();
+      return {
+        ...order,
+        items: orderItems,
+        subtotal: calculateSubtotal(),
+        tax: calculateTax(),
+        total: calculateTotal(),
+        discount: discountAmt,
+        discount_amount: discountAmt,
+        tax_rate: getEffectiveTaxRate(),
+        balance_amount: order.balance_amount || 0,
+        // Show QR code if there's a balance OR if payment was recently processed
+        show_qr_for_balance: (order.balance_amount || 0) > 0 || paymentCompleted
+      };
+    }
+  };
+
   const fetchMenuItems = async () => {
     try {
       console.log('Fetching menu items...');
@@ -460,10 +501,14 @@ const BillingPage = ({ user }) => {
   const downloadBillPDF = async () => {
     if (!order) return;
     try {
+      // Fetch latest order data to ensure accuracy
+      const latestOrderResponse = await axios.get(`${API}/orders/${orderId}`);
+      const latestOrder = latestOrderResponse.data;
+      
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       const restaurantName = businessSettings?.restaurant_name || 'Restaurant';
-      const invoiceNo = order.invoice_number || order.id.slice(0, 8).toUpperCase();
+      const invoiceNo = latestOrder.invoice_number || latestOrder.id.slice(0, 8).toUpperCase();
       const subtotal = calculateSubtotal();
       const tax = calculateTax();
       const discount = calculateDiscountAmount();
@@ -644,7 +689,22 @@ const BillingPage = ({ user }) => {
 
   const currency = getCurrencySymbol();
   const discountAmt = calculateDiscountAmount();
-  const orderData = { ...order, items: orderItems, subtotal: calculateSubtotal(), tax: calculateTax(), total: calculateTotal(), discount: discountAmt, discount_amount: discountAmt, tax_rate: getEffectiveTaxRate() };
+  
+  // Create orderData with current balance amount for accurate printing
+  const currentBalanceAmount = order.balance_amount || 0;
+  const orderData = { 
+    ...order, 
+    items: orderItems, 
+    subtotal: calculateSubtotal(), 
+    tax: calculateTax(), 
+    total: calculateTotal(), 
+    discount: discountAmt, 
+    discount_amount: discountAmt, 
+    tax_rate: getEffectiveTaxRate(),
+    balance_amount: currentBalanceAmount,
+    // Show QR code if there's a balance OR if payment was recently processed
+    show_qr_for_balance: currentBalanceAmount > 0 || paymentCompleted
+  };
 
   return (
     <Layout user={user}>
@@ -1040,7 +1100,10 @@ const BillingPage = ({ user }) => {
               </div>
             )}
             <div className="grid grid-cols-3 gap-2 mt-3">
-              <Button variant="outline" size="sm" onClick={() => printReceipt(orderData, businessSettings)} className="h-9"><Printer className="w-4 h-4 mr-1" />Print</Button>
+              <Button variant="outline" size="sm" onClick={async () => {
+                const latestOrderData = await getLatestOrderDataForPrint();
+                printReceipt(latestOrderData, businessSettings);
+              }} className="h-9"><Printer className="w-4 h-4 mr-1" />Print</Button>
               <Button variant="outline" size="sm" onClick={downloadBillPDF} className="h-9"><Download className="w-4 h-4 mr-1" />PDF</Button>
               <Button variant="outline" size="sm" onClick={() => setShowWhatsappModal(true)} className="h-9 border-green-500 text-green-600"><MessageCircle className="w-4 h-4 mr-1" />Share</Button>
             </div>
@@ -1305,7 +1368,10 @@ const BillingPage = ({ user }) => {
               </div>
             )}
             <div className="grid grid-cols-3 gap-4 mt-6">
-              <Button variant="outline" onClick={() => printReceipt(orderData, businessSettings)} className="h-14 text-lg"><Printer className="w-5 h-5 mr-2" />Print</Button>
+              <Button variant="outline" onClick={async () => {
+                const latestOrderData = await getLatestOrderDataForPrint();
+                printReceipt(latestOrderData, businessSettings);
+              }} className="h-14 text-lg"><Printer className="w-5 h-5 mr-2" />Print</Button>
               <Button variant="outline" onClick={downloadBillPDF} className="h-14 text-lg"><Download className="w-5 h-5 mr-2" />PDF</Button>
               <Button variant="outline" onClick={() => setShowWhatsappModal(true)} className="h-14 text-lg border-green-500 text-green-600 hover:bg-green-50"><MessageCircle className="w-5 h-5 mr-2" />Share</Button>
             </div>
