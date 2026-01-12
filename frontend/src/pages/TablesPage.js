@@ -27,15 +27,29 @@ const TablesPage = ({ user }) => {
   const fetchTables = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setError('Please login to access tables');
+        toast.error('Please login to access tables');
+        return;
+      }
+      
       const response = await axios.get(`${API}/tables`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       setTables(response.data || []);
       setError(null);
     } catch (error) {
       console.error('Error fetching tables:', error);
-      setError('Failed to load tables');
-      toast.error('Failed to load tables');
+      if (error.response?.status === 401) {
+        setError('Session expired. Please login again.');
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('token');
+      } else {
+        setError('Failed to load tables');
+        toast.error('Failed to load tables');
+      }
     } finally {
       setLoading(false);
     }
@@ -45,40 +59,62 @@ const TablesPage = ({ user }) => {
     if (!window.confirm('Are you sure you want to clear this table?')) return;
 
     try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        toast.error('Please login to clear tables');
+        return;
+      }
+      
       await axios.post(`${API}/tables/${tableId}/clear`, {}, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       toast.success('Table cleared successfully');
       fetchTables();
     } catch (error) {
       console.error('Error clearing table:', error);
-      toast.error('Failed to clear table');
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('token');
+      } else {
+        toast.error('Failed to clear table');
+      }
     }
   };
 
   const getTableStatus = (table) => {
-    if (!table.current_order) return 'available';
+    if (!table.current_order && !table.is_occupied) return 'available';
     
-    const order = table.current_order;
-    if (order.status === 'completed' && order.payment_status === 'paid') {
-      return 'completed';
-    } else if (order.payment_status === 'partial') {
-      return 'partial';
-    } else if (order.payment_status === 'unpaid') {
-      return 'unpaid';
-    } else {
+    // Check if table has an active order
+    if (table.current_order) {
+      const order = table.current_order;
+      if (order.status === 'completed' && order.payment_status === 'paid') {
+        return 'needs_clearing';
+      } else if (order.payment_status === 'partial') {
+        return 'partial_payment';
+      } else if (order.payment_status === 'unpaid' && order.status === 'completed') {
+        return 'unpaid';
+      } else {
+        return 'occupied';
+      }
+    }
+    
+    // Table is marked as occupied but no order
+    if (table.is_occupied) {
       return 'occupied';
     }
+    
+    return 'available';
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'available': return 'bg-green-100 text-green-800';
-      case 'occupied': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-gray-100 text-gray-800';
-      case 'partial': return 'bg-yellow-100 text-yellow-800';
-      case 'unpaid': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'available': return 'bg-green-100 text-green-800 border-green-200';
+      case 'occupied': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'needs_clearing': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'partial_payment': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'unpaid': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -86,8 +122,8 @@ const TablesPage = ({ user }) => {
     switch (status) {
       case 'available': return <CheckCircle className="w-4 h-4" />;
       case 'occupied': return <Users className="w-4 h-4" />;
-      case 'completed': return <CheckCircle className="w-4 h-4" />;
-      case 'partial': return <AlertTriangle className="w-4 h-4" />;
+      case 'needs_clearing': return <AlertTriangle className="w-4 h-4" />;
+      case 'partial_payment': return <Clock className="w-4 h-4" />;
       case 'unpaid': return <XCircle className="w-4 h-4" />;
       default: return <Clock className="w-4 h-4" />;
     }
@@ -235,6 +271,18 @@ const TablesPage = ({ user }) => {
                           </p>
                         )}
                         
+                        {/* QR Code for Self-Order */}
+                        {status === 'available' && (
+                          <div className="mb-3">
+                            <div className="flex items-center gap-2 text-sm text-blue-600">
+                              <div className="w-12 h-12 bg-blue-100 rounded border flex items-center justify-center">
+                                <span className="text-xs font-mono">QR</span>
+                              </div>
+                              <span>Self-order enabled</span>
+                            </div>
+                          </div>
+                        )}
+                        
                         {order && (
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
@@ -282,6 +330,33 @@ const TablesPage = ({ user }) => {
                                 <Eye className="w-4 h-4" />
                               </Button>
                             )}
+                          </div>
+                        )}
+                        
+                        {/* QR Code Action for Available Tables */}
+                        {status === 'available' && (
+                          <div className="flex gap-2 mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => window.open(`/menu?table=${table.number}`, '_blank')}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View Menu
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Generate QR code URL for this table
+                                const qrUrl = `${window.location.origin}/menu?table=${table.number}`;
+                                navigator.clipboard.writeText(qrUrl);
+                                toast.success('QR URL copied to clipboard');
+                              }}
+                            >
+                              QR
+                            </Button>
                           </div>
                         )}
                       </CardContent>
