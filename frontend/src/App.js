@@ -32,6 +32,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import HelpPage from './pages/HelpPage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import OpsPanel from './pages/OpsPanel';
+import ReferEarnPage from './pages/ReferEarnPage';
 import RestaurantBillingSoftwarePage from './pages/RestaurantBillingSoftwarePage';
 import KOTSoftwarePage from './pages/KOTSoftwarePage';
 import POSSoftwarePage from './pages/POSSoftwarePage';
@@ -803,6 +804,14 @@ function App() {
             element={
               <PrivateRoute isAuthChecking={isAuthChecking}>
                 <StaffManagementPage user={user} />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/refer-earn"
+            element={
+              <PrivateRoute isAuthChecking={isAuthChecking}>
+                <ReferEarnPage user={user} />
               </PrivateRoute>
             }
           />

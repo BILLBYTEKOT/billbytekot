@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { 
   Crown, CheckCircle, AlertCircle, Sparkles, Zap, Shield, 
   Clock, Gift, Star, TrendingUp, Users, Printer, BarChart3,
-  Smartphone, Globe, HeadphonesIcon, Rocket, Timer
+  Smartphone, Globe, HeadphonesIcon, Rocket, Timer, Wallet
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,6 +19,9 @@ const SubscriptionPage = ({ user }) => {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [pricing, setPricing] = useState(null);
   const [saleOffer, setSaleOffer] = useState(null); // Sale offer from super admin
+  const [referralDiscount, setReferralDiscount] = useState(null); // Referral discount info
+  const [walletBalance, setWalletBalance] = useState(0); // User's wallet balance
+  const [applyWallet, setApplyWallet] = useState(false); // Whether to apply wallet balance
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -29,14 +32,20 @@ const SubscriptionPage = ({ user }) => {
   const loadPageData = async () => {
     setPageLoading(true);
     try {
-      const [statusRes, pricingRes, saleOfferRes] = await Promise.all([
+      const [statusRes, pricingRes, saleOfferRes, walletRes] = await Promise.all([
         axios.get(`${API}/subscription/status`).catch(() => ({ data: null })),
         axios.get(`${API}/pricing`).catch(() => ({ data: null })),
-        axios.get(`${API}/sale-offer`).catch(() => ({ data: null }))
+        axios.get(`${API}/sale-offer`).catch(() => ({ data: null })),
+        axios.get(`${API}/wallet/balance`).catch(() => ({ data: null }))
       ]);
       
       if (statusRes.data) {
         setSubscriptionStatus(statusRes.data);
+      }
+      
+      // Set wallet balance if available
+      if (walletRes.data?.success) {
+        setWalletBalance(walletRes.data.available_balance || 0);
       }
       
       if (pricingRes.data) {
@@ -139,10 +148,35 @@ const SubscriptionPage = ({ user }) => {
   const handleSubscribe = async () => {
     setLoading(true);
     try {
+      // Create order - backend will automatically apply referral discount if applicable
       const response = await axios.post(`${API}/subscription/create-order`, {});
       
-      const finalAmount = response.data.amount;
+      let finalAmount = response.data.amount;
       const campaignInfo = response.data.campaign_active ? ' (New Year Special!)' : '';
+      
+      // Store referral discount info for display
+      if (response.data.referral_discount_applied) {
+        setReferralDiscount(response.data.referral_discount_applied);
+      }
+      
+      // Apply wallet balance if user opted to use it
+      let walletApplied = null;
+      if (applyWallet && walletBalance > 0) {
+        try {
+          const walletResponse = await axios.post(`${API}/wallet/apply-to-subscription`, {
+            subscription_amount: finalAmount / 100, // Convert paise to rupees
+            apply_amount: Math.min(walletBalance, finalAmount / 100)
+          });
+          if (walletResponse.data.success) {
+            walletApplied = walletResponse.data;
+            finalAmount = Math.max(100, finalAmount - (walletResponse.data.amount_applied * 100)); // Convert back to paise
+            toast.success(`₹${walletResponse.data.amount_applied} applied from wallet!`);
+          }
+        } catch (walletError) {
+          console.error('Wallet apply error:', walletError);
+          // Continue with payment even if wallet apply fails
+        }
+      }
       
       // Razorpay options with mobile-specific settings
       const options = {
@@ -179,7 +213,9 @@ const SubscriptionPage = ({ user }) => {
         },
         notes: {
           user_id: user?.id || '',
-          campaign: response.data.campaign_name || 'NEWYEAR2026'
+          campaign: response.data.campaign_name || 'NEWYEAR2026',
+          referral_discount: response.data.referral_discount_applied ? 'yes' : 'no',
+          wallet_applied: walletApplied ? walletApplied.amount_applied : 0
         },
         theme: { 
           color: '#7c3aed',
@@ -474,6 +510,44 @@ const SubscriptionPage = ({ user }) => {
                   </li>
                 ))}
               </ul>
+              
+              {/* Referral Discount Banner - Requirements: 3.6 */}
+              {referralDiscount && !subscriptionStatus?.subscription_active && (
+                <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2">
+                    <Gift className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="text-sm font-bold text-green-700">🎁 Referral Discount Applied!</p>
+                      <p className="text-xs text-green-600">You'll save {referralDiscount.discount_display} on this purchase</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Wallet Balance Option - Requirements: 5.2 */}
+              {walletBalance > 0 && !subscriptionStatus?.subscription_active && (
+                <div className="p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-5 h-5 text-violet-600" />
+                      <div>
+                        <p className="text-sm font-bold text-violet-700">Wallet Balance: ₹{walletBalance}</p>
+                        <p className="text-xs text-violet-600">Apply to reduce payment amount</p>
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={applyWallet}
+                        onChange={(e) => setApplyWallet(e.target.checked)}
+                        className="w-4 h-4 text-violet-600 rounded border-violet-300 focus:ring-violet-500"
+                      />
+                      <span className="text-sm font-medium text-violet-700">Apply</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+              
               {subscriptionStatus?.subscription_active ? (
                 <div className="text-center space-y-2 pt-4 border-t">
                   <p className="text-green-600 font-bold flex items-center justify-center gap-2">

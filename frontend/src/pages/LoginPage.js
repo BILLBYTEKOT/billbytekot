@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { 
   ChefHat, Mail, Lock, User, Eye, EyeOff, ArrowRight, Sparkles,
   Shield, Zap, BarChart3, MessageCircle,
-  CheckCircle, Star, TrendingUp, Users, Clock, CreditCard
+  CheckCircle, Star, TrendingUp, Users, Clock, CreditCard, Gift
 } from 'lucide-react';
 import GuidedDemo from '../components/GuidedDemo';
 
@@ -25,6 +25,13 @@ const LoginPage = ({ setUser }) => {
     username: '',
     email: '',
     password: '',
+    referralCode: '',
+  });
+  const [referralValidation, setReferralValidation] = useState({
+    isValidating: false,
+    isValid: null,
+    discountAmount: null,
+    errorMessage: null,
   });
   const [loading, setLoading] = useState(false);
   const [activeFeature, setActiveFeature] = useState(0);
@@ -51,6 +58,50 @@ const LoginPage = ({ setUser }) => {
     { value: 'Cloud', label: 'Based', icon: Clock },
     { value: '₹0', label: 'Setup Fee', icon: CreditCard },
   ];
+
+  // Validate referral code on blur (Requirement 3.3, 3.4, 3.6)
+  const validateReferralCode = async (code) => {
+    if (!code || code.trim().length === 0) {
+      setReferralValidation({
+        isValidating: false,
+        isValid: null,
+        discountAmount: null,
+        errorMessage: null,
+      });
+      return;
+    }
+
+    setReferralValidation(prev => ({ ...prev, isValidating: true, errorMessage: null }));
+
+    try {
+      const response = await axios.post(`${API}/referral/validate`, {
+        referral_code: code.trim(),
+        new_user_email: formData.email || null,
+      });
+
+      if (response.data.valid) {
+        setReferralValidation({
+          isValidating: false,
+          isValid: true,
+          discountAmount: response.data.discount_amount,
+          errorMessage: null,
+        });
+        toast.success(`🎉 Valid code! You'll get ₹${response.data.discount_amount} off!`);
+      }
+    } catch (error) {
+      const errorDetail = error.response?.data?.detail;
+      const errorMessage = typeof errorDetail === 'object' 
+        ? errorDetail.message 
+        : errorDetail || 'Invalid referral code';
+      
+      setReferralValidation({
+        isValidating: false,
+        isValid: false,
+        discountAmount: null,
+        errorMessage: errorMessage,
+      });
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -101,7 +152,8 @@ const LoginPage = ({ setUser }) => {
           username: formData.username.trim(),
           email: formData.email.trim(),
           password: formData.password,
-          role: 'admin'
+          role: 'admin',
+          referral_code: formData.referralCode.trim() || null  // Include referral code (Requirement 3.7)
         });
         
         toast.success('📧 OTP sent to your email! Check your inbox.');
@@ -147,14 +199,15 @@ const LoginPage = ({ setUser }) => {
         username: formData.username.trim(),
         email: formData.email.trim(),
         password: formData.password,
-        role: 'admin'
+        role: 'admin',
+        referral_code: formData.referralCode.trim() || null  // Include referral code (Requirement 3.7)
       });
       
       toast.success('🎉 Account created! Please login to continue.');
       setShowOTPVerification(false);
       setOtp('');
       setIsLogin(true);
-      setFormData({ ...formData, password: '' });
+      setFormData({ ...formData, password: '', referralCode: '' });
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Registration failed');
     } finally {
@@ -169,7 +222,8 @@ const LoginPage = ({ setUser }) => {
         username: formData.username.trim(),
         email: formData.email.trim(),
         password: formData.password,
-        role: 'admin'
+        role: 'admin',
+        referral_code: formData.referralCode.trim() || null  // Include referral code
       });
       toast.success('📧 New OTP sent to your email!');
     } catch (error) {
@@ -488,6 +542,68 @@ const LoginPage = ({ setUser }) => {
                   </button>
                 </div>
               </div>
+
+              {/* Referral Code (Register only - Optional) - Requirements 3.1, 3.2 */}
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="referralCode" className="text-sm font-medium text-gray-700">
+                    Referral Code <span className="text-gray-400 font-normal">(Optional)</span>
+                  </Label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Gift className={`w-5 h-5 transition-colors ${
+                        referralValidation.isValid === true 
+                          ? 'text-green-500' 
+                          : referralValidation.isValid === false 
+                            ? 'text-red-500' 
+                            : 'text-gray-400 group-focus-within:text-violet-500'
+                      }`} />
+                    </div>
+                    <Input
+                      id="referralCode"
+                      placeholder="Enter referral code"
+                      value={formData.referralCode}
+                      onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
+                      onBlur={(e) => validateReferralCode(e.target.value)}
+                      className={`pl-12 h-12 rounded-xl border-gray-200 focus:border-violet-500 focus:ring-violet-500 transition-all uppercase ${
+                        referralValidation.isValid === true 
+                          ? 'border-green-500 focus:border-green-500 focus:ring-green-500' 
+                          : referralValidation.isValid === false 
+                            ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                            : ''
+                      }`}
+                      maxLength={8}
+                    />
+                    {referralValidation.isValidating && (
+                      <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+                        <div className="w-4 h-4 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                    {referralValidation.isValid === true && !referralValidation.isValidating && (
+                      <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      </div>
+                    )}
+                  </div>
+                  {/* Validation feedback */}
+                  {referralValidation.isValid === true && referralValidation.discountAmount && (
+                    <p className="text-sm text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-4 h-4" />
+                      You'll get ₹{referralValidation.discountAmount} off on your subscription!
+                    </p>
+                  )}
+                  {referralValidation.isValid === false && referralValidation.errorMessage && (
+                    <p className="text-sm text-red-600">
+                      {referralValidation.errorMessage}
+                    </p>
+                  )}
+                  {!referralValidation.isValid && !referralValidation.errorMessage && (
+                    <p className="text-xs text-gray-400">
+                      Have a referral code? Enter it to get ₹200 off!
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Submit Button */}
               <Button 

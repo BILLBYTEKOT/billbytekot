@@ -17,7 +17,8 @@ import {
   Layers, Code, Terminal, Wifi, WifiOff, CloudOff, Cloud, Cpu, MemoryStick,
   PieChart, LineChart, AreaChart, TrendingDown, ArrowUp, ArrowDown, Minus,
   PlayCircle, PauseCircle, StopCircle, SkipForward, Rewind, Volume2, VolumeX,
-  Bookmark, BookOpen, Lightbulb, Sparkles, Flame, Rocket, Crown, Award
+  Bookmark, BookOpen, Lightbulb, Sparkles, Flame, Rocket, Crown, Award,
+  UserCheck, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const SuperAdminPage = () => {
@@ -140,12 +141,21 @@ const SuperAdminPage = () => {
     campaign_end_date: '',
     trial_expired_discount: 10,
     trial_days: 7,
-    subscription_months: 12
+    subscription_months: 12,
+    referral_discount: 200,
+    referral_reward: 300
   });
   const [savingPricing, setSavingPricing] = useState(false);
   const [showBusinessDetails, setShowBusinessDetails] = useState(false);
   const [businessDetails, setBusinessDetails] = useState(null);
   const [businessDetailsLoading, setBusinessDetailsLoading] = useState(false);
+  // User navigation state for Previous/Next buttons (Requirements 10.5)
+  const [userNavigation, setUserNavigation] = useState({
+    previousUserId: null,
+    nextUserId: null,
+    currentPosition: 0,
+    totalUsers: 0
+  });
   const [exportingData, setExportingData] = useState(null);
   const [exportingDb, setExportingDb] = useState(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -161,6 +171,33 @@ const SuperAdminPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [notificationTemplates, setNotificationTemplates] = useState([]);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+
+  // Referrals Tab State (Requirements 7.1, 7.2, 7.3, 7.4, 7.5)
+  const [referrals, setReferrals] = useState([]);
+  const [referralAnalytics, setReferralAnalytics] = useState(null);
+  const [referralStatusFilter, setReferralStatusFilter] = useState('all');
+  const [referralPage, setReferralPage] = useState(0);
+  const [referralTotal, setReferralTotal] = useState(0);
+  const [referralHasMore, setReferralHasMore] = useState(false);
+  const [exportingReferrals, setExportingReferrals] = useState(false);
+  const [campaigns, setCampaigns] = useState([]);
+  
+  // Campaign Management State (Requirements 9.1, 9.2, 9.3)
+  const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
+  const [savingCampaign, setSavingCampaign] = useState(false);
+  const [campaignError, setCampaignError] = useState('');
+  const [newCampaign, setNewCampaign] = useState({
+    title: '',
+    description: '',
+    discount_percentage: 10,
+    discount_amount: null,
+    start_date: '',
+    end_date: '',
+    theme: 'default',
+    banner_text: '',
+    banner_color: '#FF6B35'
+  });
+  
   const [newNotification, setNewNotification] = useState({
     title: '',
     message: '',
@@ -450,7 +487,7 @@ const SuperAdminPage = () => {
   // Get available tabs based on user type and permissions
   const getAvailableTabs = () => {
     if (userType === 'super-admin') {
-      return ['dashboard', 'users', 'leads', 'team', 'tickets', 'analytics', 'app-versions', 'promotions', 'pricing', 'notifications'];
+      return ['dashboard', 'users', 'leads', 'team', 'tickets', 'analytics', 'app-versions', 'promotions', 'pricing', 'referrals', 'notifications'];
     }
     const tabs = [];
     if (hasPermission('analytics')) tabs.push('dashboard');
@@ -623,6 +660,122 @@ const SuperAdminPage = () => {
     }
   };
 
+  // Create new campaign (Requirements 9.2, 9.3)
+  const createCampaign = async () => {
+    try {
+      setCampaignError('');
+      
+      // Validate required fields
+      if (!newCampaign.title.trim()) {
+        setCampaignError('Campaign title is required');
+        return;
+      }
+      if (!newCampaign.start_date || !newCampaign.end_date) {
+        setCampaignError('Start and end dates are required');
+        return;
+      }
+      
+      // Validate date range
+      const startDate = new Date(newCampaign.start_date);
+      const endDate = new Date(newCampaign.end_date);
+      if (endDate <= startDate) {
+        setCampaignError('End date must be after start date');
+        return;
+      }
+      
+      setSavingCampaign(true);
+      
+      const campaignData = {
+        title: newCampaign.title.trim(),
+        description: newCampaign.description?.trim() || null,
+        discount_percentage: parseFloat(newCampaign.discount_percentage) || 0,
+        discount_amount: newCampaign.discount_amount ? parseFloat(newCampaign.discount_amount) : null,
+        start_date: new Date(newCampaign.start_date).toISOString(),
+        end_date: new Date(newCampaign.end_date).toISOString(),
+        theme: newCampaign.theme || 'default',
+        banner_text: newCampaign.banner_text?.trim() || null,
+        banner_color: newCampaign.banner_color || '#FF6B35'
+      };
+      
+      const response = await axios.post(`${API}/super-admin/campaigns`, campaignData, {
+        params: credentials
+      });
+      
+      if (response.data.success) {
+        toast.success('Campaign created successfully');
+        setShowCreateCampaignModal(false);
+        resetNewCampaign();
+        fetchPromotions();
+      } else {
+        setCampaignError(response.data.detail || 'Failed to create campaign');
+      }
+    } catch (error) {
+      console.error('Failed to create campaign:', error);
+      const errorMessage = error.response?.data?.detail || 'Failed to create campaign';
+      setCampaignError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setSavingCampaign(false);
+    }
+  };
+
+  // Reset new campaign form
+  const resetNewCampaign = () => {
+    setNewCampaign({
+      title: '',
+      description: '',
+      discount_percentage: 10,
+      discount_amount: null,
+      start_date: '',
+      end_date: '',
+      theme: 'default',
+      banner_text: '',
+      banner_color: '#FF6B35'
+    });
+    setCampaignError('');
+  };
+
+  // Delete campaign
+  const deleteCampaign = async (campaignId) => {
+    if (!window.confirm('Are you sure you want to delete this campaign?')) return;
+    
+    try {
+      await axios.delete(`${API}/super-admin/campaigns/${campaignId}`, {
+        params: credentials
+      });
+      toast.success('Campaign deleted successfully');
+      fetchPromotions();
+    } catch (error) {
+      toast.error('Failed to delete campaign');
+    }
+  };
+
+  // Toggle campaign active status
+  const toggleCampaignStatus = async (campaignId, currentStatus) => {
+    try {
+      await axios.put(`${API}/super-admin/campaigns/${campaignId}`, 
+        { is_active: !currentStatus },
+        { params: credentials }
+      );
+      toast.success(`Campaign ${!currentStatus ? 'activated' : 'deactivated'}`);
+      fetchPromotions();
+    } catch (error) {
+      toast.error('Failed to update campaign status');
+    }
+  };
+
+  // Get campaign status based on dates
+  const getCampaignStatus = (campaign) => {
+    const now = new Date();
+    const startDate = new Date(campaign.start_date);
+    const endDate = new Date(campaign.end_date);
+    
+    if (!campaign.is_active) return 'inactive';
+    if (now < startDate) return 'scheduled';
+    if (now > endDate) return 'ended';
+    return 'active';
+  };
+
   const fetchNotifications = async () => {
     try {
       const notificationsRes = await axios.get(`${API}/super-admin/notifications`, {
@@ -633,6 +786,83 @@ const SuperAdminPage = () => {
       console.log('Notifications endpoint not available');
       setNotifications([]);
     }
+  };
+
+  // Fetch referrals with pagination and filtering (Requirements 7.1, 7.2, 7.3)
+  const fetchReferrals = async (status = referralStatusFilter, page = referralPage) => {
+    try {
+      const params = {
+        ...credentials,
+        skip: page * 20,
+        limit: 20
+      };
+      if (status && status !== 'all') {
+        params.status = status;
+      }
+      
+      const response = await axios.get(`${API}/super-admin/referrals`, { params });
+      setReferrals(response.data.referrals || []);
+      setReferralTotal(response.data.total || 0);
+      setReferralHasMore(response.data.has_more || false);
+    } catch (e) {
+      console.error('Failed to fetch referrals', e);
+      setReferrals([]);
+      setReferralTotal(0);
+    }
+  };
+
+  // Fetch referral analytics (Requirements 7.4)
+  const fetchReferralAnalytics = async () => {
+    try {
+      const response = await axios.get(`${API}/super-admin/referrals/analytics`, {
+        params: credentials
+      });
+      setReferralAnalytics(response.data);
+    } catch (e) {
+      console.error('Failed to fetch referral analytics', e);
+      setReferralAnalytics(null);
+    }
+  };
+
+  // Export referrals to CSV (Requirements 7.5)
+  const exportReferralsToCSV = async () => {
+    try {
+      setExportingReferrals(true);
+      const response = await axios.get(`${API}/super-admin/referrals/export`, {
+        params: { ...credentials, format: 'csv' },
+        responseType: 'blob'
+      });
+      
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `referrals_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Referrals exported successfully');
+    } catch (e) {
+      console.error('Failed to export referrals', e);
+      toast.error('Failed to export referrals');
+    } finally {
+      setExportingReferrals(false);
+    }
+  };
+
+  // Handle referral status filter change
+  const handleReferralStatusFilter = (status) => {
+    setReferralStatusFilter(status);
+    setReferralPage(0);
+    fetchReferrals(status, 0);
+  };
+
+  // Handle referral pagination
+  const handleReferralPageChange = (newPage) => {
+    setReferralPage(newPage);
+    fetchReferrals(referralStatusFilter, newPage);
   };
 
   // Function to fetch data based on active tab
@@ -669,6 +899,10 @@ const SuperAdminPage = () => {
           break;
         case 'notifications':
           await fetchNotifications();
+          break;
+        case 'referrals':
+          await fetchReferrals();
+          await fetchReferralAnalytics();
           break;
         default:
           break;
@@ -825,16 +1059,36 @@ const SuperAdminPage = () => {
   const viewBusinessDetails = async (userId) => {
     try {
       setBusinessDetailsLoading(true);
-      const response = await axios.get(`${API}/super-admin/users/${userId}/business-details`, {
-        params: credentials
+      
+      // Fetch business details and navigation data in parallel
+      const [detailsResponse, navResponse] = await Promise.all([
+        axios.get(`${API}/super-admin/users/${userId}/business-details`, {
+          params: credentials
+        }),
+        axios.get(`${API}/super-admin/users/navigation`, {
+          params: { ...credentials, current_user_id: userId }
+        }).catch(() => ({ data: { previous_user_id: null, next_user_id: null, current_position: 0, total_users: 0 } }))
+      ]);
+      
+      setBusinessDetails(detailsResponse.data);
+      setUserNavigation({
+        previousUserId: navResponse.data.previous_user_id,
+        nextUserId: navResponse.data.next_user_id,
+        currentPosition: navResponse.data.current_position || 0,
+        totalUsers: navResponse.data.total_users || 0
       });
-      setBusinessDetails(response.data);
       setShowBusinessDetails(true);
     } catch (error) {
       toast.error('Failed to fetch business details');
     } finally {
       setBusinessDetailsLoading(false);
     }
+  };
+
+  // Navigate to previous/next user in business details modal (Requirements 10.5)
+  const navigateToUser = async (userId) => {
+    if (!userId) return;
+    await viewBusinessDetails(userId);
   };
 
   const previewInvoice = async (user) => {
@@ -2067,86 +2321,1488 @@ const SuperAdminPage = () => {
           </div>
         )}
 
-        {/* Business Details Modal */}
-        {showBusinessDetails && businessDetails && (
+        {/* Pricing Tab (Requirements 8.1, 8.2, 8.3) */}
+        {activeTab === 'pricing' && (
+          <div className="space-y-6">
+            {/* Pricing Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <DollarSign className="w-6 h-6 text-green-600" />
+                  Pricing Configuration
+                </h2>
+                <p className="text-gray-600">Manage subscription pricing and referral rewards</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchPricing()}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            {/* Pricing Configuration Form (Requirements 8.2) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-blue-600" />
+                  Subscription Pricing
+                </CardTitle>
+                <p className="text-sm text-gray-500">Configure regular and campaign pricing for subscriptions</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Regular Price */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-gray-500" />
+                      Regular Price (₹)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={pricing.regular_price || 1999}
+                      onChange={(e) => setPricing({ ...pricing, regular_price: parseFloat(e.target.value) || 0 })}
+                      placeholder="1999"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">Standard subscription price</p>
+                  </div>
+
+                  {/* Campaign Price */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-gray-500" />
+                      Campaign Price (₹)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={pricing.campaign_price || 1799}
+                      onChange={(e) => setPricing({ ...pricing, campaign_price: parseFloat(e.target.value) || 0 })}
+                      placeholder="1799"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">Promotional campaign price</p>
+                  </div>
+
+                  {/* Trial Days */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-gray-500" />
+                      Trial Days
+                    </Label>
+                    <Input
+                      type="number"
+                      value={pricing.trial_days || 7}
+                      onChange={(e) => setPricing({ ...pricing, trial_days: parseInt(e.target.value) || 0 })}
+                      placeholder="7"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">Number of free trial days for new users</p>
+                  </div>
+
+                  {/* Subscription Months */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-500" />
+                      Subscription Duration (Months)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={pricing.subscription_months || 12}
+                      onChange={(e) => setPricing({ ...pricing, subscription_months: parseInt(e.target.value) || 0 })}
+                      placeholder="12"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">Default subscription duration</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Referral Rewards Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gift className="w-5 h-5 text-purple-600" />
+                  Referral Rewards
+                </CardTitle>
+                <p className="text-sm text-gray-500">Configure referral program rewards and discounts</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Referral Discount */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-gray-500" />
+                      Referral Discount (₹)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={pricing.referral_discount || 200}
+                      onChange={(e) => setPricing({ ...pricing, referral_discount: parseFloat(e.target.value) || 0 })}
+                      placeholder="200"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">Discount for new users using a referral code</p>
+                  </div>
+
+                  {/* Referral Reward */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Award className="w-4 h-4 text-gray-500" />
+                      Referral Reward (₹)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={pricing.referral_reward || 300}
+                      onChange={(e) => setPricing({ ...pricing, referral_reward: parseFloat(e.target.value) || 0 })}
+                      placeholder="300"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500">Reward for referrer when referee completes payment</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Campaign Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-orange-600" />
+                  Campaign Settings
+                </CardTitle>
+                <p className="text-sm text-gray-500">Configure promotional campaign pricing</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Campaign Active Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <Label className="font-medium">Campaign Active</Label>
+                      <p className="text-sm text-gray-500">Enable promotional campaign pricing</p>
+                    </div>
+                    <button
+                      onClick={() => setPricing({ ...pricing, campaign_active: !pricing.campaign_active })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        pricing.campaign_active ? 'bg-green-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          pricing.campaign_active ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Campaign Name */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-gray-500" />
+                        Campaign Name
+                      </Label>
+                      <Input
+                        type="text"
+                        value={pricing.campaign_name || ''}
+                        onChange={(e) => setPricing({ ...pricing, campaign_name: e.target.value })}
+                        placeholder="Summer Sale"
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Campaign Discount Percent */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Percent className="w-4 h-4 text-gray-500" />
+                        Campaign Discount (%)
+                      </Label>
+                      <Input
+                        type="number"
+                        value={pricing.campaign_discount_percent || 10}
+                        onChange={(e) => setPricing({ ...pricing, campaign_discount_percent: parseFloat(e.target.value) || 0 })}
+                        placeholder="10"
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Campaign Start Date */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        Campaign Start Date
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        value={pricing.campaign_start_date ? pricing.campaign_start_date.slice(0, 16) : ''}
+                        onChange={(e) => setPricing({ ...pricing, campaign_start_date: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Campaign End Date */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        Campaign End Date
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        value={pricing.campaign_end_date ? pricing.campaign_end_date.slice(0, 16) : ''}
+                        onChange={(e) => setPricing({ ...pricing, campaign_end_date: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Save Button (Requirements 8.3) */}
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => fetchPricing()}
+                disabled={savingPricing}
+              >
+                Reset Changes
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    setSavingPricing(true);
+                    const response = await axios.put(`${API}/super-admin/pricing`, pricing, {
+                      params: credentials
+                    });
+                    if (response.data.success) {
+                      toast.success('Pricing configuration saved successfully');
+                    } else {
+                      toast.error('Failed to save pricing configuration');
+                    }
+                  } catch (error) {
+                    console.error('Failed to save pricing:', error);
+                    toast.error(error.response?.data?.detail || 'Failed to save pricing configuration');
+                  } finally {
+                    setSavingPricing(false);
+                  }
+                }}
+                disabled={savingPricing}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {savingPricing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Save Pricing Configuration
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Pricing Summary Card */}
+            <Card className="bg-gradient-to-br from-green-50 to-blue-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-green-600" />
+                  Current Pricing Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                    <div className="text-2xl font-bold text-gray-900">₹{pricing.regular_price || 1999}</div>
+                    <div className="text-sm text-gray-500">Regular Price</div>
+                  </div>
+                  <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                    <div className="text-2xl font-bold text-green-600">₹{pricing.campaign_price || 1799}</div>
+                    <div className="text-sm text-gray-500">Campaign Price</div>
+                  </div>
+                  <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                    <div className="text-2xl font-bold text-purple-600">₹{pricing.referral_discount || 200}</div>
+                    <div className="text-sm text-gray-500">Referral Discount</div>
+                  </div>
+                  <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                    <div className="text-2xl font-bold text-blue-600">₹{pricing.referral_reward || 300}</div>
+                    <div className="text-sm text-gray-500">Referral Reward</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Referrals Tab (Requirements 7.1, 7.2, 7.3, 7.4, 7.5) */}
+        {activeTab === 'referrals' && (
+          <div className="space-y-6">
+            {/* Referrals Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <UserCheck className="w-6 h-6 text-purple-600" />
+                  Referral Management
+                </h2>
+                <p className="text-gray-600">Track and manage referral program performance</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    fetchReferrals();
+                    fetchReferralAnalytics();
+                  }}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportReferralsToCSV}
+                  disabled={exportingReferrals}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  {exportingReferrals ? 'Exporting...' : 'Export CSV'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Analytics Cards (Requirements 7.4) */}
+            {referralAnalytics && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Total Referrals Card */}
+                <Card className="relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-purple-600/20 rounded-bl-full"></div>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-600">Total Referrals</CardTitle>
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Users className="w-4 h-4 text-purple-600" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-gray-900">{referralAnalytics.total_referrals || 0}</div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm text-purple-600">
+                        {referralAnalytics.recent_referrals_30_days || 0} in last 30 days
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Conversion Rate Card */}
+                <Card className="relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-green-500/10 to-green-600/20 rounded-bl-full"></div>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-600">Conversion Rate</CardTitle>
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <TrendingUp className="w-4 h-4 text-green-600" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {(referralAnalytics.conversion_rate || 0).toFixed(1)}%
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm text-green-600">
+                        {referralAnalytics.status_breakdown?.rewarded || 0} rewarded
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Total Rewards Paid Card */}
+                <Card className="relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-blue-600/20 rounded-bl-full"></div>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-600">Rewards Paid</CardTitle>
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <DollarSign className="w-4 h-4 text-blue-600" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-gray-900">
+                      ₹{(referralAnalytics.total_rewards_paid || 0).toLocaleString()}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm text-blue-600">
+                        ₹{(referralAnalytics.total_discounts_given || 0).toLocaleString()} discounts given
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Status Breakdown Card */}
+                <Card className="relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-orange-500/10 to-orange-600/20 rounded-bl-full"></div>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-600">Status Breakdown</CardTitle>
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <PieChart className="w-4 h-4 text-orange-600" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-yellow-600">Pending</span>
+                        <span className="font-medium">{referralAnalytics.status_breakdown?.pending || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-blue-600">Completed</span>
+                        <span className="font-medium">{referralAnalytics.status_breakdown?.completed || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-green-600">Rewarded</span>
+                        <span className="font-medium">{referralAnalytics.status_breakdown?.rewarded || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-red-600">Reversed</span>
+                        <span className="font-medium">{referralAnalytics.status_breakdown?.reversed || 0}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Referrals List Card (Requirements 7.1, 7.2, 7.3) */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Gift className="w-5 h-5 text-purple-600" />
+                      Referral Records
+                    </CardTitle>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Showing {referrals.length} of {referralTotal} referrals
+                    </p>
+                  </div>
+                  
+                  {/* Status Filter Dropdown (Requirements 7.3) */}
+                  <div className="flex items-center gap-3">
+                    <Label className="text-sm text-gray-600">Filter by Status:</Label>
+                    <select
+                      value={referralStatusFilter}
+                      onChange={(e) => handleReferralStatusFilter(e.target.value)}
+                      className="px-3 py-2 border rounded-lg bg-white min-w-[140px]"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="completed">Completed</option>
+                      <option value="rewarded">Rewarded</option>
+                      <option value="reversed">Reversed</option>
+                    </select>
+                  </div>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 font-medium">Referrer</th>
+                        <th className="text-left p-3 font-medium">Referee</th>
+                        <th className="text-left p-3 font-medium">Status</th>
+                        <th className="text-left p-3 font-medium">Reward</th>
+                        <th className="text-left p-3 font-medium">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {referrals.map((referral, index) => (
+                        <tr key={referral.id || index} className="border-b hover:bg-gray-50 transition-colors">
+                          <td className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                {(referral.referrer_name || 'U').charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{referral.referrer_name || 'Unknown'}</div>
+                                <div className="text-xs text-gray-500">{referral.referrer_email || ''}</div>
+                              </div>
+                            </div>
+                          </td>
+                          
+                          <td className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                {(referral.referee_name || 'U').charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{referral.referee_name || 'Unknown'}</div>
+                                <div className="text-xs text-gray-500">{referral.referee_email || ''}</div>
+                              </div>
+                            </div>
+                          </td>
+                          
+                          <td className="p-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                              referral.status === 'REWARDED' ? 'bg-green-100 text-green-800' :
+                              referral.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
+                              referral.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                              referral.status === 'REVERSED' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {referral.status === 'REWARDED' && <CheckCircle className="w-3 h-3" />}
+                              {referral.status === 'COMPLETED' && <CheckCircle className="w-3 h-3" />}
+                              {referral.status === 'PENDING' && <Clock className="w-3 h-3" />}
+                              {referral.status === 'REVERSED' && <XCircle className="w-3 h-3" />}
+                              {referral.status || 'Unknown'}
+                            </span>
+                          </td>
+                          
+                          <td className="p-3">
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium text-green-600">
+                                ₹{referral.referrer_reward || 0}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Discount: ₹{referral.referee_discount || 0}
+                              </div>
+                            </div>
+                          </td>
+                          
+                          <td className="p-3">
+                            <div className="space-y-1">
+                              <div className="text-sm text-gray-900">
+                                {referral.created_at ? new Date(referral.created_at).toLocaleDateString() : 'N/A'}
+                              </div>
+                              {referral.rewarded_at && (
+                                <div className="text-xs text-green-600">
+                                  Rewarded: {new Date(referral.rewarded_at).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  
+                  {referrals.length === 0 && (
+                    <div className="text-center py-12">
+                      <Gift className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-gray-500">No referrals found</p>
+                      {referralStatusFilter !== 'all' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReferralStatusFilter('all')}
+                          className="mt-2"
+                        >
+                          Clear Filter
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Pagination Controls (Requirements 7.2) */}
+                {referralTotal > 0 && (
+                  <div className="flex items-center justify-between p-4 border-t">
+                    <div className="text-sm text-gray-600">
+                      Page {referralPage + 1} of {Math.ceil(referralTotal / 20)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleReferralPageChange(referralPage - 1)}
+                        disabled={referralPage === 0}
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleReferralPageChange(referralPage + 1)}
+                        disabled={!referralHasMore}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Top Referrers Section */}
+            {referralAnalytics?.top_referrers && referralAnalytics.top_referrers.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-yellow-500" />
+                    Top Referrers
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {referralAnalytics.top_referrers.map((referrer, index) => (
+                      <div key={referrer.user_id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                            index === 0 ? 'bg-yellow-500' :
+                            index === 1 ? 'bg-gray-400' :
+                            index === 2 ? 'bg-orange-400' :
+                            'bg-purple-500'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">{referrer.username || 'Unknown'}</div>
+                            <div className="text-xs text-gray-500">{referrer.email || ''}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-purple-600">{referrer.referral_count || 0} referrals</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Promotions Tab (Requirements 9.1, 9.2, 9.3, 9.4) */}
+        {activeTab === 'promotions' && (
+          <div className="space-y-6">
+            {/* Promotions Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <Sparkles className="w-6 h-6 text-orange-600" />
+                  Promotional Campaigns
+                </h2>
+                <p className="text-gray-600">Create and manage promotional campaigns</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchPromotions()}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <Button
+                  onClick={() => {
+                    resetNewCampaign();
+                    setShowCreateCampaignModal(true);
+                  }}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Campaign
+                </Button>
+              </div>
+            </div>
+
+            {/* Campaign Statistics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Campaigns */}
+              <Card className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-orange-500/10 to-orange-600/20 rounded-bl-full"></div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Total Campaigns</CardTitle>
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <Tag className="w-4 h-4 text-orange-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-gray-900">{campaigns.length}</div>
+                </CardContent>
+              </Card>
+
+              {/* Active Campaigns */}
+              <Card className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-green-500/10 to-green-600/20 rounded-bl-full"></div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Active Now</CardTitle>
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <PlayCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-green-600">
+                    {campaigns.filter(c => getCampaignStatus(c) === 'active').length}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Scheduled Campaigns */}
+              <Card className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-blue-600/20 rounded-bl-full"></div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Scheduled</CardTitle>
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-blue-600">
+                    {campaigns.filter(c => getCampaignStatus(c) === 'scheduled').length}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Ended Campaigns */}
+              <Card className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-gray-500/10 to-gray-600/20 rounded-bl-full"></div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Ended</CardTitle>
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <StopCircle className="w-4 h-4 text-gray-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-gray-600">
+                    {campaigns.filter(c => getCampaignStatus(c) === 'ended').length}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Campaign List (Requirements 9.1, 9.2) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-orange-600" />
+                  All Campaigns
+                </CardTitle>
+                <p className="text-sm text-gray-500">View and manage all promotional campaigns</p>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 font-medium">Campaign</th>
+                        <th className="text-left p-3 font-medium">Discount</th>
+                        <th className="text-left p-3 font-medium">Duration</th>
+                        <th className="text-left p-3 font-medium">Status</th>
+                        <th className="text-left p-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {campaigns.map((campaign, index) => {
+                        const status = getCampaignStatus(campaign);
+                        return (
+                          <tr key={campaign.id || index} className="border-b hover:bg-gray-50 transition-colors">
+                            <td className="p-3">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                  status === 'active' ? 'bg-green-100' :
+                                  status === 'scheduled' ? 'bg-blue-100' :
+                                  status === 'ended' ? 'bg-gray-100' :
+                                  'bg-red-100'
+                                }`}>
+                                  {status === 'active' ? <PlayCircle className="w-5 h-5 text-green-600" /> :
+                                   status === 'scheduled' ? <Clock className="w-5 h-5 text-blue-600" /> :
+                                   status === 'ended' ? <StopCircle className="w-5 h-5 text-gray-600" /> :
+                                   <PauseCircle className="w-5 h-5 text-red-600" />}
+                                </div>
+                                <div>
+                                  <div className="font-medium text-gray-900">{campaign.title}</div>
+                                  {campaign.description && (
+                                    <div className="text-xs text-gray-500 truncate max-w-xs">{campaign.description}</div>
+                                  )}
+                                  {campaign.theme && campaign.theme !== 'default' && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-800 mt-1">
+                                      {campaign.theme}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            
+                            <td className="p-3">
+                              <div className="space-y-1">
+                                {campaign.discount_percentage > 0 && (
+                                  <div className="text-sm font-medium text-green-600">
+                                    {campaign.discount_percentage}% off
+                                  </div>
+                                )}
+                                {campaign.discount_amount > 0 && (
+                                  <div className="text-sm font-medium text-green-600">
+                                    ₹{campaign.discount_amount} off
+                                  </div>
+                                )}
+                                {!campaign.discount_percentage && !campaign.discount_amount && (
+                                  <div className="text-sm text-gray-500">No discount</div>
+                                )}
+                              </div>
+                            </td>
+                            
+                            <td className="p-3">
+                              <div className="space-y-1">
+                                <div className="text-sm text-gray-900">
+                                  {new Date(campaign.start_date).toLocaleDateString()}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  to {new Date(campaign.end_date).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </td>
+                            
+                            <td className="p-3">
+                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                                status === 'active' ? 'bg-green-100 text-green-800' :
+                                status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                                status === 'ended' ? 'bg-gray-100 text-gray-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {status === 'active' && <CheckCircle className="w-3 h-3" />}
+                                {status === 'scheduled' && <Clock className="w-3 h-3" />}
+                                {status === 'ended' && <StopCircle className="w-3 h-3" />}
+                                {status === 'inactive' && <PauseCircle className="w-3 h-3" />}
+                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                              </span>
+                            </td>
+                            
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => toggleCampaignStatus(campaign.id, campaign.is_active)}
+                                  className={`text-xs h-7 px-2 ${
+                                    campaign.is_active ? 'text-red-600 border-red-200' : 'text-green-600 border-green-200'
+                                  }`}
+                                  title={campaign.is_active ? 'Deactivate' : 'Activate'}
+                                >
+                                  {campaign.is_active ? <PauseCircle className="w-3 h-3" /> : <PlayCircle className="w-3 h-3" />}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => deleteCampaign(campaign.id)}
+                                  className="text-xs h-7 px-2 text-red-600 border-red-200"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  
+                  {campaigns.length === 0 && (
+                    <div className="text-center py-12">
+                      <Sparkles className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-gray-500">No campaigns found</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          resetNewCampaign();
+                          setShowCreateCampaignModal(true);
+                        }}
+                        className="mt-4"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Your First Campaign
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Sale Offer Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-red-600" />
+                  Sale Offer Banner
+                </CardTitle>
+                <p className="text-sm text-gray-500">Configure the promotional sale banner displayed to users</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Sale Offer Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <Label className="font-medium">Sale Banner Active</Label>
+                      <p className="text-sm text-gray-500">Show promotional banner to users</p>
+                    </div>
+                    <button
+                      onClick={() => setSaleOffer({ ...saleOffer, enabled: !saleOffer.enabled })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        saleOffer.enabled ? 'bg-green-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          saleOffer.enabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {saleOffer.enabled && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Sale Title</Label>
+                        <Input
+                          value={saleOffer.title || ''}
+                          onChange={(e) => setSaleOffer({ ...saleOffer, title: e.target.value })}
+                          placeholder="e.g., New Year Sale!"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Discount Text</Label>
+                        <Input
+                          value={saleOffer.discount_text || ''}
+                          onChange={(e) => setSaleOffer({ ...saleOffer, discount_text: e.target.value })}
+                          placeholder="e.g., 20% OFF"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Sale Price (₹)</Label>
+                        <Input
+                          type="number"
+                          value={saleOffer.sale_price || ''}
+                          onChange={(e) => setSaleOffer({ ...saleOffer, sale_price: parseFloat(e.target.value) || 0 })}
+                          placeholder="1599"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>End Date</Label>
+                        <Input
+                          type="datetime-local"
+                          value={saleOffer.end_date ? saleOffer.end_date.slice(0, 16) : ''}
+                          onChange={(e) => setSaleOffer({ ...saleOffer, end_date: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={async () => {
+                        try {
+                          setSavingSaleOffer(true);
+                          await axios.put(`${API}/super-admin/sale-offer`, saleOffer, {
+                            params: credentials
+                          });
+                          toast.success('Sale offer updated successfully');
+                        } catch (error) {
+                          toast.error('Failed to update sale offer');
+                        } finally {
+                          setSavingSaleOffer(false);
+                        }
+                      }}
+                      disabled={savingSaleOffer}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      {savingSaleOffer ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Save Sale Offer
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Create Campaign Modal (Requirements 9.2, 9.3) */}
+        {showCreateCampaignModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <Card className="w-full max-w-lg max-h-[90vh] overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-blue-600" />
-                  Business Details
+                  <Plus className="w-5 h-5 text-orange-600" />
+                  Create New Campaign
                 </CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowBusinessDetails(false)}
+                  onClick={() => {
+                    setShowCreateCampaignModal(false);
+                    resetNewCampaign();
+                  }}
                 >
                   <X className="w-4 h-4" />
                 </Button>
               </CardHeader>
               <CardContent className="overflow-y-auto">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm text-gray-500">Restaurant Name</Label>
-                      <p className="font-medium">{businessDetails.restaurant_name || 'Not set'}</p>
+                  {/* Error Message */}
+                  {campaignError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      {campaignError}
                     </div>
-                    <div>
-                      <Label className="text-sm text-gray-500">Owner Name</Label>
-                      <p className="font-medium">{businessDetails.owner_name || 'Not set'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-gray-500">Phone</Label>
-                      <p className="font-medium">{businessDetails.phone || 'Not set'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-gray-500">Email</Label>
-                      <p className="font-medium">{businessDetails.email || 'Not set'}</p>
-                    </div>
+                  )}
+
+                  {/* Campaign Title */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-gray-500" />
+                      Campaign Title *
+                    </Label>
+                    <Input
+                      value={newCampaign.title}
+                      onChange={(e) => setNewCampaign({ ...newCampaign, title: e.target.value })}
+                      placeholder="e.g., New Year Sale 2026"
+                      className="w-full"
+                    />
                   </div>
-                  
-                  <div>
-                    <Label className="text-sm text-gray-500">Address</Label>
-                    <p className="font-medium">{businessDetails.address || 'Not set'}</p>
+
+                  {/* Description */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-gray-500" />
+                      Description
+                    </Label>
+                    <textarea
+                      value={newCampaign.description}
+                      onChange={(e) => setNewCampaign({ ...newCampaign, description: e.target.value })}
+                      placeholder="Campaign description..."
+                      className="w-full px-3 py-2 border rounded-lg resize-none h-20"
+                    />
                   </div>
-                  
+
+                  {/* Discount Settings */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm text-gray-500">GST Number</Label>
-                      <p className="font-medium">{businessDetails.gst_number || 'Not set'}</p>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Percent className="w-4 h-4 text-gray-500" />
+                        Discount (%)
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={newCampaign.discount_percentage}
+                        onChange={(e) => setNewCampaign({ ...newCampaign, discount_percentage: parseFloat(e.target.value) || 0 })}
+                        placeholder="10"
+                      />
                     </div>
-                    <div>
-                      <Label className="text-sm text-gray-500">FSSAI Number</Label>
-                      <p className="font-medium">{businessDetails.fssai_number || 'Not set'}</p>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-gray-500" />
+                        Fixed Amount (₹)
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={newCampaign.discount_amount || ''}
+                        onChange={(e) => setNewCampaign({ ...newCampaign, discount_amount: e.target.value ? parseFloat(e.target.value) : null })}
+                        placeholder="Optional"
+                      />
                     </div>
                   </div>
 
-                  {businessDetails.stats && (
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                      <h4 className="font-medium mb-3">Usage Statistics</h4>
-                      <div className="grid grid-cols-3 gap-4 text-center">
+                  {/* Date Range */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        Start Date *
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        value={newCampaign.start_date}
+                        onChange={(e) => setNewCampaign({ ...newCampaign, start_date: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        End Date *
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        value={newCampaign.end_date}
+                        onChange={(e) => setNewCampaign({ ...newCampaign, end_date: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Theme Selection */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-gray-500" />
+                      Campaign Theme
+                    </Label>
+                    <select
+                      value={newCampaign.theme}
+                      onChange={(e) => setNewCampaign({ ...newCampaign, theme: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg bg-white"
+                    >
+                      <option value="default">Default</option>
+                      <option value="new_year">New Year</option>
+                      <option value="diwali">Diwali</option>
+                      <option value="christmas">Christmas</option>
+                      <option value="summer">Summer Sale</option>
+                      <option value="flash">Flash Sale</option>
+                      <option value="black_friday">Black Friday</option>
+                      <option value="republic_day">Republic Day</option>
+                      <option value="holi">Holi</option>
+                    </select>
+                  </div>
+
+                  {/* Banner Settings */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-gray-500" />
+                        Banner Text
+                      </Label>
+                      <Input
+                        value={newCampaign.banner_text}
+                        onChange={(e) => setNewCampaign({ ...newCampaign, banner_text: e.target.value })}
+                        placeholder="e.g., Limited Time Offer!"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        Banner Color
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="color"
+                          value={newCampaign.banner_color}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, banner_color: e.target.value })}
+                          className="w-12 h-10 p-1 cursor-pointer"
+                        />
+                        <Input
+                          value={newCampaign.banner_color}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, banner_color: e.target.value })}
+                          placeholder="#FF6B35"
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      onClick={createCampaign}
+                      disabled={savingCampaign}
+                      className="flex-1 bg-orange-600 hover:bg-orange-700"
+                    >
+                      {savingCampaign ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Campaign
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowCreateCampaignModal(false);
+                        resetNewCampaign();
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Business Details Modal - Enhanced (Requirements 10.2, 10.3, 10.4, 10.5) */}
+        {showBusinessDetails && businessDetails && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-3xl max-h-[90vh] overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+                <div className="flex items-center gap-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="w-5 h-5 text-blue-600" />
+                    Business Details
+                  </CardTitle>
+                  {userNavigation.totalUsers > 0 && (
+                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      {userNavigation.currentPosition} of {userNavigation.totalUsers}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Previous/Next Navigation Buttons (Requirements 10.5) */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateToUser(userNavigation.previousUserId)}
+                    disabled={!userNavigation.previousUserId || businessDetailsLoading}
+                    className="h-8 px-2"
+                    title="Previous User"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateToUser(userNavigation.nextUserId)}
+                    disabled={!userNavigation.nextUserId || businessDetailsLoading}
+                    className="h-8 px-2"
+                    title="Next User"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowBusinessDetails(false);
+                      setBusinessDetails(null);
+                      setUserNavigation({ previousUserId: null, nextUserId: null, currentPosition: 0, totalUsers: 0 });
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="overflow-y-auto max-h-[calc(90vh-100px)] p-6">
+                {businessDetailsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+                    <span className="ml-2 text-gray-500">Loading...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* User Info Header */}
+                    <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg">
+                      <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        {(businessDetails.username || businessDetails.email || 'U').charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{businessDetails.username || 'Unknown User'}</h3>
+                        <p className="text-sm text-gray-600">{businessDetails.email}</p>
+                        <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${
+                          businessDetails.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {businessDetails.role || 'user'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Business Information Section (Requirements 10.2) */}
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <Package className="w-4 h-4 text-blue-600" />
+                        Business Information
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <div className="text-2xl font-bold text-blue-600">
-                            {businessDetails.stats.total_bills || 0}
-                          </div>
-                          <div className="text-sm text-gray-500">Total Bills</div>
+                          <Label className="text-sm text-gray-500">Restaurant Name</Label>
+                          <p className="font-medium">{businessDetails.restaurant_name || 'Not set'}</p>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-green-600">
-                            ₹{(businessDetails.stats.total_revenue || 0).toLocaleString()}
-                          </div>
-                          <div className="text-sm text-gray-500">Revenue</div>
+                          <Label className="text-sm text-gray-500">Business Type</Label>
+                          <p className="font-medium">{businessDetails.business_type || 'Not set'}</p>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-purple-600">
-                            {businessDetails.stats.menu_items || 0}
-                          </div>
-                          <div className="text-sm text-gray-500">Menu Items</div>
+                          <Label className="text-sm text-gray-500">Phone</Label>
+                          <p className="font-medium">{businessDetails.phone || 'Not set'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-gray-500">Email</Label>
+                          <p className="font-medium">{businessDetails.email || 'Not set'}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-sm text-gray-500">Address</Label>
+                          <p className="font-medium">{businessDetails.address || 'Not set'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-gray-500">GSTIN</Label>
+                          <p className="font-medium font-mono">{businessDetails.gstin || 'Not set'}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-gray-500">FSSAI License</Label>
+                          <p className="font-medium font-mono">{businessDetails.fssai || 'Not set'}</p>
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
+
+                    {/* Subscription Status Section (Requirements 10.3) */}
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-green-600" />
+                        Subscription Status
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm text-gray-500">Status</Label>
+                          <p className={`font-medium flex items-center gap-1 ${
+                            businessDetails.subscription_active ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {businessDetails.subscription_active ? (
+                              <><CheckCircle className="w-4 h-4" /> Active</>
+                            ) : (
+                              <><XCircle className="w-4 h-4" /> Inactive</>
+                            )}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-gray-500">Expires At</Label>
+                          <p className="font-medium">
+                            {businessDetails.subscription_expires_at 
+                              ? new Date(businessDetails.subscription_expires_at).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })
+                              : 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-gray-500">Payment ID</Label>
+                          <p className="font-medium font-mono text-sm">
+                            {businessDetails.subscription_payment_id || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-gray-500">Account Created</Label>
+                          <p className="font-medium">
+                            {businessDetails.created_at 
+                              ? new Date(businessDetails.created_at).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })
+                              : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Payment History */}
+                      {businessDetails.payment_history && businessDetails.payment_history.length > 0 && (
+                        <div className="mt-4 pt-4 border-t">
+                          <Label className="text-sm text-gray-500 mb-2 block">Payment History</Label>
+                          <div className="space-y-2">
+                            {businessDetails.payment_history.map((payment, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
+                                <span className="font-mono">{payment.payment_id}</span>
+                                <span className="text-gray-500">
+                                  {payment.verified_at 
+                                    ? new Date(payment.verified_at).toLocaleDateString('en-IN')
+                                    : 'Pending'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Usage Statistics Section (Requirements 10.4) */}
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-purple-600" />
+                        Usage Statistics
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="text-center p-3 bg-blue-50 rounded-lg">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {businessDetails.menu_items_count || 0}
+                          </div>
+                          <div className="text-sm text-gray-500">Menu Items</div>
+                        </div>
+                        <div className="text-center p-3 bg-green-50 rounded-lg">
+                          <div className="text-2xl font-bold text-green-600">
+                            {businessDetails.orders_count || 0}
+                          </div>
+                          <div className="text-sm text-gray-500">Total Orders</div>
+                        </div>
+                        <div className="text-center p-3 bg-purple-50 rounded-lg">
+                          <div className="text-2xl font-bold text-purple-600">
+                            ₹{(businessDetails.total_revenue || 0).toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-sm text-gray-500">Revenue</div>
+                        </div>
+                        <div className="text-center p-3 bg-orange-50 rounded-lg">
+                          <div className="text-2xl font-bold text-orange-600">
+                            {businessDetails.tables_count || 0}
+                          </div>
+                          <div className="text-sm text-gray-500">Tables</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <div className="text-xl font-bold text-gray-700">
+                            {businessDetails.staff_count || 0}
+                          </div>
+                          <div className="text-sm text-gray-500">Staff Members</div>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <div className="text-xl font-bold text-gray-700">
+                            {businessDetails.bill_count || 0}
+                          </div>
+                          <div className="text-sm text-gray-500">Bills Generated</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Referral Information */}
+                    {(businessDetails.referral_code || businessDetails.wallet_balance > 0 || businessDetails.total_referrals > 0) && (
+                      <div className="border rounded-lg p-4">
+                        <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                          <Gift className="w-4 h-4 text-pink-600" />
+                          Referral Information
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label className="text-sm text-gray-500">Referral Code</Label>
+                            <p className="font-medium font-mono">{businessDetails.referral_code || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-sm text-gray-500">Wallet Balance</Label>
+                            <p className="font-medium text-green-600">₹{(businessDetails.wallet_balance || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div>
+                            <Label className="text-sm text-gray-500">Total Referrals</Label>
+                            <p className="font-medium">{businessDetails.total_referrals || 0}</p>
+                          </div>
+                          <div>
+                            <Label className="text-sm text-gray-500">Referral Earnings</Label>
+                            <p className="font-medium text-green-600">₹{(businessDetails.total_referral_earnings || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

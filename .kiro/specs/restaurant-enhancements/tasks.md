@@ -17,7 +17,7 @@ This implementation plan addresses table status synchronization, menu loading pe
     - Call `set_table_occupied` immediately after order insert
     - Log success/failure for debugging
     - _Requirements: 1.1, 1.3_
-  - [-] 1.3 Update bill completion endpoint to use TableStatusManager
+  - [x] 1.3 Update bill completion endpoint to use TableStatusManager
     - Call `set_table_available` when payment is completed
     - Ensure cache invalidation happens
     - _Requirements: 1.2, 1.3_
@@ -35,7 +35,7 @@ This implementation plan addresses table status synchronization, menu loading pe
     - Use event-based refresh mechanism
     - _Requirements: 1.5_
 
-- [ ] 3. Checkpoint - Verify table sync works
+- [x] 3. Checkpoint - Verify table sync works
   - Test: Create order → verify table shows occupied immediately
   - Test: Complete bill → verify table shows available immediately
   - Ensure all tests pass, ask the user if questions arise.
@@ -82,7 +82,7 @@ This implementation plan addresses table status synchronization, menu loading pe
     - Create form with name, description, color picker
     - Handle save with success/error feedback
     - _Requirements: 3.1, 3.3_
-  - [ ] 6.3 Write property test for category data persistence
+  - [x] 6.3 Write property test for category data persistence
     - **Property 4: Category Data Persistence**
     - **Validates: Requirements 3.3**
 
@@ -134,7 +134,7 @@ This implementation plan addresses table status synchronization, menu loading pe
     - Confirmation dialog before delete
     - Recalculate totals after delete
     - _Requirements: 4.7_
-  - [ ] 10.4 Write property test for expense total consistency
+  - [x] 10.4 Write property test for expense total consistency
     - **Property 7: Expense Total Consistency**
     - **Validates: Requirements 4.5, 4.6, 4.7**
 

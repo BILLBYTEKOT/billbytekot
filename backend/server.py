@@ -450,6 +450,14 @@ class User(BaseModel):
     subscription_expires_at: Optional[datetime] = None
     setup_completed: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Referral system fields
+    referral_code: Optional[str] = None  # Unique 8-char alphanumeric code
+    wallet_balance: float = 0.0  # Current wallet balance from referral rewards
+    referred_by: Optional[str] = None  # Referral code used during signup (optional)
+    total_referrals: int = 0  # Count of successful referrals
+    total_referral_earnings: float = 0.0  # Total earned from referrals
+    # Fraud prevention fields (Requirement 11.2)
+    device_fingerprint: Optional[str] = None  # Device fingerprint for self-referral detection
 
 
 class UserCreate(BaseModel):
@@ -457,6 +465,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     role: str = "admin"
+    referral_code: Optional[str] = None  # Optional referral code during signup
 
 
 class RegisterOTPRequest(BaseModel):
@@ -464,6 +473,7 @@ class RegisterOTPRequest(BaseModel):
     username: str
     password: str
     role: str = "admin"
+    referral_code: Optional[str] = None  # Optional referral code during signup
 
 
 class VerifyRegistrationOTP(BaseModel):
@@ -758,6 +768,95 @@ def create_access_token(data: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=7)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+# Referral System Helper Functions
+import string
+
+REFERRAL_CODE_CHARS = string.ascii_uppercase + string.digits  # A-Z, 0-9
+REFERRAL_CODE_LENGTH = 8
+
+
+def generate_referral_code_string() -> str:
+    """Generate a random 8-character alphanumeric referral code"""
+    return ''.join(random.choices(REFERRAL_CODE_CHARS, k=REFERRAL_CODE_LENGTH))
+
+
+async def generate_unique_referral_code() -> str:
+    """
+    Generate a unique 8-character alphanumeric referral code.
+    Ensures uniqueness by checking against existing codes in the database.
+    
+    Returns:
+        str: A unique 8-character alphanumeric code (uppercase)
+    """
+    max_attempts = 10
+    for _ in range(max_attempts):
+        code = generate_referral_code_string()
+        # Check if code already exists (case-insensitive)
+        existing = await db.users.find_one({"referral_code": {"$regex": f"^{code}$", "$options": "i"}})
+        if not existing:
+            return code
+    
+    # Fallback: use UUID-based code if random generation fails
+    return str(uuid.uuid4()).replace("-", "")[:REFERRAL_CODE_LENGTH].upper()
+
+
+async def validate_referral_code(code: str) -> dict:
+    """
+    Validate a referral code and return the referrer information.
+    Case-insensitive validation as per requirements.
+    
+    Args:
+        code: The referral code to validate
+        
+    Returns:
+        dict with 'valid' boolean and 'referrer' user data if valid
+    """
+    if not code or len(code) != REFERRAL_CODE_LENGTH:
+        return {"valid": False, "error": "Invalid referral code format"}
+    
+    # Case-insensitive lookup
+    referrer = await db.users.find_one({"referral_code": {"$regex": f"^{code}$", "$options": "i"}})
+    
+    if not referrer:
+        return {"valid": False, "error": "Invalid referral code"}
+    
+    return {
+        "valid": True,
+        "referrer": {
+            "id": referrer.get("id"),
+            "username": referrer.get("username"),
+            "referral_code": referrer.get("referral_code")
+        }
+    }
+
+
+async def assign_referral_code_to_user(user_id: str) -> str:
+    """
+    Assign a unique referral code to a user if they don't have one.
+    
+    Args:
+        user_id: The user's ID
+        
+    Returns:
+        str: The user's referral code (existing or newly generated)
+    """
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise ValueError(f"User not found: {user_id}")
+    
+    # Return existing code if already assigned
+    if user.get("referral_code"):
+        return user["referral_code"]
+    
+    # Generate and assign new code
+    code = await generate_unique_referral_code()
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"referral_code": code}}
+    )
+    return code
 
 
 async def send_registration_otp_email(email: str, otp: str, username: str = "User"):
@@ -1718,7 +1817,8 @@ async def register_request(user_data: RegisterOTPRequest):
             "email": user_data.email.strip(),  # Keep original case for display
             "email_lower": email_lower,  # Lowercase for lookups
             "password": user_data.password,
-            "role": user_data.role
+            "role": user_data.role,
+            "referral_code": user_data.referral_code.strip().upper() if user_data.referral_code else None  # Store referral code
         }
     }
     
@@ -1777,8 +1877,38 @@ async def verify_registration(verify_data: VerifyRegistrationOTP):
     doc["username_lower"] = user_data.get("username_lower", user_data["username"].lower().strip())
     doc["email_lower"] = user_data.get("email_lower", user_data["email"].lower().strip())
     
+    # Store referral code if provided (Requirement 3.7)
+    referral_code = user_data.get("referral_code")
+    if referral_code:
+        doc["referred_by"] = referral_code
+    
     # Insert user into database
     await db.users.insert_one(doc)
+    
+    # Apply referral if code was provided (Requirement 3.7)
+    if referral_code:
+        try:
+            # Find the referrer by code
+            referrer = await db.users.find_one({
+                "referral_code": {"$regex": f"^{referral_code}$", "$options": "i"}
+            })
+            if referrer:
+                # Create referral record with PENDING status
+                referral_record = {
+                    "id": str(uuid.uuid4()),
+                    "referrer_user_id": referrer.get("id"),
+                    "referee_user_id": user_obj.id,
+                    "referral_code": referral_code,
+                    "status": "PENDING",
+                    "referee_discount": REFERRAL_DISCOUNT_AMOUNT,
+                    "referrer_reward": REFERRAL_REWARD_AMOUNT,
+                    "referee_email": user_data["email"],
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.referrals.insert_one(referral_record)
+                print(f"✅ Referral record created for user {user_obj.id} with code {referral_code}")
+        except Exception as e:
+            print(f"Failed to create referral record: {e}")
     
     # Remove used OTP (try both keys)
     registration_otp_storage.pop(email_lower, None)
@@ -1842,8 +1972,38 @@ async def register_direct(user_data: UserCreate):
     doc["username_lower"] = username_lower
     doc["email_lower"] = email_lower
     
+    # Store referral code if provided (Requirement 3.7)
+    referral_code = user_data.referral_code.strip().upper() if user_data.referral_code else None
+    if referral_code:
+        doc["referred_by"] = referral_code
+    
     # Insert user into database
     await db.users.insert_one(doc)
+    
+    # Apply referral if code was provided (Requirement 3.7)
+    if referral_code:
+        try:
+            # Find the referrer by code
+            referrer = await db.users.find_one({
+                "referral_code": {"$regex": f"^{referral_code}$", "$options": "i"}
+            })
+            if referrer:
+                # Create referral record with PENDING status
+                referral_record = {
+                    "id": str(uuid.uuid4()),
+                    "referrer_user_id": referrer.get("id"),
+                    "referee_user_id": user_obj.id,
+                    "referral_code": referral_code,
+                    "status": "PENDING",
+                    "referee_discount": REFERRAL_DISCOUNT_AMOUNT,
+                    "referrer_reward": REFERRAL_REWARD_AMOUNT,
+                    "referee_email": user_data.email.strip(),
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.referrals.insert_one(referral_record)
+                print(f"✅ Referral record created for user {user_obj.id} with code {referral_code}")
+        except Exception as e:
+            print(f"Failed to create referral record: {e}")
     
     # Send welcome email asynchronously (non-blocking)
     try:
@@ -2958,6 +3118,27 @@ async def create_subscription_order(
     final_price = base_price
     coupon_applied = None
     discount_amount = 0
+    referral_discount_applied = None
+    
+    # Check for pending referral discount (₹200 off for referred users)
+    # Requirements: 3.6 - Reduce payment amount by ₹200 for referred users
+    user_id = current_user.get("id")
+    pending_referral = await db.referrals.find_one({
+        "referee_user_id": user_id,
+        "status": "PENDING"
+    })
+    
+    if pending_referral:
+        # Apply referral discount (₹200 = 20000 paise)
+        referral_discount_paise = int(REFERRAL_DISCOUNT_AMOUNT * 100)
+        final_price = max(100, base_price - referral_discount_paise)  # Minimum ₹1 (100 paise)
+        referral_discount_applied = {
+            "referral_id": pending_referral.get("id"),
+            "referral_code": pending_referral.get("referral_code"),
+            "discount_amount": referral_discount_paise,
+            "discount_display": f"₹{int(REFERRAL_DISCOUNT_AMOUNT)}"
+        }
+        print(f"Referral discount applied for user {user_id}: ₹{int(REFERRAL_DISCOUNT_AMOUNT)}")
     
     if data and data.coupon_code:
         coupon_code = data.coupon_code.upper().strip()
@@ -2969,7 +3150,7 @@ async def create_subscription_order(
                 elif "discount_amount" in coupon:
                     discount_amount = min(coupon["discount_amount"], base_price)  # Can't discount more than price
                 
-                final_price = max(100, base_price - discount_amount)  # Minimum ₹1 (100 paise)
+                final_price = max(100, final_price - discount_amount)  # Minimum ₹1 (100 paise)
                 coupon_applied = {
                     "code": coupon_code,
                     "description": coupon["description"],
@@ -3000,6 +3181,7 @@ async def create_subscription_order(
             "original_price_display": f"₹{original_price / 100:.0f}",
             "campaign_price_display": pricing["price_display"],
             "coupon_applied": coupon_applied,
+            "referral_discount_applied": referral_discount_applied,
             "campaign_active": pricing["campaign_active"],
             "campaign_name": pricing["campaign_name"],
             "campaign_badge": pricing["badge"]
@@ -3100,6 +3282,19 @@ async def verify_subscription_payment(
         )
         
         print(f"Subscription activated for user: {current_user['id']} via campaign: {campaign_name}")
+        
+        # Trigger referral completion after successful payment
+        # Requirements: 4.1, 4.2 - Credit referrer wallet with ₹300 after payment
+        referral_result = None
+        try:
+            referral_result = await process_referral_completion(
+                referee_user_id=current_user["id"],
+                payment_id=data.razorpay_payment_id
+            )
+            if referral_result and referral_result.get("referral_processed"):
+                print(f"Referral completed for user {current_user['id']}: {referral_result}")
+        except Exception as ref_error:
+            print(f"Referral completion error (non-blocking): {ref_error}")
 
         return {
             "status": "subscription_activated", 
@@ -3109,7 +3304,8 @@ async def verify_subscription_payment(
             "payment_id": data.razorpay_payment_id,
             "amount_paid": amount_paid,
             "campaign": campaign_name,
-            "is_early_adopter": pricing["campaign_active"]
+            "is_early_adopter": pricing["campaign_active"],
+            "referral_processed": referral_result.get("referral_processed") if referral_result else False
         }
     except HTTPException:
         raise
@@ -3133,6 +3329,16 @@ async def verify_subscription_payment(
                     }
                 },
             )
+            
+            # Also trigger referral completion in fallback case
+            try:
+                await process_referral_completion(
+                    referee_user_id=current_user["id"],
+                    payment_id=data.razorpay_payment_id
+                )
+            except Exception as ref_error:
+                print(f"Referral completion error in fallback (non-blocking): {ref_error}")
+            
             return {
                 "status": "subscription_activated", 
                 "expires_at": expires_at.isoformat(),
@@ -7928,6 +8134,19 @@ async def startup_validation():
             await db.stock_movements.create_index([("organization_id", 1), ("item_id", 1)])
             await db.stock_movements.create_index([("organization_id", 1), ("created_at", -1)])
             
+            # Referral system indexes
+            await db.users.create_index("referral_code", unique=True, sparse=True)  # Fast lookup by referral code
+            await db.referrals.create_index("referral_code")  # Lookup referrals by code
+            await db.referrals.create_index("referrer_user_id")  # Find all referrals by a user
+            await db.referrals.create_index("referee_user_id", unique=True, sparse=True)  # One referral per referee
+            await db.referrals.create_index([("referrer_user_id", 1), ("status", 1)])  # Filter by status
+            await db.referrals.create_index([("created_at", -1)])  # Sort by date
+            await db.referrals.create_index("referee_phone", sparse=True)  # Fast lookup for duplicate mobile check (Requirement 11.1)
+            
+            # Wallet transactions indexes
+            await db.wallet_transactions.create_index("user_id")
+            await db.wallet_transactions.create_index([("user_id", 1), ("created_at", -1)])
+            
             print("✅ Database indexes created successfully")
         except Exception as e:
             print(f"⚠️  Index creation warning: {e}")
@@ -8060,6 +8279,1004 @@ async def periodic_cache_cleanup():
 async def ping():
     """Simple ping endpoint for health checks and keeping server warm"""
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+# ============ REFERRAL SYSTEM ENDPOINTS ============
+
+# Pydantic models for referral endpoints
+class ReferralValidateRequest(BaseModel):
+    """Request model for validating a referral code"""
+    referral_code: str
+    new_user_email: Optional[str] = None
+    new_user_phone: Optional[str] = None
+    device_fingerprint: Optional[str] = None  # For self-referral detection (Requirement 11.2)
+
+
+class ReferralApplyRequest(BaseModel):
+    """Request model for applying a referral code"""
+    referral_code: str
+    referee_user_id: str
+
+
+class ReferralCompleteRequest(BaseModel):
+    """Request model for completing a referral after payment"""
+    referee_user_id: str
+    payment_id: str
+
+
+# Referral configuration constants
+REFERRAL_DISCOUNT_AMOUNT = 200.0  # ₹200 discount for new users
+REFERRAL_REWARD_AMOUNT = 300.0    # ₹300 reward for referrers
+
+
+async def process_referral_completion(referee_user_id: str, payment_id: str) -> dict:
+    """
+    Process referral completion after successful payment.
+    
+    Requirements: 4.1, 4.2, 4.4
+    - Credit referrer wallet with ₹300
+    - Update referral status to REWARDED
+    - Create audit transaction record
+    
+    Args:
+        referee_user_id: The user ID of the referee who made the payment
+        payment_id: The payment ID from Razorpay
+        
+    Returns:
+        dict with referral_processed status and details
+    """
+    # Find the pending referral for this referee
+    referral = await db.referrals.find_one({
+        "referee_user_id": referee_user_id,
+        "status": "PENDING"
+    })
+    
+    if not referral:
+        # No pending referral - this is okay, not all users have referrals
+        return {
+            "success": True,
+            "referral_processed": False,
+            "message": "No pending referral found for this user"
+        }
+    
+    # Update referral status to REWARDED
+    now = datetime.now(timezone.utc)
+    await db.referrals.update_one(
+        {"id": referral["id"]},
+        {
+            "$set": {
+                "status": "REWARDED",
+                "payment_id": payment_id,
+                "completed_at": now,
+                "rewarded_at": now
+            }
+        }
+    )
+    
+    # Credit referrer's wallet
+    referrer_user_id = referral["referrer_user_id"]
+    
+    # Update referrer's wallet balance and stats
+    await db.users.update_one(
+        {"id": referrer_user_id},
+        {
+            "$inc": {
+                "wallet_balance": REFERRAL_REWARD_AMOUNT,
+                "total_referrals": 1,
+                "total_referral_earnings": REFERRAL_REWARD_AMOUNT
+            }
+        }
+    )
+    
+    # Create wallet transaction record
+    wallet_transaction = {
+        "id": str(uuid.uuid4()),
+        "user_id": referrer_user_id,
+        "type": "CREDIT",
+        "amount": REFERRAL_REWARD_AMOUNT,
+        "transaction_type": "REFERRAL_REWARD",
+        "reference_id": referral["id"],
+        "description": f"Referral reward for user signup (Payment: {payment_id})",
+        "created_at": now
+    }
+    
+    # Get current balance for balance_after field
+    referrer = await db.users.find_one({"id": referrer_user_id})
+    wallet_transaction["balance_after"] = referrer.get("wallet_balance", REFERRAL_REWARD_AMOUNT)
+    
+    await db.wallet_transactions.insert_one(wallet_transaction)
+    
+    return {
+        "success": True,
+        "referral_processed": True,
+        "referral_id": referral["id"],
+        "referrer_reward": REFERRAL_REWARD_AMOUNT,
+        "message": f"Referral completed! Referrer credited with ₹{int(REFERRAL_REWARD_AMOUNT)}"
+    }
+
+
+# ============ WALLET SYSTEM MODELS ============
+
+class WalletTransaction(BaseModel):
+    """
+    Wallet transaction model for tracking all wallet operations.
+    
+    Requirements: 5.4, 5.5
+    - Stores transaction type, amount, and reference
+    - Supports CREDIT and DEBIT operations
+    - Maintains audit trail with timestamps
+    """
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    type: str  # CREDIT or DEBIT
+    amount: float
+    transaction_type: str  # REFERRAL_REWARD, SUBSCRIPTION_PAYMENT, REVERSAL, MANUAL_CREDIT, MANUAL_DEBIT
+    reference_id: Optional[str] = None  # Referral ID, Payment ID, etc.
+    balance_after: float
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WalletBalanceResponse(BaseModel):
+    """Response model for wallet balance endpoint"""
+    success: bool = True
+    total_earned: float  # Total credits ever received
+    total_used: float  # Total debits ever made
+    available_balance: float  # Current balance (earned - used)
+    currency: str = "INR"
+
+
+class WalletTransactionResponse(BaseModel):
+    """Response model for individual transaction in history"""
+    id: str
+    type: str
+    amount: float
+    transaction_type: str
+    reference_id: Optional[str] = None
+    balance_after: float
+    description: Optional[str] = None
+    created_at: str  # ISO format string
+
+
+class WalletApplyRequest(BaseModel):
+    """Request model for applying wallet balance to subscription"""
+    subscription_amount: float
+    apply_amount: Optional[float] = None  # If None, apply full available balance
+
+
+class WalletApplyResponse(BaseModel):
+    """Response model for wallet apply endpoint"""
+    success: bool
+    amount_applied: float
+    remaining_subscription_amount: float
+    new_wallet_balance: float
+    transaction_id: Optional[str] = None
+    message: str
+
+
+# ============ WALLET SERVICE FUNCTIONS ============
+
+async def wallet_credit(
+    user_id: str,
+    amount: float,
+    transaction_type: str,
+    reference_id: Optional[str] = None,
+    description: Optional[str] = None
+) -> dict:
+    """
+    Credit amount to user's wallet.
+    
+    Requirements: 4.1, 5.4
+    - Adds amount to user wallet_balance
+    - Creates transaction record with all required fields
+    - Returns transaction details
+    
+    Args:
+        user_id: The user's ID
+        amount: Amount to credit (must be positive)
+        transaction_type: Type of transaction (REFERRAL_REWARD, MANUAL_CREDIT, etc.)
+        reference_id: Optional reference to related entity (referral ID, etc.)
+        description: Optional description of the transaction
+        
+    Returns:
+        dict with transaction details and new balance
+    """
+    if amount <= 0:
+        raise ValueError("Credit amount must be positive")
+    
+    # Get current user
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise ValueError(f"User not found: {user_id}")
+    
+    current_balance = user.get("wallet_balance", 0.0)
+    new_balance = current_balance + amount
+    
+    # Update user's wallet balance
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"wallet_balance": new_balance}}
+    )
+    
+    # Create transaction record
+    now = datetime.now(timezone.utc)
+    transaction = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "type": "CREDIT",
+        "amount": amount,
+        "transaction_type": transaction_type,
+        "reference_id": reference_id,
+        "balance_after": new_balance,
+        "description": description or f"Wallet credit: {transaction_type}",
+        "created_at": now
+    }
+    
+    await db.wallet_transactions.insert_one(transaction)
+    
+    return {
+        "success": True,
+        "transaction_id": transaction["id"],
+        "amount": amount,
+        "new_balance": new_balance,
+        "transaction_type": transaction_type
+    }
+
+
+async def wallet_debit(
+    user_id: str,
+    amount: float,
+    transaction_type: str,
+    reference_id: Optional[str] = None,
+    description: Optional[str] = None
+) -> dict:
+    """
+    Debit amount from user's wallet.
+    
+    Requirements: 5.3, 5.4
+    - Validates sufficient balance before deduction
+    - Deducts amount from wallet_balance
+    - Creates transaction record
+    
+    Args:
+        user_id: The user's ID
+        amount: Amount to debit (must be positive)
+        transaction_type: Type of transaction (SUBSCRIPTION_PAYMENT, REVERSAL, etc.)
+        reference_id: Optional reference to related entity (payment ID, etc.)
+        description: Optional description of the transaction
+        
+    Returns:
+        dict with transaction details and new balance
+        
+    Raises:
+        ValueError: If amount is invalid or insufficient balance
+    """
+    if amount <= 0:
+        raise ValueError("Debit amount must be positive")
+    
+    # Get current user
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise ValueError(f"User not found: {user_id}")
+    
+    current_balance = user.get("wallet_balance", 0.0)
+    
+    # Validate sufficient balance
+    if current_balance < amount:
+        raise ValueError(f"Insufficient wallet balance. Available: ₹{current_balance}, Required: ₹{amount}")
+    
+    new_balance = current_balance - amount
+    
+    # Update user's wallet balance
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"wallet_balance": new_balance}}
+    )
+    
+    # Create transaction record
+    now = datetime.now(timezone.utc)
+    transaction = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "type": "DEBIT",
+        "amount": amount,
+        "transaction_type": transaction_type,
+        "reference_id": reference_id,
+        "balance_after": new_balance,
+        "description": description or f"Wallet debit: {transaction_type}",
+        "created_at": now
+    }
+    
+    await db.wallet_transactions.insert_one(transaction)
+    
+    return {
+        "success": True,
+        "transaction_id": transaction["id"],
+        "amount": amount,
+        "new_balance": new_balance,
+        "transaction_type": transaction_type
+    }
+
+
+async def get_wallet_balance(user_id: str) -> dict:
+    """
+    Get wallet balance details for a user.
+    
+    Requirements: 5.1
+    - Returns total earned, used, and available balance
+    
+    Args:
+        user_id: The user's ID
+        
+    Returns:
+        dict with total_earned, total_used, available_balance
+    """
+    # Get user's current balance
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise ValueError(f"User not found: {user_id}")
+    
+    available_balance = user.get("wallet_balance", 0.0)
+    
+    # Calculate total earned (sum of all CREDIT transactions)
+    credit_pipeline = [
+        {"$match": {"user_id": user_id, "type": "CREDIT"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    credit_result = await db.wallet_transactions.aggregate(credit_pipeline).to_list(length=1)
+    total_earned = credit_result[0]["total"] if credit_result else 0.0
+    
+    # Calculate total used (sum of all DEBIT transactions)
+    debit_pipeline = [
+        {"$match": {"user_id": user_id, "type": "DEBIT"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    debit_result = await db.wallet_transactions.aggregate(debit_pipeline).to_list(length=1)
+    total_used = debit_result[0]["total"] if debit_result else 0.0
+    
+    return {
+        "total_earned": total_earned,
+        "total_used": total_used,
+        "available_balance": available_balance
+    }
+
+
+async def get_wallet_transactions(
+    user_id: str,
+    skip: int = 0,
+    limit: int = 50
+) -> list:
+    """
+    Get paginated wallet transaction history for a user.
+    
+    Requirements: 5.5
+    - Returns transaction history with dates and amounts
+    - Supports pagination
+    
+    Args:
+        user_id: The user's ID
+        skip: Number of records to skip (for pagination)
+        limit: Maximum number of records to return
+        
+    Returns:
+        list of transaction records
+    """
+    transactions = await db.wallet_transactions.find(
+        {"user_id": user_id}
+    ).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
+    
+    # Format transactions for response
+    formatted = []
+    for t in transactions:
+        formatted.append({
+            "id": t.get("id"),
+            "type": t.get("type"),
+            "amount": t.get("amount"),
+            "transaction_type": t.get("transaction_type"),
+            "reference_id": t.get("reference_id"),
+            "balance_after": t.get("balance_after"),
+            "description": t.get("description"),
+            "created_at": t.get("created_at").isoformat() if isinstance(t.get("created_at"), datetime) else str(t.get("created_at"))
+        })
+    
+    return formatted
+
+
+async def apply_wallet_to_subscription(
+    user_id: str,
+    subscription_amount: float,
+    apply_amount: Optional[float] = None
+) -> dict:
+    """
+    Apply wallet balance to subscription payment.
+    
+    Requirements: 5.2, 5.3
+    - Applies wallet balance to subscription payment
+    - Validates sufficient balance if specific amount requested
+    - Creates debit transaction record
+    
+    Args:
+        user_id: The user's ID
+        subscription_amount: Total subscription amount
+        apply_amount: Specific amount to apply (if None, applies full available balance up to subscription amount)
+        
+    Returns:
+        dict with amount applied, remaining amount, and new balance
+    """
+    # Get current balance
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise ValueError(f"User not found: {user_id}")
+    
+    available_balance = user.get("wallet_balance", 0.0)
+    
+    if available_balance <= 0:
+        return {
+            "success": True,
+            "amount_applied": 0,
+            "remaining_subscription_amount": subscription_amount,
+            "new_wallet_balance": 0,
+            "transaction_id": None,
+            "message": "No wallet balance available to apply"
+        }
+    
+    # Determine amount to apply
+    if apply_amount is not None:
+        # Specific amount requested
+        if apply_amount <= 0:
+            raise ValueError("Apply amount must be positive")
+        if apply_amount > available_balance:
+            raise ValueError(f"Insufficient balance. Available: ₹{available_balance}, Requested: ₹{apply_amount}")
+        if apply_amount > subscription_amount:
+            raise ValueError(f"Apply amount (₹{apply_amount}) cannot exceed subscription amount (₹{subscription_amount})")
+        amount_to_apply = apply_amount
+    else:
+        # Apply full available balance up to subscription amount
+        amount_to_apply = min(available_balance, subscription_amount)
+    
+    # Debit the wallet
+    result = await wallet_debit(
+        user_id=user_id,
+        amount=amount_to_apply,
+        transaction_type="SUBSCRIPTION_PAYMENT",
+        description=f"Applied to subscription payment of ₹{subscription_amount}"
+    )
+    
+    remaining_amount = subscription_amount - amount_to_apply
+    
+    return {
+        "success": True,
+        "amount_applied": amount_to_apply,
+        "remaining_subscription_amount": remaining_amount,
+        "new_wallet_balance": result["new_balance"],
+        "transaction_id": result["transaction_id"],
+        "message": f"₹{amount_to_apply} applied from wallet. Remaining: ₹{remaining_amount}"
+    }
+
+
+@api_router.get("/referral/code")
+async def get_referral_code(current_user: dict = Depends(get_current_user)):
+    """
+    Get the current user's referral code.
+    Generates a new code if the user doesn't have one.
+    
+    Requirements: 1.1, 1.2, 1.3
+    - Returns user's referral code within 200ms
+    - Generates unique 8-character alphanumeric code if not exists
+    - Code remains constant throughout account lifetime
+    """
+    user_id = current_user.get("id")
+    
+    # Check if user already has a referral code
+    existing_code = current_user.get("referral_code")
+    if existing_code:
+        return {
+            "success": True,
+            "referral_code": existing_code,
+            "share_message": f"Join BillByteKOT using my referral code {existing_code} and get ₹{int(REFERRAL_DISCOUNT_AMOUNT)} off on your subscription! Download now: https://billbytekot.in"
+        }
+    
+    # Generate and assign a new referral code
+    try:
+        new_code = await assign_referral_code_to_user(user_id)
+        return {
+            "success": True,
+            "referral_code": new_code,
+            "share_message": f"Join BillByteKOT using my referral code {new_code} and get ₹{int(REFERRAL_DISCOUNT_AMOUNT)} off on your subscription! Download now: https://billbytekot.in"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate referral code: {str(e)}"
+        )
+
+
+@api_router.post("/referral/validate")
+async def validate_referral_code_endpoint(request: ReferralValidateRequest, http_request: Request):
+    """
+    Validate a referral code and check for fraud.
+    
+    Requirements: 3.3, 3.4, 3.5, 3.6, 3.8, 11.2, 11.4
+    - Validates code exists and is active
+    - Checks for self-referral (email, phone, device fingerprint)
+    - Checks for duplicate mobile number
+    - Rate limits to 10 requests per hour per IP
+    - Returns discount amount on success
+    """
+    # Rate limiting check (Requirement 11.4)
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    try:
+        from redis_cache import redis_cache
+        if redis_cache and redis_cache.is_connected():
+            rate_limit_key = f"rate_limit:referral_validate:{client_ip}"
+            # 10 requests per hour (3600 seconds)
+            if not await redis_cache.check_rate_limit(rate_limit_key, 10, 3600):
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "code": "RATE_LIMITED",
+                        "message": "Too many referral validation requests. Please try again later."
+                    }
+                )
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Continue without rate limiting if Redis is unavailable
+        print(f"Rate limiting error: {e}")
+    
+    code = request.referral_code.strip().upper()
+    new_user_email = request.new_user_email
+    new_user_phone = request.new_user_phone
+    device_fingerprint = request.device_fingerprint
+    
+    # Validate code format
+    if not code or len(code) != REFERRAL_CODE_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_REFERRAL_CODE",
+                "message": "Invalid referral code format"
+            }
+        )
+    
+    # Find the referrer by code (case-insensitive)
+    referrer = await db.users.find_one({
+        "referral_code": {"$regex": f"^{code}$", "$options": "i"}
+    })
+    
+    if not referrer:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_REFERRAL_CODE",
+                "message": "Invalid referral code"
+            }
+        )
+    
+    # Check for self-referral by email (Requirement 11.2)
+    if new_user_email and referrer.get("email", "").lower() == new_user_email.lower():
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "SELF_REFERRAL",
+                "message": "Cannot use your own referral code"
+            }
+        )
+    
+    # Check for self-referral by phone (Requirement 11.2)
+    if new_user_phone and referrer.get("phone") == new_user_phone:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "SELF_REFERRAL",
+                "message": "Cannot use your own referral code"
+            }
+        )
+    
+    # Check for self-referral by device fingerprint (Requirement 11.2)
+    if device_fingerprint and referrer.get("device_fingerprint") == device_fingerprint:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "SELF_REFERRAL",
+                "message": "Cannot use your own referral code"
+            }
+        )
+    
+    # Check for duplicate mobile number in referrals (Requirement 11.1)
+    if new_user_phone:
+        existing_referral = await db.referrals.find_one({
+            "referee_phone": new_user_phone
+        })
+        if existing_referral:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "DUPLICATE_MOBILE",
+                    "message": "This mobile number has already been used for a referral"
+                }
+            )
+    
+    # Return success with discount amount
+    return {
+        "success": True,
+        "valid": True,
+        "referrer_username": referrer.get("username"),
+        "discount_amount": REFERRAL_DISCOUNT_AMOUNT,
+        "message": f"Valid referral code! You'll get ₹{int(REFERRAL_DISCOUNT_AMOUNT)} off on your subscription."
+    }
+
+
+@api_router.post("/referral/apply")
+async def apply_referral_code(
+    request: ReferralApplyRequest,
+    http_request: Request,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Apply a referral code and create a referral record with PENDING status.
+    
+    Requirements: 3.3, 4.4, 11.4
+    - Creates referral record with PENDING status
+    - Links referee to referrer
+    - Rate limits to 10 requests per hour per IP
+    """
+    # Rate limiting check (Requirement 11.4)
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    try:
+        from redis_cache import redis_cache
+        if redis_cache and redis_cache.is_connected():
+            rate_limit_key = f"rate_limit:referral_apply:{client_ip}"
+            # 10 requests per hour (3600 seconds)
+            if not await redis_cache.check_rate_limit(rate_limit_key, 10, 3600):
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "code": "RATE_LIMITED",
+                        "message": "Too many referral application requests. Please try again later."
+                    }
+                )
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Continue without rate limiting if Redis is unavailable
+        print(f"Rate limiting error: {e}")
+    
+    code = request.referral_code.strip().upper()
+    referee_user_id = request.referee_user_id
+    
+    # Find the referrer by code
+    referrer = await db.users.find_one({
+        "referral_code": {"$regex": f"^{code}$", "$options": "i"}
+    })
+    
+    if not referrer:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_REFERRAL_CODE",
+                "message": "Invalid referral code"
+            }
+        )
+    
+    # Get referee user
+    referee = await db.users.find_one({"id": referee_user_id})
+    if not referee:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "USER_NOT_FOUND",
+                "message": "Referee user not found"
+            }
+        )
+    
+    # Check for self-referral
+    if referrer.get("id") == referee_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "SELF_REFERRAL",
+                "message": "Cannot use your own referral code"
+            }
+        )
+    
+    # Check if referee already has a referral
+    existing_referral = await db.referrals.find_one({
+        "referee_user_id": referee_user_id
+    })
+    if existing_referral:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "REFERRAL_ALREADY_APPLIED",
+                "message": "A referral has already been applied to this account"
+            }
+        )
+    
+    # Create referral record
+    referral_record = {
+        "id": str(uuid.uuid4()),
+        "referrer_user_id": referrer.get("id"),
+        "referee_user_id": referee_user_id,
+        "referral_code": code,
+        "status": "PENDING",
+        "referee_discount": REFERRAL_DISCOUNT_AMOUNT,
+        "referrer_reward": REFERRAL_REWARD_AMOUNT,
+        "referee_email": referee.get("email"),
+        "referee_phone": referee.get("phone"),
+        "payment_id": None,
+        "created_at": datetime.now(timezone.utc),
+        "completed_at": None,
+        "rewarded_at": None,
+        "reversed_at": None,
+        "reverse_reason": None
+    }
+    
+    await db.referrals.insert_one(referral_record)
+    
+    # Update referee's referred_by field
+    await db.users.update_one(
+        {"id": referee_user_id},
+        {"$set": {"referred_by": code}}
+    )
+    
+    return {
+        "success": True,
+        "referral_id": referral_record["id"],
+        "status": "PENDING",
+        "discount_amount": REFERRAL_DISCOUNT_AMOUNT,
+        "message": f"Referral applied! You'll get ₹{int(REFERRAL_DISCOUNT_AMOUNT)} off on your first subscription payment."
+    }
+
+
+@api_router.post("/referral/complete")
+async def complete_referral(request: ReferralCompleteRequest):
+    """
+    Complete a referral after payment and credit the referrer's wallet.
+    
+    Requirements: 4.1, 4.2, 4.4
+    - Process referral after payment completion
+    - Credit referrer wallet with ₹300
+    - Update referral status to REWARDED
+    """
+    referee_user_id = request.referee_user_id
+    payment_id = request.payment_id
+    
+    # Find the pending referral for this referee
+    referral = await db.referrals.find_one({
+        "referee_user_id": referee_user_id,
+        "status": "PENDING"
+    })
+    
+    if not referral:
+        # No pending referral - this is okay, not all users have referrals
+        return {
+            "success": True,
+            "referral_processed": False,
+            "message": "No pending referral found for this user"
+        }
+    
+    # Update referral status to REWARDED
+    now = datetime.now(timezone.utc)
+    await db.referrals.update_one(
+        {"id": referral["id"]},
+        {
+            "$set": {
+                "status": "REWARDED",
+                "payment_id": payment_id,
+                "completed_at": now,
+                "rewarded_at": now
+            }
+        }
+    )
+    
+    # Credit referrer's wallet
+    referrer_user_id = referral["referrer_user_id"]
+    
+    # Update referrer's wallet balance and stats
+    await db.users.update_one(
+        {"id": referrer_user_id},
+        {
+            "$inc": {
+                "wallet_balance": REFERRAL_REWARD_AMOUNT,
+                "total_referrals": 1,
+                "total_referral_earnings": REFERRAL_REWARD_AMOUNT
+            }
+        }
+    )
+    
+    # Create wallet transaction record
+    wallet_transaction = {
+        "id": str(uuid.uuid4()),
+        "user_id": referrer_user_id,
+        "type": "CREDIT",
+        "amount": REFERRAL_REWARD_AMOUNT,
+        "transaction_type": "REFERRAL_REWARD",
+        "reference_id": referral["id"],
+        "description": f"Referral reward for user signup",
+        "created_at": now
+    }
+    
+    # Get current balance for balance_after field
+    referrer = await db.users.find_one({"id": referrer_user_id})
+    wallet_transaction["balance_after"] = referrer.get("wallet_balance", REFERRAL_REWARD_AMOUNT)
+    
+    await db.wallet_transactions.insert_one(wallet_transaction)
+    
+    return {
+        "success": True,
+        "referral_processed": True,
+        "referral_id": referral["id"],
+        "referrer_reward": REFERRAL_REWARD_AMOUNT,
+        "message": f"Referral completed! Referrer credited with ₹{int(REFERRAL_REWARD_AMOUNT)}"
+    }
+
+
+@api_router.get("/referral/summary")
+async def get_referral_summary(current_user: dict = Depends(get_current_user)):
+    """
+    Get referral statistics for the current user.
+    
+    Requirements: 6.1, 6.2, 6.3, 6.4
+    - Return total referrals count
+    - Return breakdown by status (PENDING, COMPLETED, REWARDED)
+    - Return total earnings from referrals
+    - Return available wallet balance
+    """
+    user_id = current_user.get("id")
+    
+    # Get all referrals where user is the referrer
+    referrals = await db.referrals.find({
+        "referrer_user_id": user_id
+    }).to_list(length=1000)
+    
+    # Calculate statistics
+    total_referrals = len(referrals)
+    pending_count = sum(1 for r in referrals if r.get("status") == "PENDING")
+    completed_count = sum(1 for r in referrals if r.get("status") == "COMPLETED")
+    rewarded_count = sum(1 for r in referrals if r.get("status") == "REWARDED")
+    reversed_count = sum(1 for r in referrals if r.get("status") == "REVERSED")
+    
+    # Calculate total earnings (only from REWARDED referrals)
+    total_earnings = sum(
+        r.get("referrer_reward", 0) 
+        for r in referrals 
+        if r.get("status") == "REWARDED"
+    )
+    
+    # Get current wallet balance from user
+    user = await db.users.find_one({"id": user_id})
+    wallet_balance = user.get("wallet_balance", 0.0) if user else 0.0
+    
+    # Get referral code
+    referral_code = current_user.get("referral_code")
+    if not referral_code:
+        referral_code = await assign_referral_code_to_user(user_id)
+    
+    return {
+        "success": True,
+        "referral_code": referral_code,
+        "total_referrals": total_referrals,
+        "status_breakdown": {
+            "pending": pending_count,
+            "completed": completed_count,
+            "rewarded": rewarded_count,
+            "reversed": reversed_count
+        },
+        "total_earnings": total_earnings,
+        "wallet_balance": wallet_balance,
+        "reward_per_referral": REFERRAL_REWARD_AMOUNT,
+        "discount_for_referee": REFERRAL_DISCOUNT_AMOUNT
+    }
+
+
+# ============ WALLET API ENDPOINTS ============
+
+@api_router.get("/wallet/balance")
+async def get_wallet_balance_endpoint(current_user: dict = Depends(get_current_user)):
+    """
+    Get wallet balance for the current user.
+    
+    Requirements: 5.1
+    - Returns total earned, used, and available balance
+    
+    Returns:
+        WalletBalanceResponse with balance details
+    """
+    try:
+        user_id = current_user.get("id")
+        balance_info = await get_wallet_balance(user_id)
+        
+        return {
+            "success": True,
+            "total_earned": balance_info["total_earned"],
+            "total_used": balance_info["total_used"],
+            "available_balance": balance_info["available_balance"],
+            "currency": "INR"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get wallet balance: {str(e)}")
+
+
+@api_router.get("/wallet/transactions")
+async def get_wallet_transactions_endpoint(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of records to return"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get paginated wallet transaction history for the current user.
+    
+    Requirements: 5.5
+    - Returns transaction history with dates and amounts
+    - Supports pagination
+    
+    Args:
+        skip: Number of records to skip (default: 0)
+        limit: Maximum records to return (default: 50, max: 100)
+        
+    Returns:
+        List of wallet transactions
+    """
+    try:
+        user_id = current_user.get("id")
+        transactions = await get_wallet_transactions(user_id, skip, limit)
+        
+        # Get total count for pagination
+        total_count = await db.wallet_transactions.count_documents({"user_id": user_id})
+        
+        return {
+            "success": True,
+            "transactions": transactions,
+            "pagination": {
+                "skip": skip,
+                "limit": limit,
+                "total": total_count,
+                "has_more": (skip + limit) < total_count
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get transactions: {str(e)}")
+
+
+@api_router.post("/wallet/apply-to-subscription")
+async def apply_wallet_to_subscription_endpoint(
+    request: WalletApplyRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Apply wallet balance to subscription payment.
+    
+    Requirements: 5.2, 5.3
+    - Applies wallet balance to subscription payment
+    - Wallet balance is only applicable for subscription payments
+    - Deducts amount and records transaction
+    
+    Args:
+        request: WalletApplyRequest with subscription_amount and optional apply_amount
+        
+    Returns:
+        WalletApplyResponse with amount applied and remaining balance
+    """
+    try:
+        user_id = current_user.get("id")
+        
+        result = await apply_wallet_to_subscription(
+            user_id=user_id,
+            subscription_amount=request.subscription_amount,
+            apply_amount=request.apply_amount
+        )
+        
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to apply wallet balance: {str(e)}")
 
 
 # ============ BULK UPLOAD ENDPOINTS ============

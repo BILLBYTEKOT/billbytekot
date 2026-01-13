@@ -5,7 +5,7 @@ import { logout } from '../App';
 import { 
   Home, UtensilsCrossed, ShoppingBag, Table, ChefHat, Package, 
   FileText, LogOut, Menu, X, Settings as SettingsIcon, Crown, Users,
-  MoreHorizontal, HelpCircle, TrendingDown
+  MoreHorizontal, HelpCircle, TrendingDown, Gift
 } from 'lucide-react';
 
 const Layout = ({ user, children }) => {
@@ -30,6 +30,7 @@ const Layout = ({ user, children }) => {
     { path: '/expenses', icon: TrendingDown, label: 'Expenses' },
     { path: '/reports', icon: FileText, label: 'Reports' },
     { path: '/staff', icon: Users, label: 'Staff', adminOnly: true },
+    { path: '/refer-earn', icon: Gift, label: 'Refer & Earn' },
     { path: '/subscription', icon: Crown, label: 'Subscription' },
     { path: '/help', icon: HelpCircle, label: 'Help' },
     { path: '/settings', icon: SettingsIcon, label: 'Settings', adminOnly: true }
