@@ -4027,12 +4027,35 @@ async def update_order_status(
     except Exception as e:
         print(f"⚠️ Cache invalidation error: {e}")
 
-    # Update table status if order is completed
+    # Update table status if order is completed - Use TableStatusManager for immediate sync
+    # This ensures cache invalidation happens (Requirements 1.2, 1.3)
     if status == "completed":
-        await db.tables.update_one(
-            {"id": order["table_id"], "organization_id": user_org_id},
-            {"$set": {"status": "available", "current_order_id": None}},
-        )
+        table_id = order.get("table_id")
+        if table_id and table_id != "counter":
+            try:
+                table_manager = get_table_status_manager()
+                result = await table_manager.set_table_available(user_org_id, table_id)
+                if result["success"]:
+                    print(f"✅ Table {order.get('table_number', 'unknown')} set to AVAILABLE via TableStatusManager for status update {order_id}")
+                else:
+                    print(f"⚠️ TableStatusManager failed: {result['message']}")
+                    # Fallback to direct update
+                    await db.tables.update_one(
+                        {"id": table_id, "organization_id": user_org_id},
+                        {"$set": {"status": "available", "current_order_id": None}}
+                    )
+                    print(f"🍽️ Table {order.get('table_number', 'unknown')} cleared via fallback for status update {order_id}")
+            except Exception as e:
+                print(f"⚠️ TableStatusManager error: {e}, using fallback")
+                # Fallback to direct update if TableStatusManager fails
+                try:
+                    await db.tables.update_one(
+                        {"id": table_id, "organization_id": user_org_id},
+                        {"$set": {"status": "available", "current_order_id": None}}
+                    )
+                    print(f"🍽️ Table {order.get('table_number', 'unknown')} cleared via fallback for status update {order_id}")
+                except Exception as fallback_error:
+                    print(f"⚠️ Table clearing fallback error: {fallback_error}")
     
     # Generate WhatsApp notification if enabled
     business = current_user.get("business_settings", {})
