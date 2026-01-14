@@ -86,13 +86,27 @@ const InventoryPage = ({ user }) => {
     console.log('User role:', user?.role);
     console.log('Auth token exists:', !!localStorage.getItem('token'));
     
+    // Check if user is authenticated
+    if (!user) {
+      console.warn('InventoryPage: No user provided');
+      setError('Please login to access inventory');
+      setLoading(false);
+      return;
+    }
+    
     const loadData = async () => {
-      await fetchInventory();
-      Promise.all([fetchCategories(), fetchSuppliers(), fetchBusinessSettings()]);
-      setTimeout(() => { fetchLowStock(); fetchStockMovements(); fetchAnalytics(); fetchPurchases(); }, 100);
+      try {
+        await fetchInventory();
+        Promise.all([fetchCategories(), fetchSuppliers(), fetchBusinessSettings()]);
+        setTimeout(() => { fetchLowStock(); fetchStockMovements(); fetchAnalytics(); fetchPurchases(); }, 100);
+      } catch (err) {
+        console.error('Error loading inventory data:', err);
+        setError('Failed to load inventory data');
+        setLoading(false);
+      }
     };
     loadData();
-  }, []);
+  }, [user]);
 
   const fetchBusinessSettings = async () => {
     try {

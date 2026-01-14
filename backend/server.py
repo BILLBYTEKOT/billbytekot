@@ -2836,7 +2836,10 @@ async def get_current_subscription_price():
     now = datetime.now(timezone.utc)
     
     # First, check if there's an active sale offer (from Promotions tab)
-    sale_offer = await db.site_settings.find_one({"type": "sale_offer", "enabled": True})
+    # Check both sale_offers collection (new) and site_settings (legacy) for backwards compatibility
+    sale_offer = await db.sale_offers.find_one({"enabled": True})
+    if not sale_offer:
+        sale_offer = await db.site_settings.find_one({"type": "sale_offer", "enabled": True})
     
     if sale_offer:
         # Check if sale offer has expired
@@ -11882,7 +11885,10 @@ async def team_login(credentials: TeamLogin):
 @api_router.get("/sale-offer")
 async def get_public_sale_offer():
     """Get active sale offer for landing page - Public endpoint"""
-    offer = await db.site_settings.find_one({"type": "sale_offer", "enabled": True})
+    # Check both sale_offers collection (new) and site_settings (legacy) for backwards compatibility
+    offer = await db.sale_offers.find_one({"enabled": True})
+    if not offer:
+        offer = await db.site_settings.find_one({"type": "sale_offer", "enabled": True})
     
     if not offer:
         return {"enabled": False}

@@ -2186,6 +2186,373 @@ const SuperAdminPage = () => {
             </CardContent>
           </Card>
         )}
+        {/* Leads Tab */}
+        {activeTab === 'leads' && hasPermission('leads') && (
+          <div className="space-y-6">
+            {/* Leads Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Leads Management</h2>
+                <p className="text-gray-500">Track and manage potential customers</p>
+              </div>
+              <Button
+                onClick={() => setShowCreateLead(true)}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Lead
+              </Button>
+            </div>
+
+            {/* Leads Stats */}
+            {leadsStats && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">Total Leads</p>
+                        <p className="text-2xl font-bold">{(leadsStats.new || 0) + (leadsStats.contacted || 0) + (leadsStats.converted || 0)}</p>
+                      </div>
+                      <UserPlus className="w-8 h-8 text-purple-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">New</p>
+                        <p className="text-2xl font-bold text-blue-600">{leadsStats.new || 0}</p>
+                      </div>
+                      <Clock className="w-8 h-8 text-blue-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">Contacted</p>
+                        <p className="text-2xl font-bold text-yellow-600">{leadsStats.contacted || 0}</p>
+                      </div>
+                      <Mail className="w-8 h-8 text-yellow-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">Converted</p>
+                        <p className="text-2xl font-bold text-green-600">{leadsStats.converted || 0}</p>
+                      </div>
+                      <CheckCircle className="w-8 h-8 text-green-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Leads Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-purple-600" />
+                  All Leads
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 font-medium">Name</th>
+                        <th className="text-left p-3 font-medium">Contact</th>
+                        <th className="text-left p-3 font-medium">Business</th>
+                        <th className="text-left p-3 font-medium">Source</th>
+                        <th className="text-left p-3 font-medium">Status</th>
+                        <th className="text-left p-3 font-medium">Date</th>
+                        <th className="text-left p-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leads.map((lead, index) => (
+                        <tr key={lead.timestamp || index} className="border-b hover:bg-gray-50">
+                          <td className="p-3">
+                            <div className="font-medium">{lead.name}</div>
+                          </td>
+                          <td className="p-3">
+                            <div className="text-sm">
+                              <a href={`mailto:${lead.email}`} className="text-blue-600 hover:underline block">{lead.email}</a>
+                              {lead.phone && <a href={`tel:${lead.phone}`} className="text-gray-500 hover:text-blue-600">{lead.phone}</a>}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-sm text-gray-600">{lead.businessName || '-'}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              lead.source === 'landing' ? 'bg-blue-100 text-blue-800' :
+                              lead.source === 'demo' ? 'bg-purple-100 text-purple-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {lead.source || 'manual'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <select
+                              value={lead.status || 'new'}
+                              onChange={async (e) => {
+                                try {
+                                  await axios.put(`${API}/super-admin/leads/${lead.timestamp}`, 
+                                    { status: e.target.value },
+                                    { params: credentials }
+                                  );
+                                  toast.success('Lead status updated');
+                                  fetchLeads();
+                                } catch (error) {
+                                  toast.error('Failed to update lead');
+                                }
+                              }}
+                              className={`px-2 py-1 border rounded text-xs ${
+                                lead.status === 'new' ? 'bg-blue-50 text-blue-700' :
+                                lead.status === 'contacted' ? 'bg-yellow-50 text-yellow-700' :
+                                lead.status === 'converted' ? 'bg-green-50 text-green-700' :
+                                'bg-gray-50 text-gray-700'
+                              }`}
+                            >
+                              <option value="new">New</option>
+                              <option value="contacted">Contacted</option>
+                              <option value="converted">Converted</option>
+                              <option value="lost">Lost</option>
+                            </select>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-sm text-gray-500">
+                              {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : 'N/A'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  if (window.confirm('Delete this lead?')) {
+                                    try {
+                                      await axios.delete(`${API}/super-admin/leads/${lead.timestamp}`, {
+                                        params: credentials
+                                      });
+                                      toast.success('Lead deleted');
+                                      fetchLeads();
+                                    } catch (error) {
+                                      toast.error('Failed to delete lead');
+                                    }
+                                  }
+                                }}
+                                className="text-red-600 border-red-200 h-7 px-2"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {leads.length === 0 && (
+                    <div className="text-center py-12">
+                      <UserPlus className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-gray-500">No leads yet</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Team Tab */}
+        {activeTab === 'team' && hasPermission('team') && (
+          <div className="space-y-6">
+            {/* Team Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Team Management</h2>
+                <p className="text-gray-500">Manage your team members and permissions</p>
+              </div>
+              <Button
+                onClick={() => setShowCreateTeam(true)}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Team Member
+              </Button>
+            </div>
+
+            {/* Team Stats */}
+            {teamStats && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">Total Members</p>
+                        <p className="text-2xl font-bold">{teamStats.total || teamMembers.length}</p>
+                      </div>
+                      <Users className="w-8 h-8 text-purple-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">Active</p>
+                        <p className="text-2xl font-bold text-green-600">{teamStats.active || teamMembers.length}</p>
+                      </div>
+                      <CheckCircle className="w-8 h-8 text-green-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">Roles</p>
+                        <p className="text-2xl font-bold text-blue-600">{teamStats.roles || 3}</p>
+                      </div>
+                      <Shield className="w-8 h-8 text-blue-500" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Team Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-600" />
+                  Team Members
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 font-medium">Name</th>
+                        <th className="text-left p-3 font-medium">Email</th>
+                        <th className="text-left p-3 font-medium">Role</th>
+                        <th className="text-left p-3 font-medium">Permissions</th>
+                        <th className="text-left p-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teamMembers.map((member, index) => (
+                        <tr key={member.id || index} className="border-b hover:bg-gray-50">
+                          <td className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                {(member.full_name || member.username || 'U').charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-medium">{member.full_name || member.username}</div>
+                                <div className="text-xs text-gray-500">@{member.username}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <a href={`mailto:${member.email}`} className="text-blue-600 hover:underline text-sm">
+                              {member.email}
+                            </a>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              member.role === 'admin' ? 'bg-purple-100 text-purple-800' :
+                              member.role === 'sales' ? 'bg-blue-100 text-blue-800' :
+                              member.role === 'support' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {member.role}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-wrap gap-1">
+                              {(member.permissions || []).slice(0, 3).map((perm, i) => (
+                                <span key={i} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+                                  {perm}
+                                </span>
+                              ))}
+                              {(member.permissions || []).length > 3 && (
+                                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+                                  +{member.permissions.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingTeamMember(member);
+                                  setNewTeamMember({
+                                    username: member.username,
+                                    email: member.email,
+                                    password: '',
+                                    role: member.role,
+                                    permissions: member.permissions || [],
+                                    full_name: member.full_name || '',
+                                    phone: member.phone || ''
+                                  });
+                                  setShowEditTeamModal(true);
+                                }}
+                                className="h-7 px-2"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  if (window.confirm('Delete this team member?')) {
+                                    try {
+                                      await axios.delete(`${API}/super-admin/team/${member.id}`, {
+                                        params: credentials
+                                      });
+                                      toast.success('Team member deleted');
+                                      fetchTeam();
+                                    } catch (error) {
+                                      toast.error('Failed to delete team member');
+                                    }
+                                  }
+                                }}
+                                className="text-red-600 border-red-200 h-7 px-2"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {teamMembers.length === 0 && (
+                    <div className="text-center py-12">
+                      <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-gray-500">No team members yet</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Subscription Management Modal */}
         {showSubscriptionModal && selectedUser && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto p-4">
