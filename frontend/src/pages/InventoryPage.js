@@ -1463,19 +1463,19 @@ const InventoryPage = ({ user }) => {
                   <div><Label>Item Name *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="e.g., Tomatoes" /></div>
                   <div><Label>SKU</Label><Input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} placeholder="e.g., TOM-001" /></div>
                   <div><Label>Category</Label>
-                    <Select value={formData.category_id || ''} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
+                    <Select value={formData.category_id || 'none'} onValueChange={(value) => setFormData({ ...formData, category_id: value === 'none' ? '' : value })}>
                       <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {categories.map(cat => (<SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div><Label>Supplier</Label>
-                    <Select value={formData.supplier_id || ''} onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}>
+                    <Select value={formData.supplier_id || 'none'} onValueChange={(value) => setFormData({ ...formData, supplier_id: value === 'none' ? '' : value })}>
                       <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {suppliers.map(sup => (<SelectItem key={sup.id} value={String(sup.id)}>{sup.name}</SelectItem>))}
                       </SelectContent>
                     </Select>
