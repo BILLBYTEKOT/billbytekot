@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { 
   Users, Ticket, TrendingUp, Shield, 
   CheckCircle, Clock, XCircle, UserPlus, Calendar, CreditCard,
-  Mail, FileText, Upload, RefreshCw, Lock, Download, Eye, X,
+  Mail, FileText, Upload, RefreshCw, Lock, Download, Eye, X, Save,
   Smartphone, Monitor, Package, Plus, Trash2, Edit, ExternalLink,
   Database, HardDrive, Tag, Gift, Percent, DollarSign, Bell, Send, MessageSquare,
   Activity, Server, Zap, Globe, BarChart3, Settings, AlertTriangle, CheckSquare,
@@ -3436,6 +3436,521 @@ const SuperAdminPage = () => {
                 </CardContent>
               </Card>
             )}
+          </div>
+        )}
+
+        {/* App Versions Tab */}
+        {activeTab === 'app-versions' && (
+          <div className="space-y-6">
+            {/* App Versions Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <Download className="w-6 h-6 text-blue-600" />
+                  App Version Management
+                </h2>
+                <p className="text-gray-600">Upload and manage Android APK and Windows EXE files</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchAppVersions()}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditingVersion(null);
+                    setNewAppVersion({
+                      platform: 'android',
+                      version: '',
+                      version_code: 1,
+                      download_url: '',
+                      release_notes: '',
+                      min_supported_version: '',
+                      is_mandatory: false,
+                      file_size: ''
+                    });
+                    setAppFile(null);
+                    setShowAppVersionModal(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Version
+                </Button>
+              </div>
+            </div>
+
+            {/* Platform Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-green-500/10 to-green-600/20 rounded-bl-full"></div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Android Versions</CardTitle>
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Smartphone className="w-4 h-4 text-green-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {appVersions.filter(v => v.platform === 'android').length}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Active: {appVersions.filter(v => v.platform === 'android' && v.is_active).length}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-blue-600/20 rounded-bl-full"></div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">Windows Versions</CardTitle>
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Monitor className="w-4 h-4 text-blue-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {appVersions.filter(v => v.platform === 'windows').length}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Active: {appVersions.filter(v => v.platform === 'windows' && v.is_active).length}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* App Versions List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-blue-600" />
+                  All Versions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 font-medium">Platform</th>
+                        <th className="text-left p-3 font-medium">Version</th>
+                        <th className="text-left p-3 font-medium">Status</th>
+                        <th className="text-left p-3 font-medium">Downloads</th>
+                        <th className="text-left p-3 font-medium">Size</th>
+                        <th className="text-left p-3 font-medium">Created</th>
+                        <th className="text-left p-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {appVersions.map((version, index) => (
+                        <tr key={version.id || index} className="border-b hover:bg-gray-50 transition-colors">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {version.platform === 'android' ? (
+                                <Smartphone className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <Monitor className="w-5 h-5 text-blue-600" />
+                              )}
+                              <span className="font-medium capitalize">{version.platform}</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div>
+                              <span className="font-mono font-medium">v{version.version}</span>
+                              <span className="text-xs text-gray-500 ml-2">(Code: {version.version_code})</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                              version.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {version.is_active ? (
+                                <>
+                                  <CheckCircle className="w-3 h-3" />
+                                  Active
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="w-3 h-3" />
+                                  Inactive
+                                </>
+                              )}
+                            </span>
+                            {version.is_mandatory && (
+                              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Mandatory
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <span className="font-medium">{version.download_count || 0}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-gray-600">{version.file_size || 'N/A'}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-gray-600">
+                              {version.created_at ? new Date(version.created_at).toLocaleDateString() : 'N/A'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    await axios.put(`${API}/super-admin/app-versions/${version.id}`, 
+                                      { is_active: !version.is_active },
+                                      { params: credentials }
+                                    );
+                                    toast.success(`Version ${version.is_active ? 'deactivated' : 'activated'}`);
+                                    fetchAppVersions();
+                                  } catch (error) {
+                                    toast.error('Failed to update version status');
+                                  }
+                                }}
+                                className={version.is_active ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+                              >
+                                {version.is_active ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingVersion(version);
+                                  setNewAppVersion({
+                                    platform: version.platform,
+                                    version: version.version,
+                                    version_code: version.version_code,
+                                    download_url: version.download_url || '',
+                                    release_notes: version.release_notes || '',
+                                    min_supported_version: version.min_supported_version || '',
+                                    is_mandatory: version.is_mandatory || false,
+                                    file_size: version.file_size || ''
+                                  });
+                                  setShowAppVersionModal(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-700"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!window.confirm('Are you sure you want to delete this version?')) return;
+                                  try {
+                                    await axios.delete(`${API}/super-admin/app-versions/${version.id}`, {
+                                      params: credentials
+                                    });
+                                    toast.success('Version deleted');
+                                    fetchAppVersions();
+                                  } catch (error) {
+                                    toast.error('Failed to delete version');
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  
+                  {appVersions.length === 0 && (
+                    <div className="text-center py-12">
+                      <Download className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-gray-500">No app versions found</p>
+                      <p className="text-sm text-gray-400 mt-1">Click "Add Version" to upload your first app</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* App Version Modal */}
+        {showAppVersionModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-blue-600" />
+                  {editingVersion ? 'Edit App Version' : 'Add New App Version'}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowAppVersionModal(false);
+                    setEditingVersion(null);
+                    setAppFile(null);
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Platform Selection */}
+                <div>
+                  <Label>Platform *</Label>
+                  <select
+                    value={newAppVersion.platform}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, platform: e.target.value})}
+                    className="w-full px-3 py-2 border rounded mt-1"
+                    disabled={editingVersion}
+                  >
+                    <option value="android">Android (APK)</option>
+                    <option value="windows">Windows (EXE/MSI)</option>
+                  </select>
+                </div>
+
+                {/* Version */}
+                <div>
+                  <Label>Version Number *</Label>
+                  <Input
+                    value={newAppVersion.version}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, version: e.target.value})}
+                    placeholder="e.g., 2.0.1"
+                    className="mt-1"
+                  />
+                </div>
+
+                {/* Version Code */}
+                <div>
+                  <Label>Version Code *</Label>
+                  <Input
+                    type="number"
+                    value={newAppVersion.version_code}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, version_code: parseInt(e.target.value) || 1})}
+                    placeholder="e.g., 201"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Integer version code for update comparison</p>
+                </div>
+
+                {/* File Upload */}
+                {!editingVersion && (
+                  <div>
+                    <Label>Upload File *</Label>
+                    <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
+                      <input
+                        type="file"
+                        ref={appFileRef}
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setAppFile(file);
+                            // Auto-set file size
+                            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                            setNewAppVersion({...newAppVersion, file_size: `${sizeMB} MB`});
+                          }
+                        }}
+                        accept={newAppVersion.platform === 'android' ? '.apk' : '.exe,.msi,.zip'}
+                        className="hidden"
+                      />
+                      {appFile ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <FileText className="w-8 h-8 text-blue-600" />
+                          <div className="text-left">
+                            <p className="font-medium text-gray-900">{appFile.name}</p>
+                            <p className="text-sm text-gray-500">{(appFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setAppFile(null);
+                              if (appFileRef.current) appFileRef.current.value = '';
+                            }}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => appFileRef.current?.click()}
+                          className="cursor-pointer"
+                        >
+                          <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                          <p className="text-gray-600">Click to upload {newAppVersion.platform === 'android' ? 'APK' : 'EXE/MSI'} file</p>
+                          <p className="text-xs text-gray-400 mt-1">Max size: 200MB</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Release Notes */}
+                <div>
+                  <Label>Release Notes</Label>
+                  <textarea
+                    value={newAppVersion.release_notes}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, release_notes: e.target.value})}
+                    placeholder="What's new in this version..."
+                    className="w-full px-3 py-2 border rounded mt-1 min-h-[80px]"
+                  />
+                </div>
+
+                {/* Min Supported Version */}
+                <div>
+                  <Label>Minimum Supported Version</Label>
+                  <Input
+                    value={newAppVersion.min_supported_version}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, min_supported_version: e.target.value})}
+                    placeholder="e.g., 1.0.0"
+                    className="mt-1"
+                  />
+                </div>
+
+                {/* Mandatory Update */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is_mandatory"
+                    checked={newAppVersion.is_mandatory}
+                    onChange={(e) => setNewAppVersion({...newAppVersion, is_mandatory: e.target.checked})}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="is_mandatory" className="cursor-pointer">
+                    Mandatory Update (force users to update)
+                  </Label>
+                </div>
+
+                {/* Upload Progress */}
+                {uploadingApp && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Uploading...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={async () => {
+                      try {
+                        if (!newAppVersion.version.trim()) {
+                          toast.error('Version number is required');
+                          return;
+                        }
+
+                        setUploadingApp(true);
+                        setUploadProgress(0);
+
+                        if (editingVersion) {
+                          // Update existing version
+                          await axios.put(`${API}/super-admin/app-versions/${editingVersion.id}`, {
+                            version: newAppVersion.version,
+                            version_code: newAppVersion.version_code,
+                            release_notes: newAppVersion.release_notes,
+                            min_supported_version: newAppVersion.min_supported_version,
+                            is_mandatory: newAppVersion.is_mandatory,
+                            file_size: newAppVersion.file_size
+                          }, { params: credentials });
+                          
+                          toast.success('Version updated successfully');
+                        } else {
+                          // Create new version with file upload
+                          if (!appFile) {
+                            toast.error('Please select a file to upload');
+                            setUploadingApp(false);
+                            return;
+                          }
+
+                          const formData = new FormData();
+                          formData.append('file', appFile);
+                          formData.append('platform', newAppVersion.platform);
+                          formData.append('version', newAppVersion.version);
+
+                          // Upload file first
+                          const uploadRes = await axios.post(
+                            `${API}/super-admin/app-versions/upload?username=${credentials.username}&password=${credentials.password}`,
+                            formData,
+                            {
+                              headers: { 'Content-Type': 'multipart/form-data' },
+                              onUploadProgress: (progressEvent) => {
+                                const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                                setUploadProgress(progress);
+                              }
+                            }
+                          );
+
+                          // Create version record
+                          await axios.post(`${API}/super-admin/app-versions`, {
+                            platform: newAppVersion.platform,
+                            version: newAppVersion.version,
+                            version_code: newAppVersion.version_code,
+                            download_url: uploadRes.data.download_url,
+                            release_notes: newAppVersion.release_notes,
+                            min_supported_version: newAppVersion.min_supported_version,
+                            is_mandatory: newAppVersion.is_mandatory,
+                            file_size: uploadRes.data.size_mb ? `${uploadRes.data.size_mb} MB` : newAppVersion.file_size
+                          }, { params: credentials });
+
+                          toast.success('App version uploaded successfully');
+                        }
+
+                        setShowAppVersionModal(false);
+                        setEditingVersion(null);
+                        setAppFile(null);
+                        fetchAppVersions();
+                      } catch (error) {
+                        console.error('Failed to save app version:', error);
+                        toast.error(error.response?.data?.detail || 'Failed to save app version');
+                      } finally {
+                        setUploadingApp(false);
+                        setUploadProgress(0);
+                      }
+                    }}
+                    disabled={uploadingApp}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {uploadingApp ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        {editingVersion ? 'Saving...' : 'Uploading...'}
+                      </>
+                    ) : (
+                      <>
+                        {editingVersion ? <Save className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
+                        {editingVersion ? 'Save Changes' : 'Upload & Create'}
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowAppVersionModal(false);
+                      setEditingVersion(null);
+                      setAppFile(null);
+                    }}
+                    disabled={uploadingApp}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
