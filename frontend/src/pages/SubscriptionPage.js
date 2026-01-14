@@ -34,8 +34,8 @@ const SubscriptionPage = ({ user }) => {
     try {
       const [statusRes, pricingRes, saleOfferRes, walletRes] = await Promise.all([
         axios.get(`${API}/subscription/status`).catch(() => ({ data: null })),
-        axios.get(`${API}/pricing`).catch(() => ({ data: null })),
-        axios.get(`${API}/sale-offer`).catch(() => ({ data: null })),
+        axios.get(`${API}/public/pricing`).catch(() => ({ data: null })),
+        axios.get(`${API}/public/sale-offer`).catch(() => ({ data: null })),
         axios.get(`${API}/wallet/balance`).catch(() => ({ data: null }))
       ]);
       

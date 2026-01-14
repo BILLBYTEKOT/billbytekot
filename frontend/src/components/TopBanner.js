@@ -4,15 +4,21 @@ import axios from 'axios';
 import { API } from '../App';
 import { Gift, Zap, Clock, Sparkles, Star, Flame, PartyPopper, X, Rocket, Crown, Timer, ArrowRight, Percent, Tag } from 'lucide-react';
 
-const TopBanner = () => {
+const TopBanner = ({ saleData: propSaleData = null }) => {
   const navigate = useNavigate();
-  const [bannerData, setBannerData] = useState(null);
+  const [internalBannerData, setInternalBannerData] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
+  // Use prop data if provided, otherwise use internal state
+  const bannerData = propSaleData || internalBannerData;
+
+  // Only fetch data if no prop data provided
   useEffect(() => {
-    fetchBannerData();
-  }, []);
+    if (!propSaleData) {
+      fetchBannerData();
+    }
+  }, [propSaleData]);
 
   useEffect(() => {
     // Get the end date from either valid_until or end_date
@@ -63,7 +69,7 @@ const TopBanner = () => {
     try {
       const response = await axios.get(`${API}/sale-offer`);
       if (response.data?.enabled) {
-        setBannerData(response.data);
+        setInternalBannerData(response.data);
       }
     } catch (error) {
       console.log('No active banner');

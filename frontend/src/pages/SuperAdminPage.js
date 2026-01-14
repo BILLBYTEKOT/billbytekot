@@ -394,35 +394,59 @@ const SuperAdminPage = () => {
     }
   ];
 
-  // Filter and sort functions
+  // Filter and sort functions (Requirements 3.5, 3.6, 3.7)
   const getFilteredUsers = () => {
     let filtered = users.filter(user => {
+      // Search filter (Requirements 3.6)
       const matchesSearch = !searchQuery || 
-        user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchQuery.toLowerCase());
+        (user.username && user.username.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase()));
       
-      const matchesStatus = filterStatus === 'all' || 
-        (filterStatus === 'active' && user.subscription_active) ||
-        (filterStatus === 'trial' && !user.subscription_active) ||
-        (filterStatus === 'expired' && user.subscription_expires_at && new Date(user.subscription_expires_at) < new Date());
+      // Status filter (Requirements 3.5)
+      let matchesStatus = true;
+      if (filterStatus === 'active') {
+        matchesStatus = user.subscription_active === true;
+      } else if (filterStatus === 'trial') {
+        // Trial users: not active subscription and either no expiry or expiry in future
+        matchesStatus = !user.subscription_active && 
+          (!user.subscription_expires_at || new Date(user.subscription_expires_at) >= new Date());
+      } else if (filterStatus === 'expired') {
+        // Expired users: subscription has expired (expiry date in the past)
+        matchesStatus = user.subscription_expires_at && 
+          new Date(user.subscription_expires_at) < new Date();
+      }
+      // 'all' shows everything
       
       return matchesSearch && matchesStatus;
     });
 
-    // Sort users
+    // Sort users (Requirements 3.7)
     filtered.sort((a, b) => {
       let aVal = a[sortBy];
       let bVal = b[sortBy];
       
+      // Handle date fields
       if (sortBy === 'created_at' || sortBy === 'subscription_expires_at') {
-        aVal = new Date(aVal || 0);
-        bVal = new Date(bVal || 0);
+        aVal = aVal ? new Date(aVal).getTime() : 0;
+        bVal = bVal ? new Date(bVal).getTime() : 0;
+      }
+      
+      // Handle string fields (case-insensitive)
+      if (sortBy === 'username' || sortBy === 'email') {
+        aVal = (aVal || '').toLowerCase();
+        bVal = (bVal || '').toLowerCase();
+      }
+      
+      // Handle numeric fields
+      if (sortBy === 'bill_count') {
+        aVal = aVal || 0;
+        bVal = bVal || 0;
       }
       
       if (sortOrder === 'asc') {
-        return aVal > bVal ? 1 : -1;
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
       } else {
-        return aVal < bVal ? 1 : -1;
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
       }
     });
 
@@ -551,8 +575,14 @@ const SuperAdminPage = () => {
     }
   };
 
+  // State for user fetch error and retry (Requirements 3.4)
+  const [usersFetchError, setUsersFetchError] = useState(null);
+  const [usersLoading, setUsersLoading] = useState(false);
+
   const fetchUsers = async () => {
     try {
+      setUsersLoading(true);
+      setUsersFetchError(null);
       const usersRes = await axios.get(`${API}/super-admin/users/list`, {
         params: credentials
       });
@@ -560,6 +590,10 @@ const SuperAdminPage = () => {
     } catch (e) {
       console.error('Failed to fetch users', e);
       setUsers([]);
+      setUsersFetchError(e.response?.data?.detail || e.message || 'Failed to fetch users');
+      toast.error('Failed to fetch users. Click retry to try again.');
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -1060,7 +1094,7 @@ const SuperAdminPage = () => {
     try {
       setBusinessDetailsLoading(true);
       
-      // Fetch business details and navigation data in parallel
+      // Fetch business details and navigation data in parallel (Requirements 2.1, 2.5, 2.6)
       const [detailsResponse, navResponse] = await Promise.all([
         axios.get(`${API}/super-admin/users/${userId}/business-details`, {
           params: credentials
@@ -1070,7 +1104,21 @@ const SuperAdminPage = () => {
         }).catch(() => ({ data: { previous_user_id: null, next_user_id: null, current_position: 0, total_users: 0 } }))
       ]);
       
-      setBusinessDetails(detailsResponse.data);
+      // Ensure all business fields are present (Requirements 2.2)
+      const details = detailsResponse.data;
+      setBusinessDetails({
+        ...details,
+        // Ensure required fields have fallback values
+        restaurant_name: details.restaurant_name || null,
+        business_type: details.business_type || null,
+        phone: details.phone || null,
+        email: details.email || null,
+        address: details.address || null,
+        gstin: details.gstin || null,
+        fssai: details.fssai || null
+      });
+      
+      // Set navigation data (Requirements 2.5, 2.6)
       setUserNavigation({
         previousUserId: navResponse.data.previous_user_id,
         nextUserId: navResponse.data.next_user_id,
@@ -1079,7 +1127,9 @@ const SuperAdminPage = () => {
       });
       setShowBusinessDetails(true);
     } catch (error) {
-      toast.error('Failed to fetch business details');
+      console.error('Failed to fetch business details:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to fetch business details';
+      toast.error(errorMessage);
     } finally {
       setBusinessDetailsLoading(false);
     }
@@ -1733,7 +1783,49 @@ const SuperAdminPage = () => {
               </CardContent>
             </Card>
 
+            {/* Error State with Retry Option (Requirements 3.4) */}
+            {usersFetchError && (
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="w-6 h-6 text-red-500" />
+                      <div>
+                        <h4 className="font-medium text-red-800">Failed to load users</h4>
+                        <p className="text-sm text-red-600">{usersFetchError}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={fetchUsers}
+                      disabled={usersLoading}
+                      className="border-red-300 text-red-700 hover:bg-red-100"
+                    >
+                      {usersLoading ? (
+                        <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Retrying...</>
+                      ) : (
+                        <><RefreshCw className="w-4 h-4 mr-2" /> Retry</>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Loading State */}
+            {usersLoading && !usersFetchError && (
+              <Card>
+                <CardContent className="p-12">
+                  <div className="flex flex-col items-center justify-center">
+                    <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-4" />
+                    <p className="text-gray-500">Loading users...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Enhanced Users Table */}
+            {!usersLoading && !usersFetchError && (
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
@@ -1992,6 +2084,7 @@ const SuperAdminPage = () => {
                 </div>
               </CardContent>
             </Card>
+            )}
           </div>
         )}
 
@@ -3293,6 +3386,62 @@ const SuperAdminPage = () => {
                           value={saleOffer.end_date ? saleOffer.end_date.slice(0, 16) : ''}
                           onChange={(e) => setSaleOffer({ ...saleOffer, end_date: e.target.value ? new Date(e.target.value).toISOString() : '' })}
                         />
+                      </div>
+                      
+                      {/* Theme Selector (Requirements 7.2) */}
+                      <div className="space-y-2 md:col-span-2">
+                        <Label className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-purple-500" />
+                          Banner Theme
+                        </Label>
+                        <select
+                          value={saleOffer.theme || 'default'}
+                          onChange={(e) => setSaleOffer({ ...saleOffer, theme: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="default">🎁 Default - Purple/Violet gradient with sparkles</option>
+                          <option value="early_adopter">🚀 Early Adopter - Emerald/Teal/Cyan gradient with rocket</option>
+                          <option value="diwali">🪔 Diwali - Orange/Red/Pink festive gradient</option>
+                          <option value="christmas">🎄 Christmas - Red/Green holiday gradient</option>
+                          <option value="newyear">🎉 New Year - Indigo/Purple/Pink celebration</option>
+                          <option value="flash">⚡ Flash Sale - Red/Orange/Yellow urgent gradient</option>
+                          <option value="blackfriday">🔥 Black Friday - Dark/Black premium gradient</option>
+                          <option value="summer">☀️ Summer - Cyan/Yellow/Orange bright gradient</option>
+                          <option value="republic">🇮🇳 Republic Day - Orange/White/Green tricolor</option>
+                          <option value="holi">🎨 Holi - Pink/Purple/Blue colorful gradient</option>
+                        </select>
+                        
+                        {/* Theme Preview */}
+                        <div className="mt-2 p-3 rounded-lg border">
+                          <p className="text-xs text-gray-500 mb-2">Theme Preview:</p>
+                          <div className={`p-3 rounded-lg text-white text-center text-sm font-medium ${
+                            saleOffer.theme === 'default' ? 'bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600' :
+                            saleOffer.theme === 'early_adopter' ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500' :
+                            saleOffer.theme === 'diwali' ? 'bg-gradient-to-r from-orange-500 via-red-500 to-pink-500' :
+                            saleOffer.theme === 'christmas' ? 'bg-gradient-to-r from-red-600 via-red-500 to-green-600' :
+                            saleOffer.theme === 'newyear' ? 'bg-gradient-to-r from-indigo-900 via-purple-900 to-pink-900' :
+                            saleOffer.theme === 'flash' ? 'bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500' :
+                            saleOffer.theme === 'blackfriday' ? 'bg-gradient-to-r from-gray-900 via-black to-gray-900' :
+                            saleOffer.theme === 'summer' ? 'bg-gradient-to-r from-cyan-400 via-yellow-400 to-orange-400 text-gray-900' :
+                            saleOffer.theme === 'republic' ? 'bg-gradient-to-r from-orange-500 via-white to-green-600 text-gray-900' :
+                            saleOffer.theme === 'holi' ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500' :
+                            'bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600'
+                          }`}>
+                            <span className="flex items-center justify-center gap-2">
+                              {saleOffer.theme === 'early_adopter' && <Rocket className="w-4 h-4" />}
+                              {saleOffer.theme === 'default' && <Sparkles className="w-4 h-4" />}
+                              {saleOffer.theme === 'diwali' && <span>🪔</span>}
+                              {saleOffer.theme === 'christmas' && <Gift className="w-4 h-4" />}
+                              {saleOffer.theme === 'newyear' && <span>🎉</span>}
+                              {saleOffer.theme === 'flash' && <Zap className="w-4 h-4" />}
+                              {saleOffer.theme === 'blackfriday' && <Flame className="w-4 h-4" />}
+                              {saleOffer.theme === 'summer' && <Star className="w-4 h-4" />}
+                              {saleOffer.theme === 'republic' && <span>🇮🇳</span>}
+                              {saleOffer.theme === 'holi' && <span>🎨</span>}
+                              {saleOffer.title || 'Sale Banner Preview'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}

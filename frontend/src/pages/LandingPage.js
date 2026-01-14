@@ -15,6 +15,7 @@ import LeadCapturePopup from "../components/LeadCapturePopup";
 import MobileAppLeadPopup from "../components/MobileAppLeadPopup";
 import SaleBanner from "../components/SaleBanner";
 import TopBanner from "../components/TopBanner";
+import useSaleOfferData from "../hooks/useSaleOfferData";
 import {
   ChefHat,
   Sparkles,
@@ -680,49 +681,20 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [saleOffer, setSaleOffer] = useState(null);
-  const [pricing, setPricing] = useState(null);
   const [showMobileAppPopup, setShowMobileAppPopup] = useState(false);
+  
+  // Use centralized sale offer data hook for consistent data across all banners
+  // Requirements: 8.1, 8.2 - Banner Data Consistency
+  const { 
+    saleOffer, 
+    pricing, 
+    activePromotion,
+    hasActivePromotion,
+    loading: promotionalDataLoading 
+  } = useSaleOfferData();
   
   // Initialize scroll animations
   useScrollAnimation();
-
-  // Fetch sale offer and pricing
-  useEffect(() => {
-    const fetchSaleOffer = async () => {
-      try {
-        const response = await axios.get(`${API}/sale-offer`);
-        if (response.data?.enabled) {
-          setSaleOffer(response.data);
-        } else {
-          setSaleOffer(null);
-        }
-      } catch (error) {
-        setSaleOffer(null);
-      }
-    };
-    
-    const fetchPricing = async () => {
-      try {
-        const response = await axios.get(`${API}/pricing`);
-        setPricing(response.data);
-      } catch (error) {
-        // Use default pricing - ₹1999 base price
-        setPricing({
-          regular_price: 1999,
-          regular_price_display: '₹1999',
-          campaign_price: 1799,
-          campaign_price_display: '₹1799',
-          campaign_active: false,
-          campaign_discount_percent: 10,
-          trial_days: 7
-        });
-      }
-    };
-    
-    fetchSaleOffer();
-    fetchPricing();
-  }, []);
 
   const handleGetStarted = () => {
     navigate("/login");
@@ -925,7 +897,8 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-white" data-testid="landing-page">
       {/* Dynamic Top Banner - Multiple Designs from Super Admin */}
-      <TopBanner />
+      {/* Pass centralized saleOffer data for consistency - Requirements: 8.1, 8.2 */}
+      <TopBanner saleData={saleOffer} />
       
       {/* Lead Capture Popup */}
       <LeadCapturePopup />
@@ -1583,11 +1556,21 @@ const LandingPage = () => {
       </section>
 
       {/* Special Offer Section - Only show if sale offer is enabled */}
-      {saleOffer && saleOffer.enabled && <SaleOfferSection navigate={navigate} saleOffer={saleOffer} pricing={pricing} />}
+      {/* Requirements: 8.5, 8.6 - Sale offer takes priority over campaign */}
+      {hasActivePromotion && saleOffer && saleOffer.enabled && (
+        <SaleOfferSection navigate={navigate} saleOffer={saleOffer} pricing={pricing} />
+      )}
       
-      {/* Floating Side Sale Banner - Shows themed banner when sale is active */}
-      {saleOffer && saleOffer.enabled && saleOffer.theme && saleOffer.theme !== 'default' && (
-        <SaleBanner position="side" />
+      {/* Floating Corner Sale Banner - Shows at bottom-right when sale is active */}
+      {/* Requirements: 9.1, 9.5 - Floating banners display same data */}
+      {hasActivePromotion && saleOffer && saleOffer.enabled && (
+        <SaleBanner position="corner" saleData={saleOffer} />
+      )}
+      
+      {/* Floating Side Sale Banner - Shows at right-center on desktop when sale is active */}
+      {/* Requirements: 9.2, 9.6 - Floating side banner with theme styling */}
+      {hasActivePromotion && saleOffer && saleOffer.enabled && (
+        <SaleBanner position="side" saleData={saleOffer} />
       )}
 
       {/* Quick Links Section */}

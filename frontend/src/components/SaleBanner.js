@@ -2,17 +2,41 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '../App';
-import { Gift, Zap, Clock, Sparkles, Star, Flame, PartyPopper, X } from 'lucide-react';
+import { Gift, Zap, Clock, Sparkles, Star, Flame, PartyPopper, X, Rocket } from 'lucide-react';
 
-const SaleBanner = ({ position = 'top' }) => {
+const SaleBanner = ({ position = 'top', saleData: propSaleData = null }) => {
   const navigate = useNavigate();
-  const [saleData, setSaleData] = useState(null);
+  const [internalSaleData, setInternalSaleData] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
 
+  // Use prop data if provided, otherwise use internal state
+  const saleData = propSaleData || internalSaleData;
+
+  // Check localStorage for dismissal
   useEffect(() => {
-    fetchSaleData();
-  }, []);
+    const dismissalKey = `saleBanner_${position}_dismissed`;
+    const dismissedAt = localStorage.getItem(dismissalKey);
+    if (dismissedAt) {
+      const dismissedTime = new Date(dismissedAt).getTime();
+      const now = new Date().getTime();
+      const hoursSinceDismissal = (now - dismissedTime) / (1000 * 60 * 60);
+      // Hide banner if dismissed within 24 hours
+      if (hoursSinceDismissal < 24) {
+        setDismissed(true);
+      } else {
+        // Clear old dismissal
+        localStorage.removeItem(dismissalKey);
+      }
+    }
+  }, [position]);
+
+  // Only fetch data if no prop data provided
+  useEffect(() => {
+    if (!propSaleData) {
+      fetchSaleData();
+    }
+  }, [propSaleData]);
 
   useEffect(() => {
     if (saleData?.end_date) {
@@ -54,13 +78,20 @@ const SaleBanner = ({ position = 'top' }) => {
 
   const fetchSaleData = async () => {
     try {
-      const response = await axios.get(`${API}/sale-offer`);
+      const response = await axios.get(`${API}/public/sale-offer`);
       if (response.data?.enabled) {
-        setSaleData(response.data);
+        setInternalSaleData(response.data);
       }
     } catch (error) {
       console.log('No active sale');
     }
+  };
+
+  // Handle dismissal with localStorage persistence
+  const handleDismiss = () => {
+    const dismissalKey = `saleBanner_${position}_dismissed`;
+    localStorage.setItem(dismissalKey, new Date().toISOString());
+    setDismissed(true);
   };
 
   if (!saleData || dismissed) return null;
@@ -73,7 +104,16 @@ const SaleBanner = ({ position = 'top' }) => {
       bg: 'bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600',
       text: 'text-white',
       accent: 'bg-yellow-400 text-black',
-      icon: Sparkles
+      icon: Sparkles,
+      badge: 'SPECIAL OFFER'
+    },
+    early_adopter: {
+      bg: 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500',
+      text: 'text-white',
+      accent: 'bg-yellow-300 text-emerald-900',
+      icon: Rocket,
+      badge: 'EARLY ADOPTER',
+      pattern: '🚀'
     },
     diwali: {
       bg: 'bg-gradient-to-r from-orange-500 via-red-500 to-pink-500',
@@ -165,7 +205,7 @@ const SaleBanner = ({ position = 'top' }) => {
           >
             Claim Now
           </button>
-          <button onClick={() => setDismissed(true)} className="absolute right-2 opacity-60 hover:opacity-100">
+          <button onClick={handleDismiss} className="absolute right-2 opacity-60 hover:opacity-100">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -270,7 +310,7 @@ const SaleBanner = ({ position = 'top' }) => {
   if (position === 'corner') {
     return (
       <div className={`fixed bottom-4 right-4 z-50 ${currentTheme.bg} ${currentTheme.text} rounded-2xl p-4 shadow-2xl max-w-xs ${currentTheme.animate ? 'animate-bounce' : ''}`}>
-        <button onClick={() => setDismissed(true)} className="absolute -top-2 -right-2 bg-white text-gray-800 rounded-full p-1 shadow-lg">
+        <button onClick={handleDismiss} className="absolute -top-2 -right-2 bg-white text-gray-800 rounded-full p-1 shadow-lg">
           <X className="w-4 h-4" />
         </button>
         <div className="flex items-center gap-3">
@@ -299,7 +339,7 @@ const SaleBanner = ({ position = 'top' }) => {
         <div className={`${currentTheme.bg} ${currentTheme.text} rounded-l-2xl shadow-2xl overflow-hidden ${currentTheme.animate ? 'animate-pulse' : ''}`}>
           {/* Close button */}
           <button 
-            onClick={() => setDismissed(true)} 
+            onClick={handleDismiss} 
             className="absolute top-2 left-2 bg-white/20 hover:bg-white/30 rounded-full p-1 transition-colors z-10"
           >
             <X className="w-3 h-3" />

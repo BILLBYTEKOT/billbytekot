@@ -5285,6 +5285,193 @@ async def get_inventory_analytics(current_user: dict = Depends(get_current_user)
     }
 
 
+# ============ PURCHASE ORDER MODELS AND ENDPOINTS ============
+# Requirements 6.1, 6.2, 6.3 - Inventory Purchase Order Feature
+
+class PurchaseOrderItemCreate(BaseModel):
+    inventory_item_id: str
+    item_name: str
+    quantity: float
+    unit_cost: float
+
+
+class PurchaseOrderItem(BaseModel):
+    inventory_item_id: str
+    item_name: str
+    quantity: float
+    unit_cost: float
+    total_cost: float = 0.0
+
+
+class PurchaseOrderCreate(BaseModel):
+    supplier_id: str
+    purchase_date: str  # YYYY-MM-DD format
+    notes: Optional[str] = None
+    items: List[PurchaseOrderItemCreate]
+
+
+class PurchaseOrder(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    supplier_id: str
+    supplier_name: Optional[str] = None
+    purchase_date: str
+    total_amount: float = 0.0
+    status: str = "received"  # pending, received, cancelled
+    notes: Optional[str] = None
+    items: List[PurchaseOrderItem] = []
+    organization_id: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: Optional[str] = None
+
+
+@api_router.post("/inventory/purchases", response_model=PurchaseOrder)
+async def create_purchase_order(
+    purchase: PurchaseOrderCreate, current_user: dict = Depends(get_current_user)
+):
+    """Create a purchase order and update inventory stock quantities (Requirement 6.3)"""
+    if current_user["role"] not in ["admin", "cashier"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    user_org_id = get_secure_org_id(current_user)
+    
+    # Get supplier name
+    supplier = await db.suppliers.find_one(
+        {"id": purchase.supplier_id, "organization_id": user_org_id}, {"_id": 0}
+    )
+    supplier_name = supplier["name"] if supplier else "Unknown Supplier"
+    
+    # Process items and calculate totals
+    processed_items = []
+    total_amount = 0.0
+    
+    for item in purchase.items:
+        total_cost = item.quantity * item.unit_cost
+        total_amount += total_cost
+        processed_items.append(PurchaseOrderItem(
+            inventory_item_id=item.inventory_item_id,
+            item_name=item.item_name,
+            quantity=item.quantity,
+            unit_cost=item.unit_cost,
+            total_cost=total_cost
+        ))
+    
+    # Create purchase order object
+    purchase_obj = PurchaseOrder(
+        supplier_id=purchase.supplier_id,
+        supplier_name=supplier_name,
+        purchase_date=purchase.purchase_date,
+        total_amount=total_amount,
+        status="received",
+        notes=purchase.notes,
+        items=[item.model_dump() for item in processed_items],
+        organization_id=user_org_id,
+        created_by=current_user.get("username", current_user.get("id"))
+    )
+    
+    # Save purchase order to database
+    doc = purchase_obj.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.purchase_orders.insert_one(doc)
+    
+    # Update inventory quantities for each item (Requirement 6.3)
+    for item in purchase.items:
+        # Get current inventory item
+        inv_item = await db.inventory.find_one(
+            {"id": item.inventory_item_id, "organization_id": user_org_id}, {"_id": 0}
+        )
+        
+        if inv_item:
+            new_quantity = inv_item["quantity"] + item.quantity
+            await db.inventory.update_one(
+                {"id": item.inventory_item_id, "organization_id": user_org_id},
+                {"$set": {
+                    "quantity": new_quantity,
+                    "last_updated": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            
+            # Record stock movement for audit trail
+            movement_obj = StockMovement(
+                item_id=item.inventory_item_id,
+                type="in",
+                quantity=item.quantity,
+                reason="Purchase Order",
+                reference=f"PO-{purchase_obj.id[:8]}",
+                notes=f"Purchase from {supplier_name}",
+                organization_id=user_org_id
+            )
+            movement_doc = movement_obj.model_dump()
+            movement_doc["created_at"] = movement_doc["created_at"].isoformat()
+            await db.stock_movements.insert_one(movement_doc)
+    
+    # Invalidate inventory caches
+    try:
+        cached_service = get_cached_order_service()
+        await cached_service.invalidate_inventory_caches(user_org_id)
+        print(f"🗑️ Inventory caches invalidated for purchase order {purchase_obj.id}")
+    except Exception as e:
+        print(f"⚠️ Cache invalidation error: {e}")
+    
+    return purchase_obj
+
+
+@api_router.get("/inventory/purchases", response_model=List[PurchaseOrder])
+async def get_purchase_orders(current_user: dict = Depends(get_current_user)):
+    """Get all purchase orders for the organization (Requirement 6.6)"""
+    user_org_id = get_secure_org_id(current_user)
+    
+    purchases = await db.purchase_orders.find(
+        {"organization_id": user_org_id}, {"_id": 0}
+    ).sort("created_at", -1).to_list(1000)
+    
+    return purchases
+
+
+@api_router.get("/inventory/purchases/{purchase_id}", response_model=PurchaseOrder)
+async def get_purchase_order(
+    purchase_id: str, current_user: dict = Depends(get_current_user)
+):
+    """Get a specific purchase order by ID"""
+    user_org_id = get_secure_org_id(current_user)
+    
+    purchase = await db.purchase_orders.find_one(
+        {"id": purchase_id, "organization_id": user_org_id}, {"_id": 0}
+    )
+    
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    
+    return purchase
+
+
+@api_router.get("/inventory/purchases/summary/total")
+async def get_purchase_summary(current_user: dict = Depends(get_current_user)):
+    """Get total purchase value for reporting (Requirement 6.7)"""
+    user_org_id = get_secure_org_id(current_user)
+    
+    purchases = await db.purchase_orders.find(
+        {"organization_id": user_org_id}, {"_id": 0}
+    ).to_list(1000)
+    
+    total_value = sum(p.get("total_amount", 0) for p in purchases)
+    total_orders = len(purchases)
+    
+    # Group by supplier
+    by_supplier = {}
+    for p in purchases:
+        supplier_name = p.get("supplier_name", "Unknown")
+        if supplier_name not in by_supplier:
+            by_supplier[supplier_name] = {"count": 0, "total": 0}
+        by_supplier[supplier_name]["count"] += 1
+        by_supplier[supplier_name]["total"] += p.get("total_amount", 0)
+    
+    return {
+        "total_value": total_value,
+        "total_orders": total_orders,
+        "by_supplier": by_supplier
+    }
+
+
 # ============ EXPENSE MANAGEMENT ENDPOINTS ============
 
 @api_router.get("/expenses", response_model=List[Expense])
@@ -13007,24 +13194,84 @@ async def get_public_sale_offer():
 
 @api_router.get("/public/pricing")
 async def get_public_pricing():
-    """Get current pricing for public display"""
+    """Get current pricing for public display with campaign logic"""
     try:
         pricing = await db.pricing_config.find_one({}, {"_id": 0})
+        now = datetime.now(timezone.utc)
         
+        # Default pricing if no config exists
         if not pricing:
             return {
                 "regular_price": 1999.0,
                 "regular_price_display": "₹1999",
-                "campaign_active": False
+                "campaign_price": None,
+                "campaign_price_display": None,
+                "campaign_active": False,
+                "campaign_name": None,
+                "campaign_discount_percent": 0,
+                "campaign_start_date": None,
+                "campaign_end_date": None
             }
         
-        # Check if campaign is still active
-        if pricing.get("campaign_active") and pricing.get("campaign_end_date"):
-            end_date = datetime.fromisoformat(pricing["campaign_end_date"].replace('Z', '+00:00'))
-            if datetime.now(timezone.utc) > end_date:
-                pricing["campaign_active"] = False
+        regular_price = pricing.get("regular_price", 1999.0)
+        campaign_active = pricing.get("campaign_active", False)
+        campaign_discount_percent = pricing.get("campaign_discount_percent", 0)
+        campaign_name = pricing.get("campaign_name", None)
+        campaign_start_date = pricing.get("campaign_start_date")
+        campaign_end_date = pricing.get("campaign_end_date")
         
-        return pricing
+        # Validate campaign dates if campaign is marked as active
+        if campaign_active:
+            # Check start_date - campaign should not be active before start
+            if campaign_start_date:
+                try:
+                    start_str = campaign_start_date if isinstance(campaign_start_date, str) else campaign_start_date.isoformat()
+                    start = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+                    if start.tzinfo is None:
+                        start = start.replace(tzinfo=timezone.utc)
+                    if now < start:
+                        campaign_active = False
+                except (ValueError, AttributeError):
+                    pass
+            
+            # Check end_date - campaign should not be active after end
+            if campaign_active and campaign_end_date:
+                try:
+                    end_str = campaign_end_date if isinstance(campaign_end_date, str) else campaign_end_date.isoformat()
+                    end = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+                    if end.tzinfo is None:
+                        end = end.replace(tzinfo=timezone.utc)
+                    if now > end:
+                        campaign_active = False
+                except (ValueError, AttributeError):
+                    pass
+        
+        # Calculate campaign price if campaign is active
+        campaign_price = None
+        campaign_price_display = None
+        
+        if campaign_active and campaign_discount_percent > 0:
+            # Calculate: campaign_price = regular_price - (regular_price * discount_percent / 100)
+            campaign_price = regular_price - (regular_price * campaign_discount_percent / 100)
+            campaign_price = round(campaign_price, 2)
+            campaign_price_display = f"₹{int(campaign_price)}" if campaign_price == int(campaign_price) else f"₹{campaign_price}"
+        elif campaign_active:
+            # Use stored campaign_price if no discount percent
+            campaign_price = pricing.get("campaign_price")
+            if campaign_price:
+                campaign_price_display = f"₹{int(campaign_price)}" if campaign_price == int(campaign_price) else f"₹{campaign_price}"
+        
+        return {
+            "regular_price": regular_price,
+            "regular_price_display": f"₹{int(regular_price)}" if regular_price == int(regular_price) else f"₹{regular_price}",
+            "campaign_price": campaign_price,
+            "campaign_price_display": campaign_price_display,
+            "campaign_active": campaign_active,
+            "campaign_name": campaign_name if campaign_active else None,
+            "campaign_discount_percent": campaign_discount_percent if campaign_active else 0,
+            "campaign_start_date": campaign_start_date,
+            "campaign_end_date": campaign_end_date
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

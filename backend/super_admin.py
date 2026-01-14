@@ -509,47 +509,65 @@ async def get_users_list(
     username: str = Query(...),
     password: str = Query(...),
     skip: int = Query(0),
-    limit: int = Query(10)  # Small limit for performance
+    limit: int = Query(100)  # Increased limit for better user management
 ):
-    """Get users list - PAGINATED for performance"""
+    """
+    Get users list - Returns all users with essential fields for user management.
+    
+    Returns user id, email, username, role, subscription status, activity metrics,
+    and business settings for display in the SuperAdmin user list.
+    
+    Requirements: 3.1, 3.2
+    
+    Property 4: User List Field Completeness
+    For any user in the users list, the rendered row SHALL display: username, email, 
+    role, subscription_status, subscription_expires_at, and activity metrics.
+    """
     if not verify_super_admin(username, password):
         raise HTTPException(status_code=403, detail="Invalid super admin credentials")
     
     db = get_db()
     
-    # Limit to 10 for free tier
-    limit = min(limit, 10)
+    # Allow larger limit for user management (Requirements 3.1)
+    limit = min(limit, 500)
     
     try:
         print(f"📊 Fetching users list (skip={skip}, limit={limit})...")
         
-        # Get users with minimal fields for list view
+        # Get users with all fields needed for list view (Requirements 3.2)
         users = await db.users.find(
             {},
             {
                 "_id": 0,
+                "id": 1,  # Essential for actions and navigation
                 "email": 1,
                 "username": 1,
                 "role": 1,
                 "subscription_active": 1,
+                "subscription_expires_at": 1,  # For subscription status display
+                "subscription_amount": 1,  # For subscription info
+                "subscription_months": 1,  # For subscription duration
+                "trial_extension_days": 1,  # For trial info
                 "created_at": 1,
-                "bill_count": 1
+                "bill_count": 1,
+                "last_login": 1,  # For activity metrics
+                "business_settings": 1  # For restaurant name display
             }
-        ).skip(skip).limit(limit).to_list(limit)
+        ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
         
-        # Only get total count on first page (expensive operation)
-        total = await db.users.count_documents({}) if skip == 0 else -1
+        # Get total count for pagination
+        total = await db.users.count_documents({})
         
         result = {
             "users": users,
             "total": total,
             "skip": skip,
             "limit": limit,
-            "has_more": len(users) == limit,
+            "has_more": skip + len(users) < total,
             "cached_at": datetime.now(timezone.utc).isoformat()
         }
         
-        print(f"✅ Users list: {len(users)} users returned")
+        print(f"✅ Users list: {len(users)} users returned (total: {total})")
         return result
         
     except Exception as e:

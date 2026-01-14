@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { API } from '../App';
 import Layout from '../components/Layout';
@@ -32,12 +32,16 @@ const InventoryPage = ({ user }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [stockMovements, setStockMovements] = useState([]);
+  const [purchases, setPurchases] = useState([]);
   const [analytics, setAnalytics] = useState({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [movementDialogOpen, setMovementDialogOpen] = useState(false);
   const [analyticsDialogOpen, setAnalyticsDialogOpen] = useState(false);
+  const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+  const [purchaseDetailOpen, setPurchaseDetailOpen] = useState(false);
+  const [selectedPurchase, setSelectedPurchase] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
@@ -70,6 +74,12 @@ const InventoryPage = ({ user }) => {
   const [movementFormData, setMovementFormData] = useState({
     item_id: '', type: 'in', quantity: '', reason: '', reference: '', notes: ''
   });
+  const [purchaseFormData, setPurchaseFormData] = useState({
+    supplier_id: '',
+    purchase_date: new Date().toISOString().split('T')[0],
+    notes: '',
+    items: [{ inventory_item_id: '', item_name: '', quantity: '', unit_cost: '' }]
+  });
 
   useEffect(() => {
     console.log('InventoryPage mounted, user:', user);
@@ -79,7 +89,7 @@ const InventoryPage = ({ user }) => {
     const loadData = async () => {
       await fetchInventory();
       Promise.all([fetchCategories(), fetchSuppliers(), fetchBusinessSettings()]);
-      setTimeout(() => { fetchLowStock(); fetchStockMovements(); fetchAnalytics(); }, 100);
+      setTimeout(() => { fetchLowStock(); fetchStockMovements(); fetchAnalytics(); fetchPurchases(); }, 100);
     };
     loadData();
   }, []);
@@ -140,39 +150,80 @@ const InventoryPage = ({ user }) => {
     }
   };
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
   const fetchLowStock = async () => {
     try {
-      const response = await axios.get(`${API}/inventory/low-stock`);
+      const response = await axios.get(`${API}/inventory/low-stock`, {
+        headers: getAuthHeaders()
+      });
       setLowStock(response.data);
-    } catch (error) { console.error('Failed to fetch low stock', error); }
+    } catch (error) { 
+      console.error('Failed to fetch low stock:', error.response?.status, error.response?.data);
+    }
   };
 
   const fetchSuppliers = async () => {
     try {
-      const response = await axios.get(`${API}/inventory/suppliers`);
+      const response = await axios.get(`${API}/inventory/suppliers`, {
+        headers: getAuthHeaders()
+      });
       setSuppliers(response.data || []);
-    } catch (error) { console.error('Failed to fetch suppliers', error); setSuppliers([]); }
+    } catch (error) { 
+      console.error('Failed to fetch suppliers:', error.response?.status, error.response?.data);
+      setSuppliers([]); 
+    }
   };
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(`${API}/inventory/categories`);
+      const response = await axios.get(`${API}/inventory/categories`, {
+        headers: getAuthHeaders()
+      });
       setCategories(response.data || []);
-    } catch (error) { console.error('Failed to fetch categories', error); setCategories([]); }
+    } catch (error) { 
+      console.error('Failed to fetch categories:', error.response?.status, error.response?.data);
+      setCategories([]); 
+    }
   };
 
   const fetchStockMovements = async () => {
     try {
-      const response = await axios.get(`${API}/inventory/movements`);
+      const response = await axios.get(`${API}/inventory/movements`, {
+        headers: getAuthHeaders()
+      });
       setStockMovements(response.data || []);
-    } catch (error) { console.error('Failed to fetch stock movements', error); setStockMovements([]); }
+    } catch (error) { 
+      console.error('Failed to fetch stock movements:', error.response?.status, error.response?.data);
+      setStockMovements([]); 
+    }
   };
 
   const fetchAnalytics = async () => {
     try {
-      const response = await axios.get(`${API}/inventory/analytics`);
+      const response = await axios.get(`${API}/inventory/analytics`, {
+        headers: getAuthHeaders()
+      });
       setAnalytics(response.data || {});
-    } catch (error) { console.error('Failed to fetch analytics', error); setAnalytics({}); }
+    } catch (error) { 
+      console.error('Failed to fetch analytics:', error.response?.status, error.response?.data);
+      setAnalytics({}); 
+    }
+  };
+
+  const fetchPurchases = async () => {
+    try {
+      const response = await axios.get(`${API}/inventory/purchases`, {
+        headers: getAuthHeaders()
+      });
+      setPurchases(response.data || []);
+    } catch (error) { 
+      console.error('Failed to fetch purchases:', error.response?.status, error.response?.data);
+      setPurchases([]); 
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -181,25 +232,69 @@ const InventoryPage = ({ user }) => {
     console.log('Form submission started', formData);
     console.log('User role:', user?.role);
     
-    // Validate required fields
+    // Comprehensive validation with specific error messages
+    const validationErrors = [];
+    
+    // Validate name (required, non-empty)
     if (!formData.name?.trim()) {
-      toast.error('Item name is required');
-      return;
+      validationErrors.push('Item name is required');
+    } else if (formData.name.trim().length < 2) {
+      validationErrors.push('Item name must be at least 2 characters');
     }
-    if (!formData.quantity || parseFloat(formData.quantity) < 0) {
-      toast.error('Valid quantity is required');
-      return;
+    
+    // Validate quantity (required, non-negative number)
+    const quantity = parseFloat(formData.quantity);
+    if (formData.quantity === '' || formData.quantity === null || formData.quantity === undefined) {
+      validationErrors.push('Quantity is required');
+    } else if (isNaN(quantity)) {
+      validationErrors.push('Quantity must be a valid number');
+    } else if (quantity < 0) {
+      validationErrors.push('Quantity cannot be negative');
     }
+    
+    // Validate unit (required, non-empty)
     if (!formData.unit?.trim()) {
-      toast.error('Unit is required');
-      return;
+      validationErrors.push('Unit is required (e.g., kg, liters, pieces)');
     }
-    if (!formData.min_quantity || parseFloat(formData.min_quantity) < 0) {
-      toast.error('Valid minimum quantity is required');
-      return;
+    
+    // Validate min_quantity (required, non-negative number)
+    const minQuantity = parseFloat(formData.min_quantity);
+    if (formData.min_quantity === '' || formData.min_quantity === null || formData.min_quantity === undefined) {
+      validationErrors.push('Minimum quantity is required');
+    } else if (isNaN(minQuantity)) {
+      validationErrors.push('Minimum quantity must be a valid number');
+    } else if (minQuantity < 0) {
+      validationErrors.push('Minimum quantity cannot be negative');
     }
-    if (!formData.price_per_unit || parseFloat(formData.price_per_unit) <= 0) {
-      toast.error('Valid selling price is required');
+    
+    // Validate price_per_unit (required, positive number)
+    const pricePerUnit = parseFloat(formData.price_per_unit);
+    if (formData.price_per_unit === '' || formData.price_per_unit === null || formData.price_per_unit === undefined) {
+      validationErrors.push('Selling price is required');
+    } else if (isNaN(pricePerUnit)) {
+      validationErrors.push('Selling price must be a valid number');
+    } else if (pricePerUnit <= 0) {
+      validationErrors.push('Selling price must be greater than 0');
+    }
+    
+    // Validate optional numeric fields if provided
+    if (formData.max_quantity && isNaN(parseFloat(formData.max_quantity))) {
+      validationErrors.push('Maximum quantity must be a valid number');
+    }
+    if (formData.cost_price && isNaN(parseFloat(formData.cost_price))) {
+      validationErrors.push('Cost price must be a valid number');
+    }
+    if (formData.reorder_point && isNaN(parseFloat(formData.reorder_point))) {
+      validationErrors.push('Reorder point must be a valid number');
+    }
+    if (formData.reorder_quantity && isNaN(parseFloat(formData.reorder_quantity))) {
+      validationErrors.push('Reorder quantity must be a valid number');
+    }
+    
+    // Display validation errors
+    if (validationErrors.length > 0) {
+      validationErrors.forEach(error => toast.error(error));
+      console.error('Validation errors:', validationErrors);
       return;
     }
 
@@ -287,44 +382,176 @@ const InventoryPage = ({ user }) => {
   const handleSupplierSubmit = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required. Please login again.');
+        return;
+      }
+      
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+      
       if (editingSupplier) {
-        await axios.put(`${API}/inventory/suppliers/${editingSupplier.id}`, supplierFormData);
+        await axios.put(`${API}/inventory/suppliers/${editingSupplier.id}`, supplierFormData, config);
         toast.success('Supplier updated!');
       } else {
-        await axios.post(`${API}/inventory/suppliers`, supplierFormData);
+        await axios.post(`${API}/inventory/suppliers`, supplierFormData, config);
         toast.success('Supplier created!');
       }
       setSupplierDialogOpen(false);
       fetchSuppliers();
       resetSupplierForm();
-    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to save supplier'); }
+    } catch (error) { 
+      console.error('Supplier save error:', error.response?.status, error.response?.data);
+      let errorMessage = error.response?.data?.detail || 'Failed to save supplier';
+      if (error.response?.status === 401) errorMessage = 'Authentication required. Please login again.';
+      if (error.response?.status === 403) errorMessage = 'Not authorized to perform this action.';
+      toast.error(errorMessage);
+    }
   };
 
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required. Please login again.');
+        return;
+      }
+      
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+      
       if (editingCategory) {
-        await axios.put(`${API}/inventory/categories/${editingCategory.id}`, categoryFormData);
+        await axios.put(`${API}/inventory/categories/${editingCategory.id}`, categoryFormData, config);
         toast.success('Category updated!');
       } else {
-        await axios.post(`${API}/inventory/categories`, categoryFormData);
+        await axios.post(`${API}/inventory/categories`, categoryFormData, config);
         toast.success('Category created!');
       }
       setCategoryDialogOpen(false);
       fetchCategories();
       resetCategoryForm();
-    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to save category'); }
+    } catch (error) { 
+      console.error('Category save error:', error.response?.status, error.response?.data);
+      let errorMessage = error.response?.data?.detail || 'Failed to save category';
+      if (error.response?.status === 401) errorMessage = 'Authentication required. Please login again.';
+      if (error.response?.status === 403) errorMessage = 'Not authorized to perform this action.';
+      toast.error(errorMessage);
+    }
   };
 
   const handleMovementSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/inventory/movements`, movementFormData);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required. Please login again.');
+        return;
+      }
+      
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+      
+      await axios.post(`${API}/inventory/movements`, movementFormData, config);
       toast.success('Stock movement recorded!');
       setMovementDialogOpen(false);
       fetchInventory(); fetchStockMovements(); fetchAnalytics();
       resetMovementForm();
-    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to record movement'); }
+    } catch (error) { 
+      console.error('Movement save error:', error.response?.status, error.response?.data);
+      let errorMessage = error.response?.data?.detail || 'Failed to record movement';
+      if (error.response?.status === 401) errorMessage = 'Authentication required. Please login again.';
+      if (error.response?.status === 403) errorMessage = 'Not authorized to perform this action.';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handlePurchaseSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!purchaseFormData.supplier_id) {
+      toast.error('Please select a supplier');
+      return;
+    }
+    
+    if (!purchaseFormData.purchase_date) {
+      toast.error('Please select a purchase date');
+      return;
+    }
+    
+    // Validate items
+    const validItems = purchaseFormData.items.filter(item => 
+      item.inventory_item_id && item.quantity && item.unit_cost
+    );
+    
+    if (validItems.length === 0) {
+      toast.error('Please add at least one item with quantity and unit cost');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required. Please login again.');
+        return;
+      }
+      
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+      
+      // Prepare submission data
+      const submitData = {
+        supplier_id: purchaseFormData.supplier_id,
+        purchase_date: purchaseFormData.purchase_date,
+        notes: purchaseFormData.notes || null,
+        items: validItems.map(item => ({
+          inventory_item_id: item.inventory_item_id,
+          item_name: item.item_name,
+          quantity: parseFloat(item.quantity),
+          unit_cost: parseFloat(item.unit_cost)
+        }))
+      };
+      
+      console.log('Submitting purchase order:', submitData);
+      
+      const response = await axios.post(`${API}/inventory/purchases`, submitData, config);
+      console.log('Purchase order created:', response.data);
+      
+      toast.success('Purchase order created successfully! Stock quantities updated.');
+      setPurchaseDialogOpen(false);
+      resetPurchaseForm();
+      
+      // Refresh data
+      await fetchInventory();
+      await fetchPurchases();
+      fetchLowStock();
+      fetchStockMovements();
+      
+    } catch (error) {
+      console.error('Purchase order error:', error.response?.status, error.response?.data);
+      let errorMessage = error.response?.data?.detail || 'Failed to create purchase order';
+      if (error.response?.status === 401) errorMessage = 'Authentication required. Please login again.';
+      if (error.response?.status === 403) errorMessage = 'Not authorized to create purchase orders.';
+      toast.error(errorMessage);
+    }
   };
 
   const resetForm = () => {
@@ -348,6 +575,52 @@ const InventoryPage = ({ user }) => {
 
   const resetMovementForm = () => {
     setMovementFormData({ item_id: '', type: 'in', quantity: '', reason: '', reference: '', notes: '' });
+  };
+
+  const resetPurchaseForm = () => {
+    setPurchaseFormData({
+      supplier_id: '',
+      purchase_date: new Date().toISOString().split('T')[0],
+      notes: '',
+      items: [{ inventory_item_id: '', item_name: '', quantity: '', unit_cost: '' }]
+    });
+  };
+
+  const addPurchaseItem = () => {
+    setPurchaseFormData({
+      ...purchaseFormData,
+      items: [...purchaseFormData.items, { inventory_item_id: '', item_name: '', quantity: '', unit_cost: '' }]
+    });
+  };
+
+  const removePurchaseItem = (index) => {
+    if (purchaseFormData.items.length > 1) {
+      const newItems = purchaseFormData.items.filter((_, i) => i !== index);
+      setPurchaseFormData({ ...purchaseFormData, items: newItems });
+    }
+  };
+
+  const updatePurchaseItem = (index, field, value) => {
+    const newItems = [...purchaseFormData.items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    
+    // Auto-fill item name when inventory item is selected
+    if (field === 'inventory_item_id') {
+      const selectedItem = inventory.find(item => String(item.id) === String(value));
+      if (selectedItem) {
+        newItems[index].item_name = selectedItem.name;
+      }
+    }
+    
+    setPurchaseFormData({ ...purchaseFormData, items: newItems });
+  };
+
+  const calculatePurchaseTotal = () => {
+    return purchaseFormData.items.reduce((sum, item) => {
+      const qty = parseFloat(item.quantity) || 0;
+      const cost = parseFloat(item.unit_cost) || 0;
+      return sum + (qty * cost);
+    }, 0);
   };
 
   const handleEdit = (item) => {
@@ -383,32 +656,74 @@ const InventoryPage = ({ user }) => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
       try {
-        await axios.delete(`${API}/inventory/${id}`);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          toast.error('Authentication required. Please login again.');
+          return;
+        }
+        
+        await axios.delete(`${API}/inventory/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         toast.success('Item deleted successfully');
         const updatedInventory = inventory.filter(item => item.id !== id);
         setInventory(updatedInventory);
         setLowStock(updatedInventory.filter(item => item.quantity <= item.min_quantity));
-      } catch (error) { toast.error('Failed to delete item'); }
+      } catch (error) { 
+        console.error('Delete error:', error.response?.status, error.response?.data);
+        let errorMessage = 'Failed to delete item';
+        if (error.response?.status === 401) errorMessage = 'Authentication required. Please login again.';
+        if (error.response?.status === 403) errorMessage = 'Not authorized to delete this item.';
+        toast.error(errorMessage);
+      }
     }
   };
 
   const handleDeleteSupplier = async (id) => {
     if (window.confirm('Delete this supplier?')) {
       try {
-        await axios.delete(`${API}/inventory/suppliers/${id}`);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          toast.error('Authentication required. Please login again.');
+          return;
+        }
+        
+        await axios.delete(`${API}/inventory/suppliers/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         toast.success('Supplier deleted!');
         fetchSuppliers();
-      } catch (error) { toast.error('Failed to delete supplier'); }
+      } catch (error) { 
+        console.error('Delete supplier error:', error.response?.status, error.response?.data);
+        let errorMessage = 'Failed to delete supplier';
+        if (error.response?.status === 401) errorMessage = 'Authentication required. Please login again.';
+        if (error.response?.status === 403) errorMessage = 'Not authorized to delete this supplier.';
+        toast.error(errorMessage);
+      }
     }
   };
 
   const handleDeleteCategory = async (id) => {
     if (window.confirm('Delete this category?')) {
       try {
-        await axios.delete(`${API}/inventory/categories/${id}`);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          toast.error('Authentication required. Please login again.');
+          return;
+        }
+        
+        await axios.delete(`${API}/inventory/categories/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         toast.success('Category deleted!');
         fetchCategories();
-      } catch (error) { toast.error('Failed to delete category'); }
+      } catch (error) { 
+        console.error('Delete category error:', error.response?.status, error.response?.data);
+        let errorMessage = 'Failed to delete category';
+        if (error.response?.status === 401) errorMessage = 'Authentication required. Please login again.';
+        if (error.response?.status === 403) errorMessage = 'Not authorized to delete this category.';
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -473,19 +788,39 @@ const InventoryPage = ({ user }) => {
     const qty = parseFloat(stockAdjustQty);
     const newQty = stockAdjustType === 'add' ? stockAdjustItem.quantity + qty : stockAdjustItem.quantity - qty;
     if (newQty < 0) { toast.error('Cannot reduce below 0'); return; }
+    
     try {
-      await axios.put(`${API}/inventory/${stockAdjustItem.id}`, { ...stockAdjustItem, quantity: newQty });
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required. Please login again.');
+        return;
+      }
+      
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+      
+      await axios.put(`${API}/inventory/${stockAdjustItem.id}`, { ...stockAdjustItem, quantity: newQty }, config);
       await axios.post(`${API}/inventory/movements`, { item_id: stockAdjustItem.id,
         type: stockAdjustType === 'add' ? 'in' : 'out', quantity: qty,
         reason: stockAdjustReason || (stockAdjustType === 'add' ? 'Stock Added' : 'Stock Reduced'),
         reference: `Manual ${stockAdjustType === 'add' ? 'Addition' : 'Reduction'}`,
-        notes: `${stockAdjustType === 'add' ? 'Added' : 'Reduced'} ${qty}. Previous: ${stockAdjustItem.quantity}, New: ${newQty}` });
+        notes: `${stockAdjustType === 'add' ? 'Added' : 'Reduced'} ${qty}. Previous: ${stockAdjustItem.quantity}, New: ${newQty}` }, config);
       toast.success(`Stock ${stockAdjustType === 'add' ? 'added' : 'reduced'}!`);
       setStockAdjustOpen(false);
       const updatedInventory = await fetchInventory();
       setLowStock(updatedInventory.filter(item => item.quantity <= item.min_quantity));
       fetchStockMovements();
-    } catch (error) { toast.error(error.response?.data?.detail || 'Failed to adjust stock'); }
+    } catch (error) { 
+      console.error('Stock adjust error:', error.response?.status, error.response?.data);
+      let errorMessage = error.response?.data?.detail || 'Failed to adjust stock';
+      if (error.response?.status === 401) errorMessage = 'Authentication required. Please login again.';
+      if (error.response?.status === 403) errorMessage = 'Not authorized to adjust stock.';
+      toast.error(errorMessage);
+    }
   };
 
   // Calculate analytics
@@ -581,7 +916,7 @@ const InventoryPage = ({ user }) => {
 
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
+          <TabsList className="grid w-full grid-cols-5 bg-white shadow-sm">
             <TabsTrigger value="inventory" className="flex items-center gap-2">
               <Package className="w-4 h-4" />Inventory
             </TabsTrigger>
@@ -593,6 +928,9 @@ const InventoryPage = ({ user }) => {
             </TabsTrigger>
             <TabsTrigger value="movements" className="flex items-center gap-2">
               <History className="w-4 h-4" />Movements
+            </TabsTrigger>
+            <TabsTrigger value="purchases" className="flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4" />Purchases
             </TabsTrigger>
           </TabsList>
 
@@ -952,6 +1290,144 @@ const InventoryPage = ({ user }) => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Purchases Tab */}
+          <TabsContent value="purchases" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <ShoppingCart className="w-6 h-6 text-violet-600" />Purchase Orders ({purchases.length})
+              </h2>
+              {['admin', 'cashier'].includes(user?.role) && (
+                <Button className="bg-gradient-to-r from-violet-600 to-purple-600" onClick={() => { setActiveTab('purchases'); setPurchaseDialogOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />New Purchase
+                </Button>
+              )}
+            </div>
+            
+            {/* Purchase Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
+                      <DollarSign className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-green-700">
+                        ₹{purchases.reduce((sum, p) => sum + (p.total_amount || 0), 0).toFixed(0)}
+                      </div>
+                      <div className="text-sm text-green-600">Total Purchases</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+                      <ShoppingCart className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-blue-700">{purchases.length}</div>
+                      <div className="text-sm text-blue-600">Total Orders</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
+                      <Truck className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-purple-700">
+                        {[...new Set(purchases.map(p => p.supplier_id))].length}
+                      </div>
+                      <div className="text-sm text-purple-600">Suppliers Used</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Purchase Orders Table */}
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Amount</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {purchases.map((purchase, i) => (
+                        <tr key={purchase.id || i} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm">
+                            {purchase.purchase_date ? new Date(purchase.purchase_date).toLocaleDateString() : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium">{purchase.supplier_name || 'Unknown'}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <div className="flex flex-wrap gap-1">
+                              {(purchase.items || []).slice(0, 2).map((item, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {item.item_name} ({item.quantity})
+                                </Badge>
+                              ))}
+                              {(purchase.items || []).length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{purchase.items.length - 2} more
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-bold text-green-600">
+                            ₹{(purchase.total_amount || 0).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge className={
+                              purchase.status === 'received' ? 'bg-green-100 text-green-700' :
+                              purchase.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-red-100 text-red-700'
+                            }>
+                              {purchase.status === 'received' ? '✓ Received' :
+                               purchase.status === 'pending' ? '⏳ Pending' : '✗ Cancelled'}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Button size="sm" variant="outline" onClick={() => {
+                              setSelectedPurchase(purchase);
+                              setPurchaseDetailOpen(true);
+                            }}>
+                              <Eye className="w-3 h-3 mr-1" />View
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {purchases.length === 0 && (
+                    <div className="text-center py-12">
+                      <ShoppingCart className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No purchase orders yet</h3>
+                      <p className="text-gray-500 mb-4">Record your first purchase to track inventory procurement</p>
+                      {['admin', 'cashier'].includes(user?.role) && (
+                        <Button onClick={() => setPurchaseDialogOpen(true)} className="bg-gradient-to-r from-violet-600 to-purple-600">
+                          <Plus className="w-4 h-4 mr-2" />Create First Purchase
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* Add/Edit Item Dialog */}
@@ -1181,6 +1657,181 @@ const InventoryPage = ({ user }) => {
             </Card>
           </div>
         )}
+
+        {/* Purchase Order Dialog */}
+        <Dialog open={purchaseDialogOpen} onOpenChange={(open) => { setPurchaseDialogOpen(open); if (!open) resetPurchaseForm(); }}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5" />Create Purchase Order
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handlePurchaseSubmit} className="space-y-6">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold mb-3">Order Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Supplier *</Label>
+                    <Select value={purchaseFormData.supplier_id || ''} onValueChange={(value) => setPurchaseFormData({ ...purchaseFormData, supplier_id: value })}>
+                      <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                      <SelectContent>
+                        {suppliers.map(sup => (<SelectItem key={sup.id} value={String(sup.id)}>{sup.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Purchase Date *</Label>
+                    <Input type="date" value={purchaseFormData.purchase_date} onChange={(e) => setPurchaseFormData({ ...purchaseFormData, purchase_date: e.target.value })} required />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold">Line Items</h3>
+                  <Button type="button" size="sm" variant="outline" onClick={addPurchaseItem}>
+                    <Plus className="w-4 h-4 mr-1" />Add Item
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {purchaseFormData.items.map((item, index) => (
+                    <div key={index} className="bg-white p-3 rounded-lg border">
+                      <div className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-5">
+                          <Label className="text-xs">Item *</Label>
+                          <Select value={item.inventory_item_id || ''} onValueChange={(value) => updatePurchaseItem(index, 'inventory_item_id', value)}>
+                            <SelectTrigger className="h-9"><SelectValue placeholder="Select item" /></SelectTrigger>
+                            <SelectContent>
+                              {inventory.map(inv => (<SelectItem key={inv.id} value={String(inv.id)}>{inv.name} ({inv.quantity} {inv.unit})</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs">Quantity *</Label>
+                          <Input type="number" step="0.01" min="0.01" className="h-9" placeholder="Qty" value={item.quantity} onChange={(e) => updatePurchaseItem(index, 'quantity', e.target.value)} />
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs">Unit Cost (₹) *</Label>
+                          <Input type="number" step="0.01" min="0" className="h-9" placeholder="Cost" value={item.unit_cost} onChange={(e) => updatePurchaseItem(index, 'unit_cost', e.target.value)} />
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs">Total</Label>
+                          <div className="h-9 flex items-center font-bold text-green-600">
+                            ₹{((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_cost) || 0)).toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="col-span-1">
+                          {purchaseFormData.items.length > 1 && (
+                            <Button type="button" size="sm" variant="outline" className="h-9 w-9 p-0 border-red-300 text-red-500" onClick={() => removePurchaseItem(index)}>
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-lg">Total Amount:</span>
+                  <span className="text-2xl font-bold text-green-600">₹{calculatePurchaseTotal().toFixed(2)}</span>
+                </div>
+              </div>
+              
+              <div>
+                <Label>Notes (optional)</Label>
+                <Textarea value={purchaseFormData.notes} onChange={(e) => setPurchaseFormData({ ...purchaseFormData, notes: e.target.value })} rows={2} placeholder="Additional notes about this purchase..." />
+              </div>
+              
+              <div className="flex gap-3">
+                <Button type="submit" className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600" disabled={!purchaseFormData.supplier_id || purchaseFormData.items.some(i => !i.inventory_item_id || !i.quantity || !i.unit_cost)}>
+                  <CheckCircle className="w-4 h-4 mr-2" />Create Purchase Order
+                </Button>
+                <Button type="button" variant="outline" onClick={() => { setPurchaseDialogOpen(false); resetPurchaseForm(); }}>Cancel</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Purchase Detail Dialog */}
+        <Dialog open={purchaseDetailOpen} onOpenChange={(open) => { setPurchaseDetailOpen(open); if (!open) setSelectedPurchase(null); }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="w-5 h-5" />Purchase Order Details
+              </DialogTitle>
+            </DialogHeader>
+            {selectedPurchase && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500">Supplier</div>
+                    <div className="font-semibold">{selectedPurchase.supplier_name || 'Unknown'}</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500">Purchase Date</div>
+                    <div className="font-semibold">{selectedPurchase.purchase_date ? new Date(selectedPurchase.purchase_date).toLocaleDateString() : '-'}</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500">Status</div>
+                    <Badge className={
+                      selectedPurchase.status === 'received' ? 'bg-green-100 text-green-700' :
+                      selectedPurchase.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }>
+                      {selectedPurchase.status === 'received' ? '✓ Received' :
+                       selectedPurchase.status === 'pending' ? '⏳ Pending' : '✗ Cancelled'}
+                    </Badge>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500">Total Amount</div>
+                    <div className="font-bold text-green-600 text-xl">₹{(selectedPurchase.total_amount || 0).toFixed(2)}</div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold mb-2">Items</h4>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Item</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Qty</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Unit Cost</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {(selectedPurchase.items || []).map((item, idx) => (
+                          <tr key={idx}>
+                            <td className="px-3 py-2 text-sm">{item.item_name}</td>
+                            <td className="px-3 py-2 text-sm text-right">{item.quantity}</td>
+                            <td className="px-3 py-2 text-sm text-right">₹{item.unit_cost}</td>
+                            <td className="px-3 py-2 text-sm text-right font-medium">₹{(item.total_cost || item.quantity * item.unit_cost).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
+                {selectedPurchase.notes && (
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500">Notes</div>
+                    <div>{selectedPurchase.notes}</div>
+                  </div>
+                )}
+                
+                <div className="text-xs text-gray-400">
+                  Created: {selectedPurchase.created_at ? new Date(selectedPurchase.created_at).toLocaleString() : '-'}
+                  {selectedPurchase.created_by && ` by ${selectedPurchase.created_by}`}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
