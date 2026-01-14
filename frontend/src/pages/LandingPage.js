@@ -45,6 +45,7 @@ import {
   MessageCircle,
   Mail,
   ShoppingCart,
+  FileText,
 } from "lucide-react";
 
 // Custom hook for scroll animations
