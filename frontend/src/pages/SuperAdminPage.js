@@ -2553,6 +2553,244 @@ const SuperAdminPage = () => {
           </div>
         )}
 
+        {/* Create Lead Modal */}
+        {showCreateLead && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-purple-600" />
+                  Add New Lead
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowCreateLead(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Name *</Label>
+                  <Input
+                    value={newLead.name}
+                    onChange={(e) => setNewLead({...newLead, name: e.target.value})}
+                    placeholder="Contact name"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Email *</Label>
+                  <Input
+                    type="email"
+                    value={newLead.email}
+                    onChange={(e) => setNewLead({...newLead, email: e.target.value})}
+                    placeholder="email@example.com"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    value={newLead.phone}
+                    onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
+                    placeholder="+91 9876543210"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Business Name</Label>
+                  <Input
+                    value={newLead.businessName}
+                    onChange={(e) => setNewLead({...newLead, businessName: e.target.value})}
+                    placeholder="Restaurant name"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Notes</Label>
+                  <textarea
+                    value={newLead.notes}
+                    onChange={(e) => setNewLead({...newLead, notes: e.target.value})}
+                    placeholder="Additional notes..."
+                    className="w-full px-3 py-2 border rounded mt-1 min-h-[80px]"
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={async () => {
+                      if (!newLead.name || !newLead.email) {
+                        toast.error('Name and email are required');
+                        return;
+                      }
+                      try {
+                        await axios.post(`${API}/super-admin/leads`, {
+                          name: newLead.name,
+                          email: newLead.email,
+                          phone: newLead.phone || '',
+                          businessName: newLead.businessName || null,
+                          notes: newLead.notes || null,
+                          source: 'manual'
+                        }, { params: credentials });
+                        toast.success('Lead created successfully');
+                        setShowCreateLead(false);
+                        setNewLead({ name: '', email: '', phone: '', businessName: '', notes: '' });
+                        fetchLeads();
+                      } catch (error) {
+                        toast.error(error.response?.data?.detail || 'Failed to create lead');
+                      }
+                    }}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Lead
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowCreateLead(false);
+                      setNewLead({ name: '', email: '', phone: '', businessName: '', notes: '' });
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Create Team Member Modal */}
+        {showCreateTeam && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-600" />
+                  Add Team Member
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowCreateTeam(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Full Name *</Label>
+                  <Input
+                    value={newTeamMember.full_name}
+                    onChange={(e) => setNewTeamMember({...newTeamMember, full_name: e.target.value})}
+                    placeholder="John Doe"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Username *</Label>
+                  <Input
+                    value={newTeamMember.username}
+                    onChange={(e) => setNewTeamMember({...newTeamMember, username: e.target.value})}
+                    placeholder="johndoe"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Email *</Label>
+                  <Input
+                    type="email"
+                    value={newTeamMember.email}
+                    onChange={(e) => setNewTeamMember({...newTeamMember, email: e.target.value})}
+                    placeholder="john@example.com"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Password *</Label>
+                  <Input
+                    type="password"
+                    value={newTeamMember.password}
+                    onChange={(e) => setNewTeamMember({...newTeamMember, password: e.target.value})}
+                    placeholder="••••••••"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    value={newTeamMember.phone}
+                    onChange={(e) => setNewTeamMember({...newTeamMember, phone: e.target.value})}
+                    placeholder="+91 9876543210"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Role *</Label>
+                  <select
+                    value={newTeamMember.role}
+                    onChange={(e) => setNewTeamMember({...newTeamMember, role: e.target.value})}
+                    className="w-full px-3 py-2 border rounded mt-1"
+                  >
+                    <option value="sales">Sales</option>
+                    <option value="support">Support</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Permissions</Label>
+                  <div className="mt-2 space-y-2">
+                    {['analytics', 'users', 'leads', 'tickets', 'team'].map(perm => (
+                      <label key={perm} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newTeamMember.permissions.includes(perm)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewTeamMember({...newTeamMember, permissions: [...newTeamMember.permissions, perm]});
+                            } else {
+                              setNewTeamMember({...newTeamMember, permissions: newTeamMember.permissions.filter(p => p !== perm)});
+                            }
+                          }}
+                          className="w-4 h-4"
+                        />
+                        <span className="capitalize">{perm}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={async () => {
+                      if (!newTeamMember.full_name || !newTeamMember.username || !newTeamMember.email || !newTeamMember.password) {
+                        toast.error('Please fill all required fields');
+                        return;
+                      }
+                      try {
+                        await axios.post(`${API}/super-admin/team`, newTeamMember, { params: credentials });
+                        toast.success('Team member created successfully');
+                        setShowCreateTeam(false);
+                        setNewTeamMember({ username: '', email: '', password: '', role: 'sales', permissions: [], full_name: '', phone: '' });
+                        fetchTeam();
+                      } catch (error) {
+                        toast.error(error.response?.data?.detail || 'Failed to create team member');
+                      }
+                    }}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Member
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowCreateTeam(false);
+                      setNewTeamMember({ username: '', email: '', password: '', role: 'sales', permissions: [], full_name: '', phone: '' });
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Subscription Management Modal */}
         {showSubscriptionModal && selectedUser && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto p-4">
