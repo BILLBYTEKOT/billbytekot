@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { 
   Crown, CheckCircle, AlertCircle, Sparkles, Zap, Shield, 
   Clock, Gift, Star, TrendingUp, Users, Printer, BarChart3,
-  Smartphone, Globe, HeadphonesIcon, Rocket, Timer, Wallet
+  Smartphone, Globe, HeadphonesIcon, Rocket, Timer, Wallet, Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -22,7 +22,16 @@ const SubscriptionPage = ({ user }) => {
   const [referralDiscount, setReferralDiscount] = useState(null); // Referral discount info
   const [walletBalance, setWalletBalance] = useState(0); // User's wallet balance
   const [applyWallet, setApplyWallet] = useState(false); // Whether to apply wallet balance
+  const [selectedPlan, setSelectedPlan] = useState('yearly'); // Plan selection: monthly, quarterly, half-yearly, yearly
   const navigate = useNavigate();
+
+  // Pricing plans
+  const plans = {
+    monthly: { months: 1, price: 199, originalPrice: 199, discount: 0, label: '1 Month', perMonth: 199 },
+    quarterly: { months: 3, price: 549, originalPrice: 597, discount: 8, label: '3 Months', perMonth: 183 },
+    halfYearly: { months: 6, price: 999, originalPrice: 1194, discount: 16, label: '6 Months', perMonth: 167 },
+    yearly: { months: 12, price: 1899, originalPrice: 1999, discount: 5, label: '1 Year', perMonth: 159, popular: true }
+  };
 
   useEffect(() => {
     loadPageData();
@@ -148,11 +157,18 @@ const SubscriptionPage = ({ user }) => {
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      // Create order - backend will automatically apply referral discount if applicable
-      const response = await axios.post(`${API}/subscription/create-order`, {});
+      // Get selected plan details
+      const plan = plans[selectedPlan];
       
-      let finalAmount = response.data.amount;
-      const campaignInfo = response.data.campaign_active ? ' (New Year Special!)' : '';
+      // Create order with selected plan
+      const response = await axios.post(`${API}/subscription/create-order`, {
+        plan_type: selectedPlan,
+        months: plan.months,
+        amount: plan.price
+      });
+      
+      let finalAmount = response.data.amount || (plan.price * 100); // Convert to paise
+      const planInfo = ` (${plan.label})`;
       
       // Store referral discount info for display
       if (response.data.referral_discount_applied) {
@@ -182,17 +198,19 @@ const SubscriptionPage = ({ user }) => {
       const options = {
         key: response.data.key_id,
         amount: finalAmount,
-        currency: response.data.currency,
+        currency: response.data.currency || 'INR',
         order_id: response.data.razorpay_order_id,
         name: 'BillByteKOT AI',
-        description: `Premium Subscription - 1 Year${campaignInfo}`,
+        description: `Premium Subscription - ${plan.label}${planInfo}`,
         image: 'https://billbytekot.in/logo.png',
         handler: async (razorpayResponse) => {
           try {
             const verifyResponse = await axios.post(`${API}/subscription/verify`, {
               razorpay_payment_id: razorpayResponse.razorpay_payment_id,
               razorpay_order_id: razorpayResponse.razorpay_order_id,
-              razorpay_signature: razorpayResponse.razorpay_signature
+              razorpay_signature: razorpayResponse.razorpay_signature,
+              plan_type: selectedPlan,
+              months: plan.months
             });
             toast.success(verifyResponse.data.message || '🎉 Premium activated! Welcome to BillByteKOT AI Pro!');
             fetchSubscriptionStatus();
@@ -443,54 +461,69 @@ const SubscriptionPage = ({ user }) => {
               <p className="text-gray-500">Unlimited everything</p>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="text-center">
-                {/* Dynamic Pricing - Use sale offer when active */}
-                {getSaleInfo().isActive ? (
-                  <>
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <span className="text-2xl text-gray-400 line-through">{getSaleInfo().originalPriceDisplay}</span>
-                      <span className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                        {getSaleInfo().discountPercent}% OFF
-                      </span>
-                    </div>
-                    <p className="text-6xl font-black bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-                      {getSaleInfo().salePriceDisplay}
-                    </p>
-                    <p className="text-gray-500">per year • Just ₹{Math.round(getSaleInfo().salePrice / 12)}/month!</p>
-                    <div className="mt-2 p-2 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200">
-                      <p className="text-sm text-red-700 font-medium">
-                        🎉 {getSaleInfo().campaignName} - Save ₹{getSaleInfo().savings}!
-                      </p>
-                    </div>
-                  </>
-                ) : subscriptionStatus?.needs_subscription ? (
-                  // Trial expired - show trial expired discount
-                  <>
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <span className="text-2xl text-gray-400 line-through">{pricing?.regular_price_display || '₹1999'}</span>
-                      <span className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                        {pricing?.trial_expired_discount || 10}% OFF
-                      </span>
-                    </div>
-                    <p className="text-6xl font-black bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-                      {pricing?.trial_expired_price_display || '₹1799'}
-                    </p>
-                    <p className="text-gray-500">per year • Just ₹{Math.round((pricing?.trial_expired_price || 1799) / 12)}/month!</p>
-                    <div className="mt-2 p-2 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200">
-                      <p className="text-sm text-red-700 font-medium">
-                        🎁 Trial Expired Offer - Save ₹{(pricing?.regular_price || 1999) - (pricing?.trial_expired_price || 1799)}!
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  // Regular pricing - no campaign, no trial expired
-                  <>
-                    <p className="text-6xl font-black bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                      {pricing?.regular_price_display || '₹1999'}
-                    </p>
-                    <p className="text-gray-500">per year • Just ₹{Math.round((pricing?.regular_price || 1999) / 12)}/month</p>
-                  </>
-                )}
+              {/* Plan Selection */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-gray-600 text-center">Choose your plan:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(plans).map(([key, plan]) => (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedPlan(key)}
+                      className={`relative p-3 rounded-xl border-2 transition-all ${
+                        selectedPlan === key 
+                          ? 'border-violet-500 bg-violet-50 shadow-lg' 
+                          : 'border-gray-200 hover:border-violet-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {plan.popular && (
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                          BEST VALUE
+                        </span>
+                      )}
+                      {selectedPlan === key && (
+                        <div className="absolute top-2 right-2">
+                          <Check className="w-4 h-4 text-violet-600" />
+                        </div>
+                      )}
+                      <div className="text-center">
+                        <p className="font-bold text-gray-900">{plan.label}</p>
+                        <p className="text-2xl font-black text-violet-600">₹{plan.price}</p>
+                        {plan.discount > 0 && (
+                          <p className="text-xs text-gray-400 line-through">₹{plan.originalPrice}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">₹{plan.perMonth}/mo</p>
+                        {plan.discount > 0 && (
+                          <span className="inline-block mt-1 bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                            Save {plan.discount}%
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Selected Plan Summary */}
+              <div className="text-center p-4 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-200">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  {plans[selectedPlan].originalPrice !== plans[selectedPlan].price && (
+                    <span className="text-xl text-gray-400 line-through">₹{plans[selectedPlan].originalPrice}</span>
+                  )}
+                  {plans[selectedPlan].discount > 0 && (
+                    <span className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-2 py-0.5 rounded-full text-xs font-bold">
+                      {plans[selectedPlan].discount}% OFF
+                    </span>
+                  )}
+                </div>
+                <p className="text-5xl font-black bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                  ₹{plans[selectedPlan].price}
+                </p>
+                <p className="text-gray-600 font-medium">
+                  for {plans[selectedPlan].months} {plans[selectedPlan].months === 1 ? 'month' : 'months'}
+                </p>
+                <p className="text-sm text-violet-600 font-bold mt-1">
+                  Just ₹{plans[selectedPlan].perMonth}/month
+                </p>
               </div>
 
               <ul className="space-y-3">
@@ -561,17 +594,9 @@ const SubscriptionPage = ({ user }) => {
                 </div>
               ) : (
                 <Button onClick={handleSubscribe} disabled={loading}
-                  className={`w-full h-14 text-lg font-bold shadow-lg transform transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ${
-                    (getSaleInfo().isActive || subscriptionStatus?.needs_subscription)
-                      ? 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 animate-pulse' 
-                      : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700'
-                  }`}>
+                  className="w-full h-14 text-lg font-bold shadow-lg transform transition-all duration-300 hover:scale-[1.02] hover:shadow-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700">
                   <Rocket className="w-5 h-5 mr-2 animate-bounce" />
-                  {loading ? 'Processing...' : getSaleInfo().isActive
-                      ? `🎉 Get ${getSaleInfo().salePriceDisplay}/Year Deal Now!`
-                      : subscriptionStatus?.needs_subscription
-                        ? `🎁 Get ${pricing?.trial_expired_discount || 10}% OFF - ${pricing?.trial_expired_price_display || '₹1799'}/year`
-                        : `Subscribe Now - ${pricing?.regular_price_display || '₹1999'}/year`}
+                  {loading ? 'Processing...' : `Get ${plans[selectedPlan].label} - ₹${plans[selectedPlan].price}`}
                 </Button>
               )}
             </CardContent>

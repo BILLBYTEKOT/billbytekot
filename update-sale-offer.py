@@ -2,9 +2,8 @@
 """
 Script to update the sale offer in the database with Early Adopter settings.
 This will set up the sale offer with:
-- 5% discount
-- Original price: ₹1999
-- Sale price: ₹1899 (5% off)
+- Monthly pricing: ₹159/month (highlighted)
+- Yearly price: ₹1899 (5% off from ₹1999)
 - End date: January 31, 2026
 - Theme: early_adopter
 """
@@ -36,20 +35,21 @@ async def update_sale_offer():
         await client.admin.command('ping')
         print("✅ Connected to MongoDB")
         
-        # Early Adopter sale offer configuration - 5% OFF
+        # Early Adopter sale offer configuration - Monthly pricing highlighted
         sale_offer = {
             "enabled": True,
             "title": "🚀 Early Adopter Special",
-            "subtitle": "Be among the first to experience BillByteKOT!",
+            "subtitle": "Just ₹159/month - Best value for your restaurant!",
             "discount_text": "5% OFF",
-            "badge_text": "🔥 EARLY ADOPTER SPECIAL",
-            "bg_color": "from-orange-500 to-red-500",
+            "badge_text": "🚀 EARLY ADOPTER SPECIAL",
+            "bg_color": "from-violet-600 to-purple-600",
             "theme": "early_adopter",
             "banner_design": "early-adopter",
             "discount_percent": 5,
             "original_price": 1999,
             "sale_price": 1899,
-            "cta_text": "Grab This Deal Now!",
+            "monthly_price": 159,
+            "cta_text": "Get This Deal",
             "urgency_text": "⚡ Limited early adopter slots available!",
             "end_date": "2026-01-31",
             "valid_until": "2026-01-31T23:59:59+00:00",
@@ -59,8 +59,9 @@ async def update_sale_offer():
         print("\n📝 Sale Offer Configuration:")
         print(f"   Theme: {sale_offer['theme']}")
         print(f"   Discount: {sale_offer['discount_percent']}%")
-        print(f"   Original Price: ₹{sale_offer['original_price']}")
-        print(f"   Sale Price: ₹{sale_offer['sale_price']}")
+        print(f"   Original Price: ₹{sale_offer['original_price']}/year")
+        print(f"   Sale Price: ₹{sale_offer['sale_price']}/year")
+        print(f"   Monthly Price: ₹{sale_offer['monthly_price']}/month")
         print(f"   End Date: {sale_offer['end_date']}")
         print(f"   Enabled: {sale_offer['enabled']}")
         
@@ -89,15 +90,17 @@ async def update_sale_offer():
         # Check sale_offers
         saved_offer = await db.sale_offers.find_one({}, {"_id": 0})
         if saved_offer:
-            print(f"   sale_offers: enabled={saved_offer.get('enabled')}, theme={saved_offer.get('theme')}, price=₹{saved_offer.get('sale_price')}")
+            print(f"   sale_offers: enabled={saved_offer.get('enabled')}, theme={saved_offer.get('theme')}, price=₹{saved_offer.get('sale_price')}/yr, monthly=₹{saved_offer.get('monthly_price')}/mo")
         
         # Check site_settings
         saved_legacy = await db.site_settings.find_one({"type": "sale_offer"}, {"_id": 0})
         if saved_legacy:
-            print(f"   site_settings: enabled={saved_legacy.get('enabled')}, theme={saved_legacy.get('theme')}, price=₹{saved_legacy.get('sale_price')}")
+            print(f"   site_settings: enabled={saved_legacy.get('enabled')}, theme={saved_legacy.get('theme')}, price=₹{saved_legacy.get('sale_price')}/yr")
         
         print("\n✅ Sale offer updated successfully!")
         print("   The Early Adopter offer is now LIVE until January 31, 2026")
+        print("   Monthly pricing: ₹159/month (highlighted in banner)")
+        print("   Yearly pricing: ₹1899/year (5% off)")
         
         client.close()
         

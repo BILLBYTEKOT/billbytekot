@@ -1637,119 +1637,197 @@ const LandingPage = () => {
 
 
       {/* Demo Section - Screenshot Tutorial */}
-      <section id="demo" className="py-20 bg-gradient-to-br from-violet-900 via-purple-900 to-indigo-900 text-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full mb-4">
-              <Sparkles className="w-4 h-4 text-yellow-400" />
-              <span className="text-sm font-medium text-yellow-400">See It In Action</span>
+      <section id="demo" className="py-24 bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 text-white relative overflow-hidden">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-20 left-10 w-72 h-72 bg-violet-600/20 rounded-full filter blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-600/20 rounded-full filter blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/10 rounded-full filter blur-3xl" />
+        </div>
+        
+        {/* Grid Pattern Overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px] pointer-events-none" />
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600/30 to-purple-600/30 backdrop-blur-sm border border-violet-500/30 rounded-full mb-6">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-sm font-semibold text-violet-200 tracking-wide">QUICK START GUIDE</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
-              How BillByteKOT Works
+            <h2 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+              Get Started in 4 Simple Steps
             </h2>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              Simple, powerful, and designed for busy restaurants. Get started in minutes.
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              From signup to your first bill in under 5 minutes. No technical skills required.
             </p>
           </div>
 
-          {/* Demo Steps */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {[
-              {
-                step: "1",
-                title: "Create Account",
-                desc: "Sign up in 30 seconds. No credit card required.",
-                icon: "👤",
-                color: "from-blue-500 to-cyan-500"
-              },
-              {
-                step: "2", 
-                title: "Setup Menu",
-                desc: "Add your dishes with prices, categories & images.",
-                icon: "🍽️",
-                color: "from-green-500 to-emerald-500"
-              },
-              {
-                step: "3",
-                title: "Take Orders",
-                desc: "Quick order entry with table management & KOT.",
-                icon: "📝",
-                color: "from-orange-500 to-amber-500"
-              },
-              {
-                step: "4",
-                title: "Print & Pay",
-                desc: "Generate bills, print receipts, accept payments.",
-                icon: "🧾",
-                color: "from-purple-500 to-pink-500"
-              }
-            ].map((item, i) => (
-              <div 
-                key={i} 
-                className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center hover:bg-white/20 transition-all card-hover animate-on-scroll"
-                style={{ animationDelay: `${i * 150}ms` }}
-              >
-                <div className={`w-16 h-16 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl hover-bounce`}>
-                  {item.icon}
+          {/* Steps Timeline */}
+          <div className="max-w-6xl mx-auto mb-20">
+            {/* Connection Line */}
+            <div className="hidden lg:block absolute left-1/2 -translate-x-1/2 top-[340px] w-[80%] h-0.5 bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {[
+                {
+                  step: "01",
+                  title: "Create Account",
+                  desc: "Sign up in 30 seconds with just your phone number. No credit card needed.",
+                  icon: Users,
+                  color: "from-blue-500 to-cyan-400",
+                  bgColor: "bg-blue-500/10",
+                  borderColor: "border-blue-500/30"
+                },
+                {
+                  step: "02", 
+                  title: "Setup Your Menu",
+                  desc: "Add dishes with prices, categories & images. Import from Excel supported.",
+                  icon: FileText,
+                  color: "from-emerald-500 to-green-400",
+                  bgColor: "bg-emerald-500/10",
+                  borderColor: "border-emerald-500/30"
+                },
+                {
+                  step: "03",
+                  title: "Take Orders",
+                  desc: "Quick order entry with table management, KOT printing & modifications.",
+                  icon: Smartphone,
+                  color: "from-orange-500 to-amber-400",
+                  bgColor: "bg-orange-500/10",
+                  borderColor: "border-orange-500/30"
+                },
+                {
+                  step: "04",
+                  title: "Print & Get Paid",
+                  desc: "Generate GST bills, print thermal receipts, accept UPI & card payments.",
+                  icon: CreditCard,
+                  color: "from-purple-500 to-pink-400",
+                  bgColor: "bg-purple-500/10",
+                  borderColor: "border-purple-500/30"
+                }
+              ].map((item, i) => (
+                <div 
+                  key={i} 
+                  className={`relative group`}
+                >
+                  {/* Step Number Badge */}
+                  <div className={`absolute -top-4 left-1/2 -translate-x-1/2 z-10 w-10 h-10 bg-gradient-to-br ${item.color} rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-violet-500/25`}>
+                    {item.step}
+                  </div>
+                  
+                  {/* Card */}
+                  <div className={`${item.bgColor} backdrop-blur-sm border ${item.borderColor} rounded-3xl p-8 pt-10 text-center hover:scale-105 transition-all duration-300 hover:shadow-2xl hover:shadow-violet-500/20 h-full`}>
+                    {/* Icon */}
+                    <div className={`w-20 h-20 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <item.icon className="w-10 h-10 text-white" />
+                    </div>
+                    
+                    <h3 className="text-xl font-bold mb-3 text-white">{item.title}</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
+                  </div>
                 </div>
-                <div className="text-xs font-bold text-violet-300 mb-2">STEP {item.step}</div>
-                <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                <p className="text-gray-300 text-sm">{item.desc}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          {/* Feature Screenshots */}
-          <div className="mt-16 max-w-5xl mx-auto">
+          {/* Feature Showcase Cards */}
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-10">
+              <h3 className="text-2xl font-bold text-white mb-2">Powerful Features at Your Fingertips</h3>
+              <p className="text-gray-400">Everything you need to run your restaurant efficiently</p>
+            </div>
+            
             <div className="grid md:grid-cols-3 gap-6">
-              <div className="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-all card-hover animate-on-scroll">
-                <div className="aspect-video bg-gradient-to-br from-violet-600/30 to-purple-600/30 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-                  <img 
-                    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'%3E%3Crect fill='%237c3aed' width='400' height='225'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'%3EDashboard%3C/text%3E%3C/svg%3E"
-                    alt="Restaurant billing software dashboard with real-time sales analytics and order tracking"
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+              {/* Dashboard Card */}
+              <div className="group relative bg-gradient-to-br from-violet-900/50 to-purple-900/50 backdrop-blur-sm border border-violet-500/20 rounded-2xl overflow-hidden hover:border-violet-500/50 transition-all duration-300">
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="p-6">
+                  <div className="aspect-video bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl mb-5 flex items-center justify-center relative overflow-hidden shadow-lg">
+                    <div className="absolute inset-0 bg-black/20" />
+                    <div className="relative z-10 text-center">
+                      <BarChart3 className="w-12 h-12 text-white/90 mx-auto mb-2" />
+                      <span className="text-white font-semibold">Dashboard</span>
+                    </div>
+                    {/* Decorative Elements */}
+                    <div className="absolute top-2 right-2 w-8 h-8 bg-white/10 rounded-lg" />
+                    <div className="absolute bottom-2 left-2 w-16 h-2 bg-white/20 rounded" />
+                  </div>
+                  <h4 className="font-bold text-lg text-white mb-2">Real-time Analytics</h4>
+                  <p className="text-sm text-gray-400">Track sales, orders, popular items & revenue with live updates</p>
+                  <div className="mt-4 flex items-center gap-2 text-violet-400 text-sm font-medium">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>Live data sync</span>
+                  </div>
                 </div>
-                <h4 className="font-semibold mb-1">Real-time Dashboard</h4>
-                <p className="text-sm text-gray-400">Track sales, orders, and revenue at a glance</p>
               </div>
               
-              <div className="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-all card-hover animate-on-scroll" style={{animationDelay: '100ms'}}>
-                <div className="aspect-video bg-gradient-to-br from-green-600/30 to-emerald-600/30 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-                  <img 
-                    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'%3E%3Crect fill='%2310b981' width='400' height='225'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'%3EMenu%3C/text%3E%3C/svg%3E"
-                    alt="Restaurant menu management system with categories and pricing for Indian restaurants"
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+              {/* Menu Card */}
+              <div className="group relative bg-gradient-to-br from-emerald-900/50 to-green-900/50 backdrop-blur-sm border border-emerald-500/20 rounded-2xl overflow-hidden hover:border-emerald-500/50 transition-all duration-300">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="p-6">
+                  <div className="aspect-video bg-gradient-to-br from-emerald-600 to-green-700 rounded-xl mb-5 flex items-center justify-center relative overflow-hidden shadow-lg">
+                    <div className="absolute inset-0 bg-black/20" />
+                    <div className="relative z-10 text-center">
+                      <Package className="w-12 h-12 text-white/90 mx-auto mb-2" />
+                      <span className="text-white font-semibold">Menu</span>
+                    </div>
+                    {/* Decorative Elements */}
+                    <div className="absolute top-2 left-2 w-6 h-6 bg-white/10 rounded-full" />
+                    <div className="absolute bottom-2 right-2 w-12 h-3 bg-white/20 rounded" />
+                  </div>
+                  <h4 className="font-bold text-lg text-white mb-2">Smart Menu Builder</h4>
+                  <p className="text-sm text-gray-400">Categories, variants, images & bulk import from Excel</p>
+                  <div className="mt-4 flex items-center gap-2 text-emerald-400 text-sm font-medium">
+                    <Zap className="w-4 h-4" />
+                    <span>Quick setup</span>
+                  </div>
                 </div>
-                <h4 className="font-semibold mb-1">Menu Management</h4>
-                <p className="text-sm text-gray-400">Organize items by category with images</p>
               </div>
               
-              <div className="bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-all card-hover animate-on-scroll" style={{animationDelay: '200ms'}}>
-                <div className="aspect-video bg-gradient-to-br from-orange-600/30 to-amber-600/30 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-                  <img 
-                    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'%3E%3Crect fill='%23f97316' width='400' height='225'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'%3EThermal Print%3C/text%3E%3C/svg%3E"
-                    alt="Thermal printer receipt templates for restaurant billing with GST compliance"
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+              {/* Thermal Print Card */}
+              <div className="group relative bg-gradient-to-br from-orange-900/50 to-amber-900/50 backdrop-blur-sm border border-orange-500/20 rounded-2xl overflow-hidden hover:border-orange-500/50 transition-all duration-300">
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="p-6">
+                  <div className="aspect-video bg-gradient-to-br from-orange-600 to-amber-600 rounded-xl mb-5 flex items-center justify-center relative overflow-hidden shadow-lg">
+                    <div className="absolute inset-0 bg-black/20" />
+                    <div className="relative z-10 text-center">
+                      <FileText className="w-12 h-12 text-white/90 mx-auto mb-2" />
+                      <span className="text-white font-semibold">Thermal Print</span>
+                    </div>
+                    {/* Decorative Elements */}
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <div className="w-2 h-2 bg-white/30 rounded-full" />
+                      <div className="w-2 h-2 bg-white/30 rounded-full" />
+                    </div>
+                  </div>
+                  <h4 className="font-bold text-lg text-white mb-2">Professional Receipts</h4>
+                  <p className="text-sm text-gray-400">6 beautiful themes, GST compliant, custom branding</p>
+                  <div className="mt-4 flex items-center gap-2 text-orange-400 text-sm font-medium">
+                    <Star className="w-4 h-4" />
+                    <span>6 themes included</span>
+                  </div>
                 </div>
-                <h4 className="font-semibold mb-1">Thermal Printing</h4>
-                <p className="text-sm text-gray-400">6 professional receipt themes</p>
               </div>
             </div>
           </div>
 
           {/* CTA */}
-          <div className="text-center mt-12">
-            <Button size="lg" onClick={handleGetStarted} className="bg-white text-violet-900 hover:bg-gray-100 h-14 px-8 text-lg font-semibold">
-              Try Free for 50 Bills
+          <div className="text-center mt-16">
+            <Button 
+              size="lg" 
+              onClick={handleGetStarted} 
+              className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white h-14 px-10 text-lg font-semibold rounded-full shadow-xl shadow-violet-500/30 hover:shadow-violet-500/50 transition-all hover:scale-105"
+            >
+              Start Free Trial
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
-            <p className="text-sm text-gray-400 mt-4">No credit card required • Setup in 2 minutes</p>
+            <p className="text-sm text-gray-500 mt-4 flex items-center justify-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              No credit card required
+              <span className="text-gray-600">•</span>
+              <Clock className="w-4 h-4 text-violet-400" />
+              Setup in 2 minutes
+            </p>
           </div>
         </div>
       </section>

@@ -440,61 +440,69 @@ const TopBanner = ({ saleData: propSaleData = null }) => {
     );
   }
 
-  // Design 11: Early Adopter Special - ₹9/Year 99% OFF - ULTIMATE VERSION
+  // Design 11: Early Adopter Special - Monthly pricing highlighted
   if (design === 'early-adopter') {
-    const salePrice = bannerData.sale_price ? `₹${bannerData.sale_price}` : '₹9';
-    const originalPrice = bannerData.original_price ? `₹${bannerData.original_price}` : '₹999';
-    const discountPercent = bannerData.discount_percent || 99;
+    const monthlyPrice = bannerData.monthly_price || 159;
+    const yearlyPrice = bannerData.sale_price || 1899;
+    const originalYearlyPrice = bannerData.original_price || 1999;
+    const discountPercent = bannerData.discount_percent || 5;
     
     return (
       <div className="relative overflow-hidden text-white" style={{
-        background: 'linear-gradient(135deg, #ff6b35 0%, #f7931e 25%, #ff4757 50%, #ff6348 75%, #ff9f43 100%)',
+        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 25%, #a855f7 50%, #7c3aed 75%, #6366f1 100%)',
         backgroundSize: '400% 400%',
-        animation: 'gradient-x 3s ease infinite'
+        animation: 'gradient-x 4s ease infinite'
       }}>
         {/* Glowing orbs - pointer-events-none */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-20 h-20 bg-red-500 rounded-full filter blur-2xl opacity-40 animate-pulse" />
-          <div className="absolute top-0 right-1/4 w-20 h-20 bg-orange-600 rounded-full filter blur-2xl opacity-40 animate-pulse" style={{ animationDelay: '0.5s' }} />
-          <div className="absolute top-0 left-1/2 w-16 h-16 bg-yellow-500 rounded-full filter blur-2xl opacity-30 animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-0 left-1/4 w-24 h-24 bg-purple-400 rounded-full filter blur-3xl opacity-30 animate-pulse" />
+          <div className="absolute top-0 right-1/4 w-24 h-24 bg-violet-500 rounded-full filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '0.5s' }} />
+          <div className="absolute top-0 left-1/2 w-20 h-20 bg-pink-400 rounded-full filter blur-3xl opacity-25 animate-pulse" style={{ animationDelay: '1s' }} />
         </div>
         
-        <div className="relative z-10 py-2 px-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+        <div className="relative z-10 py-2.5 px-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-center gap-3 sm:gap-5 flex-wrap">
             
-            {/* Animated Badge */}
-            <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full border border-yellow-400/50">
-              <Flame className="w-4 h-4 text-yellow-300 animate-pulse" />
-              <span className="font-black text-sm tracking-wide text-yellow-100">
-                {bannerData.badge_text || 'LIMITED TIME OFFER'}
+            {/* Badge */}
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/30">
+              <Sparkles className="w-4 h-4 text-yellow-300 animate-pulse" />
+              <span className="font-bold text-sm tracking-wide">
+                {bannerData.badge_text || '🚀 EARLY ADOPTER SPECIAL'}
               </span>
-              <Flame className="w-4 h-4 text-yellow-300 animate-pulse" />
             </div>
             
-            {/* Price Display */}
-            <div className="flex items-center gap-2 bg-black/30 backdrop-blur-sm px-3 py-1 rounded-xl border border-white/20">
-              <span className="text-white/50 line-through text-sm">{originalPrice}/yr</span>
-              <ArrowRight className="w-4 h-4 text-yellow-300" />
-              <span className="text-2xl sm:text-3xl font-black text-yellow-200">{salePrice}</span>
-              <span className="text-yellow-200 text-sm">/year</span>
-              <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-2 py-0.5 rounded-lg font-black text-xs">
-                {discountPercent}% OFF
+            {/* Monthly Price - HIGHLIGHTED */}
+            <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-orange-400 px-4 py-2 rounded-xl shadow-lg transform hover:scale-105 transition-all">
+              <span className="text-black font-black text-2xl sm:text-3xl">₹{monthlyPrice}</span>
+              <div className="text-left">
+                <span className="text-black/80 text-xs font-bold block">/month</span>
+                <span className="text-black/60 text-[10px]">billed yearly</span>
+              </div>
+            </div>
+            
+            {/* Yearly savings */}
+            <div className="hidden sm:flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/20">
+              <span className="text-white/60 line-through text-sm">₹{originalYearlyPrice}/yr</span>
+              <ArrowRight className="w-3 h-3 text-green-300" />
+              <span className="text-green-300 font-bold">₹{yearlyPrice}/yr</span>
+              <span className="bg-green-500 text-white px-1.5 py-0.5 rounded text-xs font-bold">
+                SAVE {discountPercent}%
               </span>
             </div>
             
             {/* Countdown Timer */}
-            <div className="hidden md:flex items-center gap-1.5 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-lg">
-              <Timer className="w-4 h-4 text-red-400" />
-              <div className="flex gap-0.5">
+            <div className="hidden md:flex items-center gap-1.5 bg-black/30 backdrop-blur-sm px-2.5 py-1.5 rounded-lg">
+              <Timer className="w-4 h-4 text-yellow-300" />
+              <div className="flex gap-1">
                 {[
                   { val: timeLeft.days, label: 'd' },
                   { val: timeLeft.hours, label: 'h' },
                   { val: timeLeft.minutes, label: 'm' },
                   { val: timeLeft.seconds, label: 's' }
                 ].map((item, i) => (
-                  <div key={i} className="bg-red-600/80 px-1.5 py-0.5 rounded text-center min-w-[28px]">
+                  <div key={i} className="bg-white/20 px-1.5 py-0.5 rounded text-center min-w-[26px]">
                     <span className="font-mono font-bold text-white text-sm">{String(item.val).padStart(2, '0')}</span>
-                    <span className="text-[9px] text-red-200">{item.label}</span>
+                    <span className="text-[8px] text-white/70">{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -503,29 +511,17 @@ const TopBanner = ({ saleData: propSaleData = null }) => {
             {/* CTA Button */}
             <button 
               onClick={() => navigate('/login')} 
-              className="bg-gradient-to-r from-yellow-400 to-orange-400 text-black px-4 py-1.5 rounded-full font-bold text-sm shadow-lg hover:scale-105 transition-all flex items-center gap-1.5"
+              className="bg-white text-violet-700 px-5 py-2 rounded-full font-bold text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2"
             >
               <Zap className="w-4 h-4" />
-              {bannerData.cta_text || 'Grab This Deal Now!'}
+              {bannerData.cta_text || 'Get This Deal'}
               <ArrowRight className="w-4 h-4" />
             </button>
             
             {/* Close */}
-            <button onClick={() => setDismissed(true)} className="text-white/60 hover:text-white">
+            <button onClick={() => setDismissed(true)} className="text-white/60 hover:text-white ml-1">
               <X className="w-4 h-4" />
             </button>
-          </div>
-          
-          {/* Scrolling urgency text */}
-          <div className="mt-1 overflow-hidden border-t border-white/10 pt-1">
-            <div className="animate-marquee whitespace-nowrap text-xs font-medium">
-              <span className="mx-4 text-yellow-200">🔥 {discountPercent}% OFF - JUST {salePrice}/YEAR</span>
-              <span className="mx-4 text-white">⚡ UNLIMITED BILLS FOREVER</span>
-              <span className="mx-4 text-yellow-200">💎 ALL PREMIUM FEATURES</span>
-              <span className="mx-4 text-white">📞 24/7 PRIORITY SUPPORT</span>
-              <span className="mx-4 text-yellow-200">⏰ LIMITED TIME ONLY</span>
-              <span className="mx-4 text-white">🚀 FIRST 1000 USERS</span>
-            </div>
           </div>
         </div>
       </div>
