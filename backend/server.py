@@ -4082,8 +4082,8 @@ async def get_todays_bills(current_user: dict = Depends(get_current_user)):
                 "$or": [
                     {"status": "completed"},
                     {"status": "paid"},
-                    {"payment_received": {"$gt": 0}},  # Any order with payment received
-                    {"is_credit": False, "total": {"$gt": 0}}  # Non-credit orders with total
+                    # Only include orders with payment if they're also completed/paid
+                    {"status": {"$in": ["completed", "paid"]}, "payment_received": {"$gt": 0}}
                 ]
             }
             
@@ -4131,10 +4131,8 @@ async def get_todays_bills(current_user: dict = Depends(get_current_user)):
                         order_date = order.get("created_at")
                     
                     if order_date and order_date >= today_utc:
-                        # Only include completed, paid, or orders with payment
-                        if (order.get("status") in ["completed", "paid"] or 
-                            order.get("payment_received", 0) > 0 or
-                            (not order.get("is_credit", False) and order.get("total", 0) > 0)):
+                        # Only include orders that are actually completed or paid
+                        if order.get("status") in ["completed", "paid"]:
                             todays_orders.append(order)
                             
                 except Exception as date_error:
@@ -7544,6 +7542,16 @@ async def create_customer_order(order_data: CustomerOrderCreate):
         {"id": order_data.table_id, "organization_id": order_data.org_id},
         {"$set": {"status": "occupied", "current_order_id": order_obj.id}},
     )
+    
+    # Invalidate Redis cache for active orders (CRITICAL for real-time updates)
+    try:
+        cached_service = get_cached_order_service()
+        await cached_service.invalidate_order_caches(order_data.org_id, order_obj.id)
+        print(f"🗑️ Cache invalidated for new QR order {order_obj.id}")
+    except Exception as e:
+        print(f"⚠️ Cache invalidation error for QR order: {e}")
+        # If Redis is not available, that's okay - MongoDB will handle the queries
+        pass
     
     # Use frontend_origin from request for tracking links
     frontend_url = order_data.frontend_origin or ""

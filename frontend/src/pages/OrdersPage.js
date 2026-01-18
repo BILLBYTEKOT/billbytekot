@@ -127,7 +127,7 @@ const OrdersPage = ({ user }) => {
     }
   }, []);
 
-  // Add real-time polling for active orders and today's bills (every 30 seconds)
+  // Add real-time polling for active orders and today's bills (every 10 seconds)
   useEffect(() => {
     const interval = setInterval(() => {
       if (activeTab === 'active') {
@@ -135,7 +135,7 @@ const OrdersPage = ({ user }) => {
       } else if (activeTab === 'history') {
         fetchTodaysBills(); // Refresh today's bills when viewing history tab
       }
-    }, 30000); // Poll every 30 seconds
+    }, 10000); // Poll every 10 seconds for better real-time experience
 
     return () => clearInterval(interval);
   }, [activeTab]);
