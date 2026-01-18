@@ -1254,8 +1254,7 @@ const OrdersPage = ({ user }) => {
                 data-testid="create-order-button"
               >
                 <Plus className="w-4 h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">New Order</span>
-                <span className="sm:hidden">New</span>
+                <span>New Order</span>
               </Button>
 
               {/* Real-time Refresh Button */}
@@ -1266,8 +1265,7 @@ const OrdersPage = ({ user }) => {
                 disabled={loading}
               >
                 <RefreshCw className={`w-4 h-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh</span>
-                <span className="sm:hidden">↻</span>
+                <span>Refresh</span>
               </Button>
             </div>
           )}
