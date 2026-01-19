@@ -30,6 +30,7 @@ const BillingPage = ({ user }) => {
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
   const [whatsappPhone, setWhatsappPhone] = useState('');
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [completedPaymentData, setCompletedPaymentData] = useState(null);
   const [discountType, setDiscountType] = useState('amount');
   const [discountValue, setDiscountValue] = useState('');
   const [customTaxRate, setCustomTaxRate] = useState(null);
