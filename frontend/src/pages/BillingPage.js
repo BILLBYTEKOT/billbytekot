@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Printer, CreditCard, Wallet, Smartphone, Download, MessageCircle, X, Check, Plus, Trash2, Search, RefreshCw, Loader2 } from 'lucide-react';
+import { Printer, CreditCard, Wallet, Smartphone, Download, MessageCircle, X, Check, Plus, Trash2, Search, RefreshCw, Loader2, Eye } from 'lucide-react';
 import { printReceipt } from '../utils/printUtils';
 
 const BillingPage = ({ user }) => {
@@ -41,8 +41,49 @@ const BillingPage = ({ user }) => {
   const dropdownRef = useRef(null);
   const priceInputRef = useRef(null);
   const isSelectingRef = useRef(false);
-  // Track actual payment data after completion to fix balance display issue
-  const [completedPaymentData, setCompletedPaymentData] = useState(null);
+  // Add preview functionality
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewContent, setPreviewContent] = useState('');
+
+  const handlePreview = async () => {
+    try {
+      const discountAmt = calculateDiscountAmount();
+      const receiptData = { 
+        ...order, 
+        items: orderItems, 
+        subtotal: calculateSubtotal(), 
+        tax: calculateTax(), 
+        total: calculateTotal(), 
+        discount: discountAmt, 
+        discount_amount: discountAmt, 
+        tax_rate: getEffectiveTaxRate(),
+        status: 'completed',
+        payment_method: splitPayment ? 'split' : paymentMethod,
+        payment_received: (showReceivedAmount || splitPayment) ? calculateReceivedAmount() : calculateTotal(),
+        balance_amount: Math.max(0, calculateTotal() - ((showReceivedAmount || splitPayment) ? calculateReceivedAmount() : calculateTotal())),
+        is_credit: Math.max(0, calculateTotal() - ((showReceivedAmount || splitPayment) ? calculateReceivedAmount() : calculateTotal())) > 0,
+        customer_name: customerName || order.customer_name,
+        customer_phone: customerPhone || order.customer_phone
+      };
+
+      // Add split payment details to receipt
+      if (splitPayment) {
+        receiptData.cash_amount = parseFloat(cashAmount) || 0;
+        receiptData.card_amount = parseFloat(cardAmount) || 0;
+        receiptData.upi_amount = parseFloat(upiAmount) || 0;
+        receiptData.credit_amount = Math.max(0, calculateTotal() - calculateReceivedAmount());
+      }
+
+      // Generate preview content using the same logic as print
+      const { generatePlainTextReceipt } = await import('../utils/printUtils');
+      const preview = generatePlainTextReceipt(receiptData, businessSettings);
+      setPreviewContent(preview);
+      setShowPreview(true);
+    } catch (error) {
+      console.error('Preview error:', error);
+      toast.error('Failed to generate preview');
+    }
+  };
   // Menu loading states for better UX
   const [menuLoading, setMenuLoading] = useState(true);
   const [menuError, setMenuError] = useState(null);
@@ -370,13 +411,6 @@ const BillingPage = ({ user }) => {
     try {
       console.log('Processing payment:', { total, received, balance, isCredit });
       
-      // Create payment record
-      await axios.post(`${API}/payments/create-order`, { 
-        order_id: orderId, 
-        amount: received, 
-        payment_method: splitPayment ? 'split' : paymentMethod 
-      });
-      
       // Prepare payment data - ensure all fields are explicitly set
       // CRITICAL FIX: QR orders (Self-Order) should stay 'pending' until kitchen marks as completed
       const isQROrder = order?.waiter_name === 'Self-Order';
@@ -418,8 +452,19 @@ const BillingPage = ({ user }) => {
       
       console.log('Updating order with payment data:', paymentData);
       
-      // Update order with payment details
-      await axios.put(`${API}/orders/${orderId}`, paymentData);
+      // Parallel processing for better performance
+      const promises = [
+        // Create payment record
+        axios.post(`${API}/payments/create-order`, { 
+          order_id: orderId, 
+          amount: received, 
+          payment_method: splitPayment ? 'split' : paymentMethod 
+        }),
+        // Update order with payment details
+        axios.put(`${API}/orders/${orderId}`, paymentData)
+      ];
+      
+      await Promise.all(promises);
       
       // Store completed payment data for UI display (fixes balance showing after full payment)
       setCompletedPaymentData({
@@ -433,15 +478,7 @@ const BillingPage = ({ user }) => {
       toast.success(isCredit ? 'Partial payment recorded!' : 'Payment completed!');
       setPaymentCompleted(true);
       
-      // Release table for all payments (partial or full)
-      // Handle table release failure gracefully - payment is already complete
-      const tableReleased = await releaseTable();
-      if (!tableReleased && order?.table_id && order.table_id !== 'counter') {
-        console.warn('⚠️ Payment completed but table release failed');
-        // Table release error is already shown by releaseTable function
-      }
-      
-      // Print receipt
+      // Auto-print receipt immediately (silent printing)
       const discountAmt = calculateDiscountAmount();
       const receiptData = { 
         ...order, 
@@ -469,8 +506,21 @@ const BillingPage = ({ user }) => {
         receiptData.credit_amount = balance;
       }
 
-      console.log('Printing receipt with data:', receiptData);
-      printReceipt(receiptData, businessSettings);
+      console.log('Auto-printing receipt with data:', receiptData);
+      
+      // Use silent printing - no dialog
+      try {
+        await printReceipt(receiptData, businessSettings);
+        toast.success('Receipt printed automatically!');
+      } catch (printError) {
+        console.error('Print error:', printError);
+        toast.error('Payment completed but printing failed');
+      }
+      
+      // Release table asynchronously (don't block UI)
+      releaseTable().catch(error => {
+        console.warn('⚠️ Payment completed but table release failed:', error);
+      });
       
     } catch (error) {
       console.error('Payment error:', error);
@@ -1128,7 +1178,8 @@ const BillingPage = ({ user }) => {
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-2 mt-3">
+            <div className="grid grid-cols-4 gap-2 mt-3">
+              <Button variant="outline" size="sm" onClick={handlePreview} className="h-9"><Eye className="w-4 h-4 mr-1" />Preview</Button>
               <Button variant="outline" size="sm" onClick={() => printReceipt(orderData, businessSettings)} className="h-9"><Printer className="w-4 h-4 mr-1" />Print</Button>
               <Button variant="outline" size="sm" onClick={downloadBillPDF} className="h-9"><Download className="w-4 h-4 mr-1" />PDF</Button>
               <Button variant="outline" size="sm" onClick={() => setShowWhatsappModal(true)} className="h-9 border-green-500 text-green-600"><MessageCircle className="w-4 h-4 mr-1" />Share</Button>
@@ -1140,15 +1191,15 @@ const BillingPage = ({ user }) => {
 
 
       {/* ========== DESKTOP LAYOUT - FULL WIDTH ========== */}
-      <div className="hidden lg:flex h-[calc(100vh-80px)] gap-4 p-4">
+      <div className="hidden lg:flex h-[calc(100vh-80px)] gap-3 p-3">
         {/* Left Panel - Items (65%) */}
-        <div className="flex-[3] flex flex-col bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-6 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <span className="text-2xl font-bold">#{order.invoice_number || order.id.slice(0, 6)}</span>
-              <span className="text-violet-200 text-lg">{order.table_number ? `Table ${order.table_number}` : 'Counter Order'}</span>
+        <div className="flex-[3] flex flex-col bg-white rounded-xl shadow-xl overflow-hidden">
+          <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-4 py-3 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <span className="text-xl font-bold">#{order.invoice_number || order.id.slice(0, 6)}</span>
+              <span className="text-violet-200">{order.table_number ? `Table ${order.table_number}` : 'Counter Order'}</span>
             </div>
-            <span className="text-violet-200">{new Date(order.created_at).toLocaleString()}</span>
+            <span className="text-violet-200 text-sm">{new Date(order.created_at).toLocaleString()}</span>
           </div>
           <div className="p-4 border-b">
             {/* Smart Search Bar - Desktop */}
@@ -1229,23 +1280,23 @@ const BillingPage = ({ user }) => {
         </div>
 
         {/* Right Panel - Payment (35%) */}
-        <div className="flex-[2] flex flex-col bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="p-6 border-b space-y-4">
-            <div className="flex justify-between text-lg"><span className="text-gray-500">Subtotal</span><span className="font-semibold">{currency}{calculateSubtotal().toFixed(0)}</span></div>
+        <div className="flex-[2] flex flex-col bg-white rounded-xl shadow-xl overflow-hidden">
+          <div className="p-4 border-b space-y-3">
+            <div className="flex justify-between text-base"><span className="text-gray-500">Subtotal</span><span className="font-semibold">{currency}{calculateSubtotal().toFixed(0)}</span></div>
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <span className="text-gray-500">Discount</span>
-                <select value={discountType} onChange={(e) => { setDiscountType(e.target.value); setDiscountValue(''); }} className="px-3 py-2 border rounded-lg bg-white text-base">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500 text-sm">Discount</span>
+                <select value={discountType} onChange={(e) => { setDiscountType(e.target.value); setDiscountValue(''); }} className="px-2 py-1 border rounded text-sm">
                   <option value="amount">₹ Amount</option><option value="percent">% Percent</option>
                 </select>
-                <input type="number" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} placeholder="0" className="w-24 px-3 py-2 border rounded-lg text-center text-base" />
+                <input type="number" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} placeholder="0" className="w-20 px-2 py-1 border rounded text-center text-sm" />
                 <div className="flex gap-1">
                   {[5, 10, 15, 20].map(p => (
-                    <button key={p} onClick={() => { setDiscountType('percent'); setDiscountValue(p.toString()); }} className={`px-4 py-2 rounded-lg font-medium transition-all ${discountType === 'percent' && discountValue === p.toString() ? 'bg-green-500 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}>{p}%</button>
+                    <button key={p} onClick={() => { setDiscountType('percent'); setDiscountValue(p.toString()); }} className={`px-2 py-1 rounded text-xs font-medium transition-all ${discountType === 'percent' && discountValue === p.toString() ? 'bg-green-500 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}>{p}%</button>
                   ))}
                 </div>
               </div>
-              <span className="text-green-600 font-semibold text-lg">{discountAmt > 0 ? `-${currency}${discountAmt.toFixed(0)}` : '—'}</span>
+              <span className="text-green-600 font-semibold">{discountAmt > 0 ? `-${currency}${discountAmt.toFixed(0)}` : '—'}</span>
             </div>
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-3">
@@ -1370,33 +1421,34 @@ const BillingPage = ({ user }) => {
               )}
             </div>
           </div>
-          <div className="p-6 flex-1 flex flex-col">
+          <div className="p-4 flex-1 flex flex-col">
             {!paymentCompleted ? (
-              <Button onClick={handlePayment} disabled={loading} className="w-full h-16 text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl shadow-xl">
-                {loading ? <div className="animate-spin w-6 h-6 border-3 border-white border-t-transparent rounded-full" /> : (
+              <Button onClick={handlePayment} disabled={loading} className="w-full h-14 text-xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl shadow-xl">
+                {loading ? <div className="animate-spin w-5 h-5 border-3 border-white border-t-transparent rounded-full" /> : (
                   showReceivedAmount ? 
                     `Pay ${currency}${calculateReceivedAmount().toFixed(0)}` : 
                     `Pay ${currency}${calculateTotal().toFixed(0)}`
                 )}
               </Button>
             ) : (
-              <div className="bg-green-50 border-2 border-green-300 rounded-xl p-5 flex items-center gap-4">
-                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-8 h-8 text-white" /></div>
+              <div className="bg-green-50 border-2 border-green-300 rounded-xl p-4 flex items-center gap-3">
+                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-6 h-6 text-white" /></div>
                 <div>
-                  <p className="text-2xl font-bold text-green-800">Payment Successful!</p>
-                  <p className="text-green-600 text-lg">
+                  <p className="text-xl font-bold text-green-800">Payment Successful!</p>
+                  <p className="text-green-600">
                     {currency}{(completedPaymentData?.received || calculateTotal()).toFixed(0)} received via {(completedPaymentData?.paymentMethod || paymentMethod).toUpperCase()}
                     {completedPaymentData?.balance > 0 && (
-                      <span className="block text-red-600 text-base">Balance Due: {currency}{completedPaymentData.balance.toFixed(0)}</span>
+                      <span className="block text-red-600 text-sm">Balance Due: {currency}{completedPaymentData.balance.toFixed(0)}</span>
                     )}
                   </p>
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-4 mt-6">
-              <Button variant="outline" onClick={() => printReceipt(orderData, businessSettings)} className="h-14 text-lg"><Printer className="w-5 h-5 mr-2" />Print</Button>
-              <Button variant="outline" onClick={downloadBillPDF} className="h-14 text-lg"><Download className="w-5 h-5 mr-2" />PDF</Button>
-              <Button variant="outline" onClick={() => setShowWhatsappModal(true)} className="h-14 text-lg border-green-500 text-green-600 hover:bg-green-50"><MessageCircle className="w-5 h-5 mr-2" />Share</Button>
+            <div className="grid grid-cols-4 gap-3 mt-4">
+              <Button variant="outline" onClick={handlePreview} className="h-12 text-base"><Eye className="w-4 h-4 mr-1" />Preview</Button>
+              <Button variant="outline" onClick={() => printReceipt(orderData, businessSettings)} className="h-12 text-base"><Printer className="w-4 h-4 mr-1" />Print</Button>
+              <Button variant="outline" onClick={downloadBillPDF} className="h-12 text-base"><Download className="w-4 h-4 mr-1" />PDF</Button>
+              <Button variant="outline" onClick={() => setShowWhatsappModal(true)} className="h-12 text-base border-green-500 text-green-600 hover:bg-green-50"><MessageCircle className="w-4 h-4 mr-1" />Share</Button>
             </div>
             {paymentCompleted && <Button variant="ghost" onClick={() => navigate('/orders')} className="w-full mt-4 h-12 text-lg">← Back to Orders</Button>}
           </div>
@@ -1488,6 +1540,68 @@ const BillingPage = ({ user }) => {
               </div>
               <Input placeholder="+91 9876543210" value={whatsappPhone} onChange={(e) => setWhatsappPhone(e.target.value)} className="mb-4 h-12 text-lg" />
               <Button onClick={handleWhatsappShare} className="w-full h-12 bg-green-600 hover:bg-green-700 text-lg"><MessageCircle className="w-5 h-5 mr-2" />Send Receipt</Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Receipt Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <CardContent className="p-6 flex flex-col h-full">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold">Receipt Preview</h3>
+                <button onClick={() => setShowPreview(false)}><X className="w-6 h-6" /></button>
+              </div>
+              <div className="flex-1 overflow-auto bg-gray-50 p-4 rounded-lg">
+                <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                  {previewContent}
+                </pre>
+              </div>
+              <div className="flex gap-3 mt-4">
+                <Button 
+                  onClick={() => {
+                    setShowPreview(false);
+                    const discountAmt = calculateDiscountAmount();
+                    const receiptData = { 
+                      ...order, 
+                      items: orderItems, 
+                      subtotal: calculateSubtotal(), 
+                      tax: calculateTax(), 
+                      total: calculateTotal(), 
+                      discount: discountAmt, 
+                      discount_amount: discountAmt, 
+                      tax_rate: getEffectiveTaxRate(),
+                      status: paymentCompleted ? 'completed' : 'pending',
+                      payment_method: splitPayment ? 'split' : paymentMethod,
+                      payment_received: (showReceivedAmount || splitPayment) ? calculateReceivedAmount() : calculateTotal(),
+                      balance_amount: Math.max(0, calculateTotal() - ((showReceivedAmount || splitPayment) ? calculateReceivedAmount() : calculateTotal())),
+                      is_credit: Math.max(0, calculateTotal() - ((showReceivedAmount || splitPayment) ? calculateReceivedAmount() : calculateTotal())) > 0,
+                      customer_name: customerName || order.customer_name,
+                      customer_phone: customerPhone || order.customer_phone
+                    };
+                    if (splitPayment) {
+                      receiptData.cash_amount = parseFloat(cashAmount) || 0;
+                      receiptData.card_amount = parseFloat(cardAmount) || 0;
+                      receiptData.upi_amount = parseFloat(upiAmount) || 0;
+                      receiptData.credit_amount = Math.max(0, calculateTotal() - calculateReceivedAmount());
+                    }
+                    printReceipt(receiptData, businessSettings);
+                  }}
+                  className="flex-1 bg-violet-600 hover:bg-violet-700"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print Now
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPreview(false)}
+                  className="flex-1"
+                >
+                  Close
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
