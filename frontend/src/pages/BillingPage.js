@@ -37,6 +37,8 @@ const BillingPage = ({ user }) => {
   const [customPrice, setCustomPrice] = useState('');
   const [orderItems, setOrderItems] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+  const [menuError, setMenuError] = useState(null);
   const [showMenuDropdown, setShowMenuDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);
@@ -591,18 +593,18 @@ const BillingPage = ({ user }) => {
       console.log('Auto-printing receipt with data:', receiptData);
       
       // Only auto-print if enabled in settings (check businessSettings for auto_print preference)
-      const shouldAutoPrint = businessSettings?.print_customization?.auto_print ?? true;
+      const shouldAutoPrint = businessSettings?.print_customization?.auto_print ?? false; // Default to FALSE to avoid unwanted dialogs
       
       if (shouldAutoPrint) {
         try {
           await printReceipt(receiptData, businessSettings);
-          toast.success('Receipt printed automatically!');
+          toast.success('Receipt prepared for printing!');
         } catch (printError) {
           console.error('Print error:', printError);
-          toast.error('Payment completed but printing failed');
+          toast.info('Payment completed! Click Print button for receipt.');
         }
       } else {
-        toast.success('Payment completed! Click Print to get receipt.');
+        toast.success('Payment completed! Click Print button for receipt.');
       }
       
       // Release table asynchronously (don't block UI)
