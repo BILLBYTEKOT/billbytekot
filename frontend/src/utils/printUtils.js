@@ -426,58 +426,56 @@ export const printThermal = (htmlContent, paperWidth = '80mm', forceDialog = fal
     toast.success('Print dialog opened!');
     return true;
   } else {
-    // Silent print without dialog - create hidden iframe
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.left = '-9999px';
-    iframe.style.width = '1px';
-    iframe.style.height = '1px';
-    iframe.style.opacity = '0';
-    iframe.style.border = 'none';
-    document.body.appendChild(iframe);
-    
-    const width = paperWidth === '58mm' ? '58mm' : '80mm';
-    const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Print</title><style>${getPrintStyles(width)}@media print{@page{margin:0;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body><div class="receipt">${htmlContent}</div></body></html>`;
-    
-    iframe.contentDocument.write(printContent);
-    iframe.contentDocument.close();
-    
-    // Wait for content to load, then print silently
-    iframe.onload = () => {
-      setTimeout(() => {
-        try {
-          // Set print settings to avoid dialog
-          iframe.contentWindow.focus();
-          
-          // Try to print silently
-          iframe.contentWindow.print();
-          toast.success('Receipt sent to printer!');
-          
-          // Clean up after printing
-          setTimeout(() => {
-            if (document.body.contains(iframe)) {
-              document.body.removeChild(iframe);
-            }
-          }, 2000);
-        } catch (e) {
-          console.error('Silent print failed:', e);
-          // Clean up iframe on error
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-          }
-          toast.error('Print failed. Please try again.');
-        }
-      }, 500);
-    };
-    
-    // Fallback cleanup in case onload doesn't fire
-    setTimeout(() => {
-      if (document.body.contains(iframe)) {
-        document.body.removeChild(iframe);
+    // Silent print without dialog - use direct window.print() instead of iframe
+    try {
+      // Create a temporary print window that auto-closes
+      const printWindow = window.open('', '_blank', 'width=1,height=1,left=-1000,top=-1000');
+      if (!printWindow) {
+        // Fallback: show toast message instead of opening save dialog
+        toast.info('Receipt ready! Use Ctrl+P to print or click Print button.');
+        return false;
       }
-    }, 5000);
-    
-    return true;
+      
+      const width = paperWidth === '58mm' ? '58mm' : '80mm';
+      const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Receipt</title><style>${getPrintStyles(width)}@media print{@page{margin:0;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body><div class="receipt">${htmlContent}</div></body></html>`;
+      
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      
+      // Wait for content to load, then print and close immediately
+      printWindow.onload = () => {
+        setTimeout(() => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+            
+            // Close the window immediately after print command
+            setTimeout(() => {
+              printWindow.close();
+            }, 100);
+            
+            toast.success('Receipt sent to printer!');
+          } catch (e) {
+            console.error('Print failed:', e);
+            printWindow.close();
+            toast.info('Receipt ready! Use Ctrl+P to print.');
+          }
+        }, 200);
+      };
+      
+      // Fallback cleanup
+      setTimeout(() => {
+        if (printWindow && !printWindow.closed) {
+          printWindow.close();
+        }
+      }, 3000);
+      
+      return true;
+    } catch (e) {
+      console.error('Print window creation failed:', e);
+      toast.info('Receipt ready! Use Ctrl+P to print or click Print button.');
+      return false;
+    }
   }
 };
 

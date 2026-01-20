@@ -560,7 +560,7 @@ const BillingPage = ({ user }) => {
       toast.success(isCredit ? 'Partial payment recorded!' : 'Payment completed!');
       setPaymentCompleted(true);
       
-      // Auto-print receipt immediately (silent printing)
+      // Auto-print receipt immediately (only if auto-print is enabled)
       const discountAmt = calculateDiscountAmount();
       const receiptData = { 
         ...order, 
@@ -590,13 +590,19 @@ const BillingPage = ({ user }) => {
 
       console.log('Auto-printing receipt with data:', receiptData);
       
-      // Use silent printing - no dialog
-      try {
-        await printReceipt(receiptData, businessSettings);
-        toast.success('Receipt printed automatically!');
-      } catch (printError) {
-        console.error('Print error:', printError);
-        toast.error('Payment completed but printing failed');
+      // Only auto-print if enabled in settings (check businessSettings for auto_print preference)
+      const shouldAutoPrint = businessSettings?.print_customization?.auto_print ?? true;
+      
+      if (shouldAutoPrint) {
+        try {
+          await printReceipt(receiptData, businessSettings);
+          toast.success('Receipt printed automatically!');
+        } catch (printError) {
+          console.error('Print error:', printError);
+          toast.error('Payment completed but printing failed');
+        }
+      } else {
+        toast.success('Payment completed! Click Print to get receipt.');
       }
       
       // Release table asynchronously (don't block UI)
@@ -1476,7 +1482,20 @@ const BillingPage = ({ user }) => {
             )}
             <div className="grid grid-cols-4 gap-2 mt-3">
               <Button variant="outline" size="sm" onClick={handlePreview} className="h-9"><Eye className="w-4 h-4 mr-1" />Preview</Button>
-              <Button variant="outline" size="sm" onClick={() => printReceipt(orderData, businessSettings)} className="h-9"><Printer className="w-4 h-4 mr-1" />Print</Button>
+              <Button variant="outline" size="sm" onClick={() => {
+                // Force print dialog when user manually clicks print
+                const receiptData = { 
+                  ...orderData, 
+                  items: orderItems, 
+                  subtotal: calculateSubtotal(), 
+                  tax: calculateTax(), 
+                  total: calculateTotal(), 
+                  discount: calculateDiscountAmount(), 
+                  discount_amount: calculateDiscountAmount(), 
+                  tax_rate: getEffectiveTaxRate()
+                };
+                printReceipt(receiptData, businessSettings);
+              }} className="h-9"><Printer className="w-4 h-4 mr-1" />Print</Button>
               <Button variant="outline" size="sm" onClick={downloadBillPDF} className="h-9"><Download className="w-4 h-4 mr-1" />PDF</Button>
               <Button variant="outline" size="sm" onClick={() => setShowWhatsappModal(true)} className="h-9 border-green-500 text-green-600"><MessageCircle className="w-4 h-4 mr-1" />Share</Button>
             </div>
@@ -1878,7 +1897,20 @@ const BillingPage = ({ user }) => {
             )}
             <div className="grid grid-cols-4 gap-3 mt-4">
               <Button variant="outline" onClick={handlePreview} className="h-12 text-base"><Eye className="w-4 h-4 mr-1" />Preview</Button>
-              <Button variant="outline" onClick={() => printReceipt(orderData, businessSettings)} className="h-12 text-base"><Printer className="w-4 h-4 mr-1" />Print</Button>
+              <Button variant="outline" onClick={() => {
+                // Force print dialog when user manually clicks print
+                const receiptData = { 
+                  ...orderData, 
+                  items: orderItems, 
+                  subtotal: calculateSubtotal(), 
+                  tax: calculateTax(), 
+                  total: calculateTotal(), 
+                  discount: calculateDiscountAmount(), 
+                  discount_amount: calculateDiscountAmount(), 
+                  tax_rate: getEffectiveTaxRate()
+                };
+                printReceipt(receiptData, businessSettings);
+              }} className="h-12 text-base"><Printer className="w-4 h-4 mr-1" />Print</Button>
               <Button variant="outline" onClick={downloadBillPDF} className="h-12 text-base"><Download className="w-4 h-4 mr-1" />PDF</Button>
               <Button variant="outline" onClick={() => setShowWhatsappModal(true)} className="h-12 text-base border-green-500 text-green-600 hover:bg-green-50"><MessageCircle className="w-4 h-4 mr-1" />Share</Button>
             </div>
