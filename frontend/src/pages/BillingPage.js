@@ -9,7 +9,7 @@ import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Printer, CreditCard, Wallet, Smartphone, Download, MessageCircle, X, Check, Plus, Trash2, Search, Eye } from 'lucide-react';
-import { printReceipt } from '../utils/printUtils';
+import { printReceipt, manualPrintReceipt } from '../utils/printUtils';
 
 const BillingPage = ({ user }) => {
   const { orderId } = useParams();
@@ -1483,7 +1483,7 @@ const BillingPage = ({ user }) => {
             <div className="grid grid-cols-4 gap-2 mt-3">
               <Button variant="outline" size="sm" onClick={handlePreview} className="h-9"><Eye className="w-4 h-4 mr-1" />Preview</Button>
               <Button variant="outline" size="sm" onClick={() => {
-                // Force print dialog when user manually clicks print
+                // Use manual print for user-initiated printing (shows dialog)
                 const receiptData = { 
                   ...orderData, 
                   items: orderItems, 
@@ -1494,7 +1494,7 @@ const BillingPage = ({ user }) => {
                   discount_amount: calculateDiscountAmount(), 
                   tax_rate: getEffectiveTaxRate()
                 };
-                printReceipt(receiptData, businessSettings);
+                manualPrintReceipt(receiptData, businessSettings);
               }} className="h-9"><Printer className="w-4 h-4 mr-1" />Print</Button>
               <Button variant="outline" size="sm" onClick={downloadBillPDF} className="h-9"><Download className="w-4 h-4 mr-1" />PDF</Button>
               <Button variant="outline" size="sm" onClick={() => setShowWhatsappModal(true)} className="h-9 border-green-500 text-green-600"><MessageCircle className="w-4 h-4 mr-1" />Share</Button>
@@ -1898,7 +1898,7 @@ const BillingPage = ({ user }) => {
             <div className="grid grid-cols-4 gap-3 mt-4">
               <Button variant="outline" onClick={handlePreview} className="h-12 text-base"><Eye className="w-4 h-4 mr-1" />Preview</Button>
               <Button variant="outline" onClick={() => {
-                // Force print dialog when user manually clicks print
+                // Use manual print for user-initiated printing (shows dialog)
                 const receiptData = { 
                   ...orderData, 
                   items: orderItems, 
@@ -1909,7 +1909,7 @@ const BillingPage = ({ user }) => {
                   discount_amount: calculateDiscountAmount(), 
                   tax_rate: getEffectiveTaxRate()
                 };
-                printReceipt(receiptData, businessSettings);
+                manualPrintReceipt(receiptData, businessSettings);
               }} className="h-12 text-base"><Printer className="w-4 h-4 mr-1" />Print</Button>
               <Button variant="outline" onClick={downloadBillPDF} className="h-12 text-base"><Download className="w-4 h-4 mr-1" />PDF</Button>
               <Button variant="outline" onClick={() => setShowWhatsappModal(true)} className="h-12 text-base border-green-500 text-green-600 hover:bg-green-50"><MessageCircle className="w-4 h-4 mr-1" />Share</Button>
