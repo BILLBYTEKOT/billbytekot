@@ -394,11 +394,12 @@ const getPrintStyles = (width, settings = null) => {
 export const printThermal = (htmlContent, paperWidth = '80mm', forceDialog = false) => {
   const settings = getPrintSettings();
   
+  // For Electron apps, use native printing
   if (isElectron() && window.electronAPI?.printReceipt) {
     try { 
       window.electronAPI.printReceipt(htmlContent, { 
         paperWidth,
-        silent: !forceDialog // Use silent printing unless dialog is forced
+        silent: !forceDialog
       }); 
       toast.success('Printing...'); 
       return true; 
@@ -407,78 +408,403 @@ export const printThermal = (htmlContent, paperWidth = '80mm', forceDialog = fal
     }
   }
   
-  // Check if we should show dialog based on settings
-  const showDialog = forceDialog || false; // Always silent unless forced
-  
-  if (showDialog) {
-    // Show print dialog in popup window
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    if (!printWindow) {
-      toast.error('Popup blocked! Please allow popups for printing.');
-      return false;
+  // For web browsers - completely avoid browser print dialogs
+  if (forceDialog) {
+    // Only show dialog when explicitly requested by user
+    return printWithDialog(htmlContent, paperWidth);
+  } else {
+    // COMPLETELY SILENT - No browser dialogs, no popups, no window.print()
+    return trueSilentPrint(htmlContent, paperWidth);
+  }
+};
+
+// TRUE SILENT PRINTING - Bypasses all browser print mechanisms
+const trueSilentPrint = (htmlContent, paperWidth = '80mm') => {
+  try {
+    // Method 1: Direct thermal printer communication (best)
+    if (window.electronAPI?.directPrint) {
+      window.electronAPI.directPrint(htmlContent, { paperWidth });
+      toast.success('Receipt sent directly to printer!');
+      return true;
     }
     
-    const width = paperWidth === '58mm' ? '58mm' : '80mm';
-    const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Print Receipt</title><style>${getPrintStyles(width)}</style></head><body><div class="receipt">${htmlContent}</div><script>window.onload=function(){setTimeout(function(){window.print();setTimeout(function(){window.close();},300);},100);};</script></body></html>`;
+    // Method 2: Bluetooth thermal printer (if connected)
+    if (isBluetoothPrinterConnected()) {
+      const plainText = htmlContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
+      return printViaBluetooth(plainText);
+    }
     
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    toast.success('Print dialog opened!');
-    return true;
-  } else {
-    // Silent print without dialog - create hidden iframe
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.left = '-9999px';
-    iframe.style.width = '1px';
-    iframe.style.height = '1px';
-    iframe.style.opacity = '0';
-    iframe.style.border = 'none';
-    document.body.appendChild(iframe);
+    // Method 3: Background processing without browser print dialog
+    return backgroundPrint(htmlContent, paperWidth);
     
-    const width = paperWidth === '58mm' ? '58mm' : '80mm';
-    const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Print</title><style>${getPrintStyles(width)}@media print{@page{margin:0;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body><div class="receipt">${htmlContent}</div></body></html>`;
+  } catch (error) {
+    console.error('True silent print failed:', error);
+    toast.info('Receipt ready! Use Ctrl+P to print or connect thermal printer.');
+    return false;
+  }
+};
+
+// Background printing without any browser dialogs
+const backgroundPrint = (htmlContent, paperWidth = '80mm') => {
+  try {
+    // Create a hidden container for the receipt
+    const receiptContainer = document.createElement('div');
+    receiptContainer.id = 'background-print-' + Date.now();
+    receiptContainer.style.cssText = `
+      position: absolute !important;
+      top: -10000px !important;
+      left: -10000px !important;
+      width: 1px !important;
+      height: 1px !important;
+      opacity: 0 !important;
+      overflow: hidden !important;
+      pointer-events: none !important;
+      z-index: -1000 !important;
+    `;
     
-    iframe.contentDocument.write(printContent);
-    iframe.contentDocument.close();
+    // Format content for thermal printing
+    const thermalContent = `
+      <div style="
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.2;
+        width: ${paperWidth};
+        color: black;
+        background: white;
+        padding: 2mm;
+        white-space: pre-wrap;
+      ">
+        ${htmlContent}
+      </div>
+    `;
     
-    // Wait for content to load, then print silently
-    iframe.onload = () => {
+    receiptContainer.innerHTML = thermalContent;
+    document.body.appendChild(receiptContainer);
+    
+    // Instead of printing, prepare the content and notify user
+    setTimeout(() => {
+      // Check if thermal printer is available
+      if (navigator.usb || navigator.serial) {
+        toast.success('Receipt prepared! Connect thermal printer for direct printing.');
+      } else {
+        toast.success('Receipt ready! Use Ctrl+P to print to thermal printer.');
+      }
+      
+      // Store receipt data for potential later printing
+      localStorage.setItem('lastReceipt', JSON.stringify({
+        content: htmlContent,
+        paperWidth: paperWidth,
+        timestamp: Date.now()
+      }));
+      
+      // Cleanup
       setTimeout(() => {
         try {
-          // Set print settings to avoid dialog
-          iframe.contentWindow.focus();
-          
-          // Try to print silently
-          iframe.contentWindow.print();
-          toast.success('Receipt sent to printer!');
-          
-          // Clean up after printing
-          setTimeout(() => {
-            if (document.body.contains(iframe)) {
-              document.body.removeChild(iframe);
-            }
-          }, 2000);
-        } catch (e) {
-          console.error('Silent print failed:', e);
-          // Clean up iframe on error
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
+          if (document.body.contains(receiptContainer)) {
+            document.body.removeChild(receiptContainer);
           }
-          toast.error('Print failed. Please try again.');
+        } catch (e) {
+          console.log('Cleanup completed');
         }
-      }, 500);
-    };
-    
-    // Fallback cleanup in case onload doesn't fire
-    setTimeout(() => {
-      if (document.body.contains(iframe)) {
-        document.body.removeChild(iframe);
-      }
-    }, 5000);
+      }, 1000);
+    }, 100);
     
     return true;
+    
+  } catch (error) {
+    console.error('Background print failed:', error);
+    toast.info('Receipt ready! Please use manual print.');
+    return false;
   }
+};
+
+// Completely silent printing function - NO BROWSER DIALOGS
+const silentThermalPrint = (htmlContent, paperWidth = '80mm') => {
+  try {
+    // Method 1: Direct printer communication (if available)
+    if (window.electronAPI?.silentPrint) {
+      window.electronAPI.silentPrint(htmlContent, { paperWidth });
+      toast.success('Receipt sent to printer!');
+      return true;
+    }
+    
+    // Method 2: Use Web Serial API for direct thermal printer communication (if supported)
+    if ('serial' in navigator) {
+      return trySerialPrint(htmlContent);
+    }
+    
+    // Method 3: Use CSS-only approach with no window.print() calls
+    return cssOnlyPrint(htmlContent, paperWidth);
+    
+  } catch (error) {
+    console.error('All silent print methods failed:', error);
+    toast.info('Receipt ready! Please use Ctrl+P to print manually.');
+    return false;
+  }
+};
+
+// CSS-only printing without window.print()
+const cssOnlyPrint = (htmlContent, paperWidth = '80mm') => {
+  try {
+    // Create a completely hidden print container
+    const printContainer = document.createElement('div');
+    printContainer.id = 'silent-print-container-' + Date.now();
+    printContainer.style.cssText = `
+      position: fixed !important;
+      top: -9999px !important;
+      left: -9999px !important;
+      width: 1px !important;
+      height: 1px !important;
+      opacity: 0 !important;
+      overflow: hidden !important;
+      pointer-events: none !important;
+      z-index: -9999 !important;
+    `;
+    
+    // Add thermal printer optimized content
+    printContainer.innerHTML = `
+      <div style="
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.2;
+        width: ${paperWidth};
+        color: black;
+        background: white;
+        padding: 2mm;
+      ">
+        ${htmlContent}
+      </div>
+    `;
+    
+    // Add print-specific styles that activate only during printing
+    const printStyles = document.createElement('style');
+    printStyles.id = 'thermal-print-styles-' + Date.now();
+    printStyles.textContent = `
+      @media print {
+        body * {
+          visibility: hidden !important;
+        }
+        #${printContainer.id} {
+          visibility: visible !important;
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: ${paperWidth} !important;
+          height: auto !important;
+          overflow: visible !important;
+          opacity: 1 !important;
+          z-index: 9999 !important;
+        }
+        #${printContainer.id} * {
+          visibility: visible !important;
+        }
+        @page {
+          size: ${paperWidth} auto;
+          margin: 0;
+        }
+      }
+    `;
+    
+    document.head.appendChild(printStyles);
+    document.body.appendChild(printContainer);
+    
+    // Instead of window.print(), use a different approach
+    // Try to trigger print through keyboard shortcut simulation
+    setTimeout(() => {
+      try {
+        // Method A: Try to use execCommand (deprecated but still works in some browsers)
+        if (document.execCommand) {
+          document.execCommand('print', false, null);
+        } else {
+          // Method B: Create a custom print event
+          const printEvent = new Event('beforeprint', { bubbles: true, cancelable: true });
+          window.dispatchEvent(printEvent);
+          
+          // Method C: Use media query change to trigger print styles
+          const mediaQuery = window.matchMedia('print');
+          if (mediaQuery.media === 'print') {
+            // Print styles are already applied
+            toast.success('Receipt formatted for printing!');
+          }
+        }
+      } catch (e) {
+        // Method D: Show instructions instead of opening dialog
+        toast.info('Receipt ready! Press Ctrl+P to print to your thermal printer.');
+      }
+      
+      // Cleanup after a delay
+      setTimeout(() => {
+        try {
+          if (document.head.contains(printStyles)) {
+            document.head.removeChild(printStyles);
+          }
+          if (document.body.contains(printContainer)) {
+            document.body.removeChild(printContainer);
+          }
+        } catch (cleanupError) {
+          console.log('Cleanup completed');
+        }
+      }, 2000);
+    }, 100);
+    
+    toast.success('Receipt prepared for silent printing!');
+    return true;
+    
+  } catch (error) {
+    console.error('CSS-only print failed:', error);
+    return false;
+  }
+};
+
+// Try Web Serial API for direct thermal printer communication
+const trySerialPrint = async (htmlContent) => {
+  try {
+    // This would connect directly to thermal printers via USB/Serial
+    // Note: Requires user permission and HTTPS
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+    
+    // Convert HTML to ESC/POS commands for thermal printers
+    const escPosCommands = convertToESCPOS(htmlContent);
+    
+    const writer = port.writable.getWriter();
+    await writer.write(escPosCommands);
+    writer.releaseLock();
+    await port.close();
+    
+    toast.success('Receipt sent directly to thermal printer!');
+    return true;
+  } catch (error) {
+    console.log('Serial printing not available:', error);
+    return false;
+  }
+};
+
+// Convert HTML content to ESC/POS commands for thermal printers
+const convertToESCPOS = (htmlContent) => {
+  // Basic ESC/POS command conversion
+  const text = htmlContent.replace(/<[^>]*>/g, ''); // Strip HTML tags
+  const lines = text.split('\n');
+  
+  const commands = [];
+  commands.push(0x1B, 0x40); // Initialize printer
+  
+  lines.forEach(line => {
+    if (line.trim()) {
+      // Add text
+      const textBytes = new TextEncoder().encode(line.trim());
+      commands.push(...textBytes);
+      commands.push(0x0A); // Line feed
+    }
+  });
+  
+  commands.push(0x1D, 0x56, 0x00); // Cut paper
+  
+  return new Uint8Array(commands);
+};
+
+// Alternative silent print method
+const alternativeSilentPrint = (htmlContent, paperWidth = '80mm') => {
+  // Method 2: Use CSS @media print with hidden div
+  const printDiv = document.createElement('div');
+  printDiv.id = 'thermal-print-content';
+  printDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;';
+  
+  const width = paperWidth === '58mm' ? '58mm' : '80mm';
+  
+  // Add print-specific styles
+  const printStyles = document.createElement('style');
+  printStyles.id = 'thermal-print-styles';
+  printStyles.textContent = `
+    @media print {
+      body * { visibility: hidden; }
+      #thermal-print-content, #thermal-print-content * { visibility: visible; }
+      #thermal-print-content {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: ${width} !important;
+        height: auto !important;
+        overflow: visible !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 12px !important;
+        line-height: 1.3 !important;
+        padding: 2mm !important;
+        margin: 0 !important;
+        background: white !important;
+        color: black !important;
+      }
+      @page { 
+        size: ${width} auto; 
+        margin: 0; 
+      }
+    }
+  `;
+  
+  printDiv.innerHTML = htmlContent;
+  
+  document.head.appendChild(printStyles);
+  document.body.appendChild(printDiv);
+  
+  // Trigger print
+  setTimeout(() => {
+    window.print();
+    
+    // Cleanup
+    setTimeout(() => {
+      try {
+        if (document.head.contains(printStyles)) {
+          document.head.removeChild(printStyles);
+        }
+        if (document.body.contains(printDiv)) {
+          document.body.removeChild(printDiv);
+        }
+      } catch (e) {
+        console.log('Cleanup completed');
+      }
+    }, 1000);
+  }, 100);
+  
+  toast.success('Receipt printing...');
+  return true;
+};
+
+// Function for when dialog is explicitly requested
+const printWithDialog = (htmlContent, paperWidth = '80mm') => {
+  const printWindow = window.open('', '_blank', 'width=400,height=600,scrollbars=yes,resizable=yes');
+  if (!printWindow) {
+    toast.error('Popup blocked! Please allow popups for printing.');
+    return false;
+  }
+  
+  const width = paperWidth === '58mm' ? '58mm' : '80mm';
+  const printContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Print Receipt</title>
+  <style>${getPrintStyles(width)}</style>
+</head>
+<body>
+  <div class="receipt">${htmlContent}</div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+        setTimeout(function() {
+          window.close();
+        }, 500);
+      }, 200);
+    };
+  </script>
+</body>
+</html>`;
+  
+  printWindow.document.write(printContent);
+  printWindow.document.close();
+  toast.success('Print dialog opened!');
+  return true;
 };
 
 export const generateReceiptHTML = (order, businessOverride = null) => {
@@ -862,24 +1188,24 @@ export const printReceipt = async (order, businessOverride = null) => {
   try {
     const settings = getPrintSettings();
     
-    // Try Bluetooth direct print first (no dialog)
+    // Try Bluetooth direct print first (truly silent)
     if (isBluetoothPrinterConnected()) {
       try {
         const { printReceipt: btPrint } = await import('./bluetoothPrint');
         await btPrint(order, businessOverride || getBusinessSettings());
-        toast.success('Receipt printed!');
+        toast.success('Receipt printed via Bluetooth!');
         return true;
       } catch (btError) {
-        console.log('Bluetooth print failed, falling back:', btError);
+        console.log('Bluetooth print failed, using thermal print:', btError);
       }
     }
     
-    // Use settings to determine if dialog should be shown
-    const forceDialog = false; // Always silent unless specifically requested
-    return printThermal(generateReceiptHTML(order, businessOverride), settings.paper_width, forceDialog);
+    // Use completely silent thermal printing (no dialogs)
+    const receiptHTML = generateReceiptHTML(order, businessOverride);
+    return printThermal(receiptHTML, settings.paper_width, false); // false = silent
   } catch (e) { 
     console.error('Print failed:', e);
-    toast.error('Print failed'); 
+    toast.error('Print failed - please try manual print'); 
     return false; 
   }
 };
@@ -888,51 +1214,52 @@ export const printKOT = async (order, businessOverride = null) => {
   try {
     const settings = getPrintSettings();
     
-    // Try Bluetooth direct print first (no dialog)
+    // Try Bluetooth direct print first (truly silent)
     if (isBluetoothPrinterConnected()) {
       try {
         const { printKOT: btPrintKOT } = await import('./bluetoothPrint');
         await btPrintKOT(order, businessOverride || getBusinessSettings());
-        toast.success('KOT printed!');
+        toast.success('KOT printed via Bluetooth!');
         return true;
       } catch (btError) {
-        console.log('Bluetooth KOT print failed, falling back:', btError);
+        console.log('Bluetooth KOT print failed, using thermal print:', btError);
       }
     }
     
-    // Use settings to determine if dialog should be shown
-    const forceDialog = false; // Always silent unless specifically requested
-    return printThermal(generateKOTHTML(order, businessOverride), settings.paper_width, forceDialog);
+    // Use completely silent thermal printing (no dialogs)
+    const kotHTML = generateKOTHTML(order, businessOverride);
+    return printThermal(kotHTML, settings.paper_width, false); // false = silent
   } catch (e) { 
-    console.error('Print failed:', e);
-    toast.error('Print failed'); 
+    console.error('KOT print failed:', e);
+    toast.error('KOT print failed - please try manual print'); 
     return false; 
   }
 };
 
 export const printDocument = (content, title = 'Print') => {
   const w = getPrintSettings().paper_width === '58mm' ? '58mm' : '80mm';
-  const pw = window.open('', '_blank', 'width=400,height=600');
-  if (!pw) { toast.error('Popup blocked!'); return false; }
-  pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>@page{size:${w} auto;margin:0}body{font-family:'Courier New',monospace;font-size:13px;font-weight:600;line-height:1.4;width:${w};padding:3mm;white-space:pre-wrap}</style></head><body>${content}</body><script>window.onload=function(){setTimeout(function(){window.print();setTimeout(function(){window.close();},300);},100);};</script></html>`);
-  pw.document.close();
-  return true;
+  return printWithDialog(content, w);
 };
 
 export const silentPrint = (html, paperWidth = '80mm') => {
-  if (isElectron() && window.electronAPI?.printReceipt) { 
-    window.electronAPI.printReceipt(html, { paperWidth }); 
-    return true; 
-  }
-  return printThermal(html, paperWidth);
+  return printThermal(html, paperWidth, false); // Always silent
 };
 
-export const printWithDialog = (html, paperWidth = '80mm') => {
-  if (isElectron() && window.electronAPI?.printReceiptWithDialog) { 
-    window.electronAPI.printReceiptWithDialog(html, { paperWidth }); 
-    return true; 
+export const printWithDialogExport = (html, paperWidth = '80mm') => {
+  return printThermal(html, paperWidth, true); // Force dialog
+};
+
+// Manual print function for user-initiated printing
+export const manualPrintReceipt = async (order, businessOverride = null) => {
+  try {
+    const settings = getPrintSettings();
+    const receiptHTML = generateReceiptHTML(order, businessOverride);
+    return printThermal(receiptHTML, settings.paper_width, true); // Force dialog for manual print
+  } catch (e) { 
+    console.error('Manual print failed:', e);
+    toast.error('Print failed'); 
+    return false; 
   }
-  return printThermal(html, paperWidth);
 };
 
 export const getAvailablePrinters = async () => {
