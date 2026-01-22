@@ -71,12 +71,13 @@ const SettingsPage = ({ user }) => {
   });
   const [themes, setThemes] = useState([]);
   const [currencies, setCurrencies] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Changed to true for initial load
   const [businessLoading, setBusinessLoading] = useState(false);
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [razorpayConfigured, setRazorpayConfigured] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   
   // Campaign Management State
   const [campaigns, setCampaigns] = useState([]);
@@ -102,14 +103,163 @@ const SettingsPage = ({ user }) => {
   });
 
   useEffect(() => {
-    fetchRazorpaySettings();
-    fetchBusinessSettings();
-    fetchThemes();
-    fetchCurrencies();
-    fetchWhatsappSettings();
-    fetchCampaigns();
+    // Load all settings data in parallel for better performance
+    loadAllSettingsData();
   }, []);
 
+  const loadAllSettingsData = async () => {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    
+    try {
+      // Use the new combined settings endpoint for faster loading
+      const response = await axios.get(`${API}/settings/all`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const data = response.data;
+      
+      // Process Business settings
+      if (data.business_settings) {
+        setBusinessSettings(prevSettings => ({
+          ...prevSettings,
+          ...data.business_settings
+        }));
+      }
+      
+      // Process Razorpay settings
+      if (data.razorpay) {
+        if (data.razorpay.razorpay_key_id) {
+          setRazorpaySettings({
+            razorpay_key_id: data.razorpay.razorpay_key_id,
+            razorpay_key_secret: '••••••••••••••••'
+          });
+        }
+        setRazorpayConfigured(data.razorpay.razorpay_configured);
+      }
+      
+      // Process WhatsApp settings
+      if (data.whatsapp) {
+        setWhatsappSettings(data.whatsapp);
+      }
+      
+      // Process Campaigns
+      if (data.campaigns) {
+        setCampaigns(data.campaigns);
+      }
+      
+      // Process Themes
+      if (data.themes) {
+        setThemes(data.themes);
+      }
+      
+      // Process Currencies
+      if (data.currencies) {
+        setCurrencies(data.currencies);
+      }
+      
+      setInitialDataLoaded(true);
+      
+    } catch (error) {
+      console.error('Failed to load settings data:', error);
+      
+      // Fallback to individual API calls if combined endpoint fails
+      console.log('Falling back to individual API calls...');
+      await loadSettingsDataFallback();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fallback method using individual API calls
+  const loadSettingsDataFallback = async () => {
+    const token = localStorage.getItem('token');
+    
+    try {
+      // Execute all API calls in parallel for faster loading
+      const [
+        razorpayResponse,
+        businessResponse,
+        themesResponse,
+        currenciesResponse,
+        whatsappResponse,
+        campaignsResponse
+      ] = await Promise.allSettled([
+        axios.get(`${API}/settings/razorpay`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(err => ({ error: err })),
+        
+        axios.get(`${API}/business/settings`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(err => ({ error: err })),
+        
+        axios.get(`${API}/receipt-themes`).catch(err => ({ error: err })),
+        
+        axios.get(`${API}/currencies`).catch(err => ({ error: err })),
+        
+        axios.get(`${API}/whatsapp/settings`).catch(err => ({ error: err })),
+        
+        axios.get(`${API}/campaigns`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(err => ({ error: err }))
+      ]);
+
+      // Process responses (same logic as before)
+      if (razorpayResponse.status === 'fulfilled' && razorpayResponse.value?.data) {
+        const data = razorpayResponse.value.data;
+        if (data.razorpay_key_id) {
+          setRazorpaySettings({
+            razorpay_key_id: data.razorpay_key_id,
+            razorpay_key_secret: '••••••••••••••••'
+          });
+        }
+        setRazorpayConfigured(data.razorpay_configured);
+      }
+
+      if (businessResponse.status === 'fulfilled' && businessResponse.value?.data?.business_settings) {
+        setBusinessSettings(prevSettings => ({
+          ...prevSettings,
+          ...businessResponse.value.data.business_settings
+        }));
+      }
+
+      if (themesResponse.status === 'fulfilled' && themesResponse.value?.data) {
+        setThemes(themesResponse.value.data);
+      }
+
+      if (currenciesResponse.status === 'fulfilled' && currenciesResponse.value?.data) {
+        setCurrencies(currenciesResponse.value.data);
+      }
+
+      if (whatsappResponse.status === 'fulfilled' && whatsappResponse.value?.data) {
+        const data = whatsappResponse.value.data;
+        setWhatsappSettings({
+          whatsapp_enabled: data.whatsapp_enabled || false,
+          whatsapp_business_number: data.whatsapp_business_number || '',
+          whatsapp_message_template: data.whatsapp_message_template || 'Thank you for dining at {restaurant_name}! Your bill of {currency}{total} has been paid. Order #{order_id}',
+          whatsapp_auto_notify: data.whatsapp_auto_notify || false,
+          whatsapp_notify_on_placed: data.whatsapp_notify_on_placed !== false,
+          whatsapp_notify_on_preparing: data.whatsapp_notify_on_preparing !== false,
+          whatsapp_notify_on_ready: data.whatsapp_notify_on_ready !== false,
+          whatsapp_notify_on_completed: data.whatsapp_notify_on_completed !== false,
+          customer_self_order_enabled: data.customer_self_order_enabled || false,
+          menu_display_enabled: data.menu_display_enabled || false
+        });
+      }
+
+      if (campaignsResponse.status === 'fulfilled' && campaignsResponse.value?.data) {
+        setCampaigns(campaignsResponse.value.data || []);
+      }
+
+      setInitialDataLoaded(true);
+      
+    } catch (error) {
+      console.error('Fallback loading also failed:', error);
+      toast.error('Failed to load settings. Please refresh the page.');
+    }
+  };
+
+  // Individual fetch functions for updates only (not initial load)
   const fetchRazorpaySettings = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -124,80 +274,28 @@ const SettingsPage = ({ user }) => {
       }
       setRazorpayConfigured(response.data.razorpay_configured);
     } catch (error) {
-      console.error('Failed to fetch settings', error);
+      console.error('Failed to fetch Razorpay settings', error);
       if (error.response?.status === 403) {
         toast.error('Access denied. Please login again.');
       }
     }
   };
 
-  const fetchBusinessSettings = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/business/settings`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.data.business_settings) {
-        // Merge with defaults to ensure all fields exist
-        setBusinessSettings(prevSettings => ({
-          ...prevSettings,
-          ...response.data.business_settings
-        }));
-      }
-    } catch (error) {
-      console.error('Failed to fetch business settings', error);
-      if (error.response?.status === 403) {
-        toast.error('Access denied. Please login again.');
-      }
-    }
-  };
-
-  const fetchThemes = async () => {
-    try {
-      const response = await axios.get(`${API}/receipt-themes`);
-      setThemes(response.data);
-    } catch (error) {
-      console.error('Failed to fetch themes', error);
-    }
-  };
-
-  const fetchCurrencies = async () => {
-    try {
-      const response = await axios.get(`${API}/currencies`);
-      setCurrencies(response.data);
-    } catch (error) {
-      console.error('Failed to fetch currencies', error);
-    }
-  };
-
-  const fetchWhatsappSettings = async () => {
-    try {
-      const response = await axios.get(`${API}/whatsapp/settings`);
-      setWhatsappSettings({
-        whatsapp_enabled: response.data.whatsapp_enabled || false,
-        whatsapp_business_number: response.data.whatsapp_business_number || '',
-        whatsapp_message_template: response.data.whatsapp_message_template || 'Thank you for dining at {restaurant_name}! Your bill of {currency}{total} has been paid. Order #{order_id}',
-        whatsapp_auto_notify: response.data.whatsapp_auto_notify || false,
-        whatsapp_notify_on_placed: response.data.whatsapp_notify_on_placed !== false,
-        whatsapp_notify_on_preparing: response.data.whatsapp_notify_on_preparing !== false,
-        whatsapp_notify_on_ready: response.data.whatsapp_notify_on_ready !== false,
-        whatsapp_notify_on_completed: response.data.whatsapp_notify_on_completed !== false,
-        customer_self_order_enabled: response.data.customer_self_order_enabled || false,
-        menu_display_enabled: response.data.menu_display_enabled || false
-      });
-    } catch (error) {
-      console.error('Failed to fetch WhatsApp settings', error);
-    }
-  };
-
-  // Campaign Management Functions
   const fetchCampaigns = async () => {
+    setCampaignLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(`${API}/campaigns`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCampaigns(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch campaigns', error);
+      toast.error('Failed to load campaigns');
+    } finally {
+      setCampaignLoading(false);
+    }
+  };
     } catch (error) {
       console.error('Failed to fetch campaigns', error);
       // Initialize with empty array if endpoint doesn't exist yet
@@ -461,7 +559,43 @@ const SettingsPage = ({ user }) => {
   return (
     <Layout user={user}>
       <ValidationAlert errors={validationErrors} onClose={() => setValidationErrors([])} />
-      <div className="space-y-6" data-testid="settings-page">
+      
+      {/* Loading Skeleton */}
+      {loading && !initialDataLoaded && (
+        <div className="space-y-6" data-testid="settings-loading">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mb-6"></div>
+            
+            {/* Tab skeleton */}
+            <div className="flex space-x-4 mb-6">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-10 bg-gray-200 rounded w-24"></div>
+              ))}
+            </div>
+            
+            {/* Content skeleton */}
+            <div className="bg-white rounded-lg border p-6">
+              <div className="space-y-4">
+                <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                      <div className="h-10 bg-gray-200 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-10 bg-gray-200 rounded w-32"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Main Content - Only show when data is loaded */}
+      {(!loading || initialDataLoaded) && (
+        <div className="space-y-6" data-testid="settings-page">
         <TrialBanner user={user} />
         <div className="flex items-center justify-between">
           <div>
@@ -1575,7 +1709,8 @@ const SettingsPage = ({ user }) => {
         {activeTab === 'whatsapp-desktop' && (
           <WhatsAppDesktop isElectron={!!window.electronAPI?.isElectron} />
         )}
-      </div>
+        </div>
+      )}
     </Layout>
   );
 };

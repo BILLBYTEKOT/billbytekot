@@ -2698,6 +2698,90 @@ async def update_business_settings(
     return {"message": "Business settings updated successfully", "settings": settings.model_dump()}
 
 
+@api_router.get("/settings/all")
+async def get_all_settings(current_user: dict = Depends(get_current_user)):
+    """Get all settings data in a single API call for better performance"""
+    try:
+        # Get business settings
+        business_settings = current_user.get("business_settings")
+        setup_completed = current_user.get("setup_completed", False)
+        
+        if current_user.get("role") in ["waiter", "cashier", "kitchen", "staff"]:
+            org_id = current_user.get("organization_id")
+            if org_id:
+                admin_user = await db.users.find_one(
+                    {"id": org_id, "role": "admin"}, 
+                    {"_id": 0, "business_settings": 1, "setup_completed": 1}
+                )
+                if admin_user:
+                    business_settings = admin_user.get("business_settings")
+                    setup_completed = admin_user.get("setup_completed", False)
+        
+        # Get Razorpay settings
+        razorpay_configured = bool(current_user.get("razorpay_key_id"))
+        razorpay_key_id = current_user.get("razorpay_key_id", "")
+        
+        # Get WhatsApp settings
+        whatsapp_settings = {
+            "whatsapp_enabled": current_user.get("whatsapp_enabled", False),
+            "whatsapp_business_number": current_user.get("whatsapp_business_number", ""),
+            "whatsapp_message_template": current_user.get("whatsapp_message_template", "Thank you for dining at {restaurant_name}! Your bill of {currency}{total} has been paid. Order #{order_id}"),
+            "whatsapp_auto_notify": current_user.get("whatsapp_auto_notify", False),
+            "whatsapp_notify_on_placed": current_user.get("whatsapp_notify_on_placed", True),
+            "whatsapp_notify_on_preparing": current_user.get("whatsapp_notify_on_preparing", True),
+            "whatsapp_notify_on_ready": current_user.get("whatsapp_notify_on_ready", True),
+            "whatsapp_notify_on_completed": current_user.get("whatsapp_notify_on_completed", True),
+            "customer_self_order_enabled": current_user.get("customer_self_order_enabled", False),
+            "menu_display_enabled": current_user.get("menu_display_enabled", False)
+        }
+        
+        # Get campaigns
+        campaigns = []
+        try:
+            campaigns_cursor = db.campaigns.find(
+                {"organization_id": current_user["organization_id"]},
+                {"_id": 0}
+            ).sort("created_at", -1)
+            campaigns = await campaigns_cursor.to_list(length=None)
+        except Exception as e:
+            print(f"Failed to fetch campaigns: {e}")
+        
+        # Static data that doesn't change often
+        themes = [
+            {"id": "classic", "name": "Classic", "description": "Traditional receipt design"},
+            {"id": "modern", "name": "Modern", "description": "Clean and minimal design"},
+            {"id": "colorful", "name": "Colorful", "description": "Vibrant and eye-catching"},
+            {"id": "elegant", "name": "Elegant", "description": "Sophisticated design"},
+            {"id": "compact", "name": "Compact", "description": "Space-saving layout"}
+        ]
+        
+        currencies = [
+            {"code": "INR", "name": "Indian Rupee", "symbol": "₹"},
+            {"code": "USD", "name": "US Dollar", "symbol": "$"},
+            {"code": "EUR", "name": "Euro", "symbol": "€"},
+            {"code": "GBP", "name": "British Pound", "symbol": "£"},
+            {"code": "AED", "name": "UAE Dirham", "symbol": "د.إ"},
+            {"code": "SAR", "name": "Saudi Riyal", "symbol": "﷼"}
+        ]
+        
+        return {
+            "business_settings": business_settings,
+            "setup_completed": setup_completed,
+            "razorpay": {
+                "razorpay_configured": razorpay_configured,
+                "razorpay_key_id": razorpay_key_id
+            },
+            "whatsapp": whatsapp_settings,
+            "campaigns": campaigns,
+            "themes": themes,
+            "currencies": currencies
+        }
+        
+    except Exception as e:
+        print(f"Error fetching all settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch settings")
+
+
 @api_router.get("/business/settings")
 async def get_business_settings(current_user: dict = Depends(get_current_user)):
     # For staff users, get business settings from their admin
