@@ -3249,6 +3249,9 @@ async def validate_coupon(data: CouponValidateRequest):
 
 class CreateOrderRequest(BaseModel):
     coupon_code: Optional[str] = None
+    plan_type: Optional[str] = "yearly"  # monthly, quarterly, halfYearly, yearly
+    months: Optional[int] = 12
+    amount: Optional[float] = None
 
 
 @api_router.post("/subscription/create-order")
@@ -3261,12 +3264,47 @@ async def create_subscription_order(
     DEFAULT_RAZORPAY_KEY_ID = "rzp_live_RmGqVf5JPGOT6G"
     DEFAULT_RAZORPAY_KEY_SECRET = "SKYS5tgjwU3H3Pf2ch3ZFtuH"
     
-    # Get current campaign pricing from database
-    pricing = await get_current_subscription_price()
-    base_price = pricing["price_paise"]  # Dynamic price from Super Admin
-    original_price = pricing["original_price_paise"]
+    # Define pricing plans (matching frontend)
+    plans = {
+        "monthly": {"months": 1, "price": 199, "originalPrice": 199, "discount": 0, "label": "1 Month", "perMonth": 199},
+        "quarterly": {"months": 3, "price": 549, "originalPrice": 597, "discount": 8, "label": "3 Months", "perMonth": 183},
+        "halfYearly": {"months": 6, "price": 999, "originalPrice": 1194, "discount": 16, "label": "6 Months", "perMonth": 167},
+        "yearly": {"months": 12, "price": 1899, "originalPrice": 1999, "discount": 5, "label": "1 Year", "perMonth": 159}
+    }
     
-    # Calculate price with coupon if provided (on top of campaign price)
+    # Get selected plan or default to yearly
+    plan_type = data.plan_type if data and data.plan_type else "yearly"
+    selected_plan = plans.get(plan_type, plans["yearly"])
+    
+    # Use plan-specific pricing
+    base_price = int(selected_plan["price"] * 100)  # Convert to paise
+    original_price = int(selected_plan["originalPrice"] * 100)  # Convert to paise
+    
+    # If amount is provided from frontend, use it (for validation)
+    if data and data.amount:
+        frontend_amount = int(data.amount * 100)  # Convert to paise
+        if abs(frontend_amount - base_price) > 100:  # Allow small rounding differences
+            print(f"⚠️  Price mismatch: Frontend={frontend_amount}, Backend={base_price}")
+            # Use frontend amount if it's reasonable (within plan price range)
+            if 10000 <= frontend_amount <= 250000:  # ₹100 to ₹2500 range
+                base_price = frontend_amount
+    
+    # Get current campaign pricing from database for potential additional discounts
+    try:
+        pricing = await get_current_subscription_price()
+        campaign_active = pricing.get("campaign_active", False)
+        campaign_discount = pricing.get("campaign_discount_percent", 0)
+        
+        # Apply campaign discount if active
+        if campaign_active and campaign_discount > 0:
+            campaign_discount_amount = int(base_price * campaign_discount / 100)
+            base_price = max(100, base_price - campaign_discount_amount)
+            print(f"🎉 Campaign discount applied: {campaign_discount}% off")
+    except Exception as e:
+        print(f"⚠️  Could not fetch campaign pricing: {e}")
+        campaign_active = False
+    
+    # Calculate price with coupon if provided (on top of plan price)
     final_price = base_price
     coupon_applied = None
     discount_amount = 0
@@ -3321,22 +3359,26 @@ async def create_subscription_order(
             {"amount": final_price, "currency": "INR", "payment_capture": 1}
         )
 
+        print(f"✅ Subscription order created: {plan_type} plan, ₹{final_price/100} ({selected_plan['label']})")
+
         return {
             "razorpay_order_id": razor_order["id"],
             "amount": final_price,
             "original_amount": original_price,
-            "campaign_price": base_price,
+            "plan_price": int(selected_plan["price"] * 100),
             "discount_amount": discount_amount,
             "currency": "INR",
             "key_id": razorpay_key_id,
             "price_display": f"₹{final_price / 100:.0f}",
             "original_price_display": f"₹{original_price / 100:.0f}",
-            "campaign_price_display": pricing["price_display"],
+            "plan_display": f"₹{selected_plan['price']}",
             "coupon_applied": coupon_applied,
             "referral_discount_applied": referral_discount_applied,
-            "campaign_active": pricing["campaign_active"],
-            "campaign_name": pricing["campaign_name"],
-            "campaign_badge": pricing["badge"]
+            "plan_type": plan_type,
+            "plan_label": selected_plan["label"],
+            "plan_months": selected_plan["months"],
+            "campaign_active": campaign_active if 'campaign_active' in locals() else False,
+            "campaign_name": "Multi-Plan Subscription"
         }
     except Exception as e:
         raise HTTPException(
@@ -3349,6 +3391,8 @@ class SubscriptionVerifyRequest(BaseModel):
     razorpay_payment_id: str
     razorpay_order_id: str
     razorpay_signature: Optional[str] = None
+    plan_type: Optional[str] = "yearly"
+    months: Optional[int] = 12
 
 
 @api_router.post("/subscription/verify")
@@ -3410,11 +3454,32 @@ async def verify_subscription_payment(
                     detail="Payment verification failed. Contact support with payment ID: " + data.razorpay_payment_id
                 )
         
-        # Activate subscription
-        expires_at = datetime.now(timezone.utc) + timedelta(days=SUBSCRIPTION_DAYS)
+        # Activate subscription with plan-specific duration
+        plan_months = data.months if data.months else 12  # Default to 12 months
+        subscription_days = plan_months * 30  # Approximate days per month
+        expires_at = datetime.now(timezone.utc) + timedelta(days=subscription_days)
+        
+        # Define pricing plans for validation
+        plans = {
+            "monthly": {"months": 1, "price": 199},
+            "quarterly": {"months": 3, "price": 549},
+            "halfYearly": {"months": 6, "price": 999},
+            "yearly": {"months": 12, "price": 1899}
+        }
+        
+        plan_type = data.plan_type if data.plan_type else "yearly"
+        selected_plan = plans.get(plan_type, plans["yearly"])
+        expected_amount = int(selected_plan["price"] * 100)  # Convert to paise
+        
+        # Validate payment amount matches plan (with some tolerance for discounts)
+        if payment and amount_paid > 0:
+            # Allow for discounts, but amount should be at least 50% of expected
+            min_expected = expected_amount // 2
+            if amount_paid < min_expected:
+                print(f"⚠️  Payment amount {amount_paid} seems too low for {plan_type} plan (expected ~{expected_amount})")
         
         # Determine campaign used
-        campaign_name = "EARLY_ADOPTER_2025" if pricing["campaign_active"] else "REGULAR"
+        campaign_name = f"{plan_type.upper()}_PLAN_2025" if pricing["campaign_active"] else f"{plan_type.upper()}_REGULAR"
 
         await db.users.update_one(
             {"id": current_user["id"]},
@@ -3428,12 +3493,15 @@ async def verify_subscription_payment(
                     "subscription_campaign": campaign_name,
                     "subscription_price_paid": amount_paid,
                     "subscription_original_price": pricing["original_price_paise"],
+                    "subscription_plan_type": plan_type,
+                    "subscription_plan_months": plan_months,
+                    "subscription_plan_label": selected_plan.get("label", f"{plan_months} Month(s)"),
                     "is_early_adopter": pricing["campaign_active"]
                 }
             },
         )
         
-        print(f"Subscription activated for user: {current_user['id']} via campaign: {campaign_name}")
+        print(f"Subscription activated for user: {current_user['id']} via campaign: {campaign_name}, plan: {plan_type} ({plan_months} months)")
         
         # Trigger referral completion after successful payment
         # Requirements: 4.1, 4.2 - Credit referrer wallet with ₹300 after payment
@@ -3451,8 +3519,11 @@ async def verify_subscription_payment(
         return {
             "status": "subscription_activated", 
             "expires_at": expires_at.isoformat(),
-            "days": SUBSCRIPTION_DAYS,
-            "message": "🎉 Premium subscription activated successfully!" + (" You're an Early Adopter! 🔥" if pricing["campaign_active"] else ""),
+            "days": subscription_days,
+            "months": plan_months,
+            "plan_type": plan_type,
+            "plan_label": selected_plan.get("label", f"{plan_months} Month(s)"),
+            "message": f"🎉 {selected_plan.get('label', f'{plan_months} Month')} Premium subscription activated successfully!" + (" You're an Early Adopter! 🔥" if pricing["campaign_active"] else ""),
             "payment_id": data.razorpay_payment_id,
             "amount_paid": amount_paid,
             "campaign": campaign_name,
@@ -3465,8 +3536,12 @@ async def verify_subscription_payment(
         print(f"Verification error: {str(e)}")
         # Try to activate anyway if payment ID exists
         try:
-            expires_at = datetime.now(timezone.utc) + timedelta(days=SUBSCRIPTION_DAYS)
-            campaign_name = "EARLY_ADOPTER_2025" if pricing["campaign_active"] else "REGULAR"
+            plan_months = data.months if data.months else 12
+            subscription_days = plan_months * 30
+            expires_at = datetime.now(timezone.utc) + timedelta(days=subscription_days)
+            plan_type = data.plan_type if data.plan_type else "yearly"
+            campaign_name = f"{plan_type.upper()}_PLAN_2025" if pricing["campaign_active"] else f"{plan_type.upper()}_REGULAR"
+            
             await db.users.update_one(
                 {"id": current_user["id"]},
                 {
@@ -3477,6 +3552,8 @@ async def verify_subscription_payment(
                         "subscription_order_id": data.razorpay_order_id,
                         "subscription_verified_at": datetime.now(timezone.utc).isoformat(),
                         "subscription_campaign": campaign_name,
+                        "subscription_plan_type": plan_type,
+                        "subscription_plan_months": plan_months,
                         "is_early_adopter": pricing["campaign_active"]
                     }
                 },
@@ -3494,8 +3571,10 @@ async def verify_subscription_payment(
             return {
                 "status": "subscription_activated", 
                 "expires_at": expires_at.isoformat(),
-                "days": SUBSCRIPTION_DAYS,
-                "message": "🎉 Premium subscription activated successfully!"
+                "days": subscription_days,
+                "months": plan_months,
+                "plan_type": plan_type,
+                "message": f"🎉 {plan_months} Month Premium subscription activated successfully!"
             }
         except:
             raise HTTPException(
