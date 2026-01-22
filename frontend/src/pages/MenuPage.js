@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { API } from '../App';
 import Layout from '../components/Layout';
@@ -15,15 +15,16 @@ import ValidationAlert from '../components/ValidationAlert';
 
 const MenuPage = ({ user }) => {
   const [menuItems, setMenuItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef(null);
   const [validationErrors, setValidationErrors] = useState([]);
-  const [loading, setLoading] = useState(true); // Add loading state
+  const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -34,30 +35,67 @@ const MenuPage = ({ user }) => {
     preparation_time: 15
   });
 
+  // Memoized filtered items for better performance
+  const filteredItems = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) return menuItems;
+    
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    return menuItems.filter(item =>
+      item.name.toLowerCase().includes(searchLower) ||
+      item.category.toLowerCase().includes(searchLower) ||
+      item.description?.toLowerCase().includes(searchLower)
+    );
+  }, [debouncedSearchTerm, menuItems]);
+
+  // Memoized categories for better performance
+  const categories = useMemo(() => {
+    return [...new Set(filteredItems.map(item => item.category))].sort();
+  }, [filteredItems]);
+
+  // Memoized category items to avoid recalculation
+  const categoryItemsMap = useMemo(() => {
+    const map = {};
+    categories.forEach(category => {
+      map[category] = filteredItems.filter(item => item.category === category);
+    });
+    return map;
+  }, [categories, filteredItems]);
+
+  // Debounced search for better performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   useEffect(() => {
     fetchMenuItems();
   }, []);
 
-  useEffect(() => {
-    const filtered = menuItems.filter(item =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredItems(filtered);
-  }, [searchTerm, menuItems]);
-
-  const fetchMenuItems = async () => {
-    setLoading(true);
+  // Optimized fetch function with better error handling and caching
+  const fetchMenuItems = useCallback(async () => {
+    // Don't show loading spinner for subsequent fetches
+    if (initialLoad) {
+      setLoading(true);
+    }
+    
     try {
       console.log('🔄 Fetching menu items...');
       
-      const response = await axios.get(`${API}/menu`);
+      // Use lightweight endpoint for faster loading
+      const response = await axios.get(`${API}/menu/lightweight`, {
+        headers: {
+          'Cache-Control': 'max-age=300', // Cache for 5 minutes
+        }
+      });
+      
       const items = Array.isArray(response.data) ? response.data : [];
       
       setMenuItems(items);
-      setFilteredItems(items);
       
-      if (items.length === 0) {
+      if (items.length === 0 && initialLoad) {
         toast.info('No menu items found. Add your first menu item below!');
       } else {
         console.log('✅ Menu items loaded:', items.length);
@@ -65,6 +103,20 @@ const MenuPage = ({ user }) => {
       
     } catch (error) {
       console.error('❌ Failed to fetch menu items:', error);
+      
+      // Fallback to full menu endpoint if lightweight fails
+      if (error.response?.status !== 404) {
+        try {
+          console.log('🔄 Falling back to full menu endpoint...');
+          const fallbackResponse = await axios.get(`${API}/menu`);
+          const items = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
+          setMenuItems(items);
+          console.log('✅ Fallback menu items loaded:', items.length);
+          return;
+        } catch (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError);
+        }
+      }
       
       let errorMessage = 'Failed to fetch menu items';
       
@@ -85,8 +137,9 @@ const MenuPage = ({ user }) => {
       });
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
-  };
+  }, [initialLoad]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -201,7 +254,84 @@ const MenuPage = ({ user }) => {
     setDialogOpen(true);
   };
 
-  const categories = [...new Set(menuItems.map(item => item.category))];
+  // Loading skeleton component
+  const LoadingSkeleton = () => (
+    <div className="space-y-6">
+      {/* Header skeleton */}
+      <div className="animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/2 mb-6"></div>
+      </div>
+      
+      {/* Search skeleton */}
+      <div className="animate-pulse">
+        <div className="h-10 bg-gray-200 rounded mb-6"></div>
+      </div>
+      
+      {/* Menu items skeleton */}
+      {[1, 2, 3].map(category => (
+        <div key={category} className="animate-pulse">
+          <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(item => (
+              <div key={item} className="bg-white rounded-lg border p-4">
+                <div className="h-40 bg-gray-200 rounded mb-4"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // Memoized menu item component for better performance
+  const MenuItemCard = useCallback(({ item }) => (
+    <Card key={item.id} className={`card-hover border-0 shadow-lg transition-all duration-200 ${!item.available ? 'opacity-60' : ''}`} data-testid={`menu-item-${item.id}`}>
+      {item.image_url && (
+        <div className="h-40 overflow-hidden rounded-t-lg">
+          <img 
+            src={item.image_url} 
+            alt={item.name} 
+            className="w-full h-full object-cover transition-transform duration-200 hover:scale-105" 
+            onError={(e) => e.target.style.display = 'none'}
+            loading="lazy" // Lazy load images for better performance
+          />
+        </div>
+      )}
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <CardTitle className="text-lg">{item.name}</CardTitle>
+            <p className="text-sm text-gray-500 capitalize">{item.category}</p>
+          </div>
+          <span className="text-lg font-bold text-violet-600">₹{item.price}</span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {item.description && <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>}
+        <div className="flex justify-between items-center">
+          <span className={`text-xs px-2 py-1 rounded-full ${item.available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            {item.available ? 'Available' : 'Unavailable'}
+          </span>
+          {['admin', 'cashier'].includes(user?.role) && (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => handleEdit(item)} data-testid={`edit-menu-${item.id}`}>
+                <Edit className="w-4 h-4" />
+              </Button>
+              {user?.role === 'admin' && (
+                <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleDelete(item.id)} data-testid={`delete-menu-${item.id}`}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  ), [user?.role]);
 
   return (
     <Layout user={user}>
@@ -366,68 +496,51 @@ const MenuPage = ({ user }) => {
           />
         )}
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-violet-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading menu items...</p>
-            </div>
-          </div>
-        ) : categories.map((category) => {
-          const categoryItems = filteredItems.filter(item => item.category === category);
-          if (categoryItems.length === 0) return null;
-
-          return (
-            <div key={category}>
-              <h2 className="text-2xl font-bold mb-4 capitalize">{category}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {categoryItems.map((item) => (
-                  <Card key={item.id} className={`card-hover border-0 shadow-lg ${!item.available ? 'opacity-60' : ''}`} data-testid={`menu-item-${item.id}`}>
-                    {item.image_url && (
-                      <div className="h-40 overflow-hidden rounded-t-lg">
-                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
-                      </div>
-                    )}
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg">{item.name}</CardTitle>
-                          <p className="text-sm text-gray-500 capitalize">{item.category}</p>
-                        </div>
-                        <span className="text-lg font-bold text-violet-600">₹{item.price}</span>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {item.description && <p className="text-sm text-gray-600 mb-3">{item.description}</p>}
-                      <div className="flex justify-between items-center">
-                        <span className={`text-xs px-2 py-1 rounded-full ${item.available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {item.available ? 'Available' : 'Unavailable'}
-                        </span>
-                        {['admin', 'cashier'].includes(user?.role) && (
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleEdit(item)} data-testid={`edit-menu-${item.id}`}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            {user?.role === 'admin' && (
-                              <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleDelete(item.id)} data-testid={`delete-menu-${item.id}`}>
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+        {/* Show loading skeleton only on initial load */}
+        {loading && initialLoad ? (
+          <LoadingSkeleton />
+        ) : (
+          <>
+            {/* Show loading indicator for subsequent loads */}
+            {loading && !initialLoad && (
+              <div className="flex items-center justify-center py-4">
+                <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                <span className="text-sm text-gray-600">Refreshing...</span>
               </div>
-            </div>
-          );
-        })}
+            )}
+            
+            {/* Render categories and items */}
+            {categories.map((category) => {
+              const categoryItems = categoryItemsMap[category];
+              if (!categoryItems || categoryItems.length === 0) return null;
 
-        {!loading && filteredItems.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No menu items found</p>
-          </div>
+              return (
+                <div key={category} className="space-y-4">
+                  <h2 className="text-2xl font-bold capitalize text-gray-800">{category}</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {categoryItems.map((item) => (
+                      <MenuItemCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Empty state */}
+            {!loading && filteredItems.length === 0 && (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-lg mb-2">
+                  {searchTerm ? 'No menu items match your search' : 'No menu items found'}
+                </p>
+                {!searchTerm && (
+                  <p className="text-gray-400 text-sm">Add your first menu item to get started</p>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </Layout>
