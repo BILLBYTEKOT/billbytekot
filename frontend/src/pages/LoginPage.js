@@ -191,6 +191,32 @@ const LoginPage = ({ setUser }) => {
     }
   };
 
+  const handleRegistrationError = (error) => {
+    const errorDetail = error.response?.data?.detail;
+    
+    if (typeof errorDetail === 'string') {
+      if (errorDetail.includes('duplicate key error')) {
+        if (errorDetail.includes('referral_code')) {
+          toast.error('Registration system error. Please try again or contact support.');
+        } else if (errorDetail.includes('username')) {
+          toast.error('Username already exists. Please choose a different username.');
+        } else if (errorDetail.includes('email')) {
+          toast.error('Email already registered. Please use a different email or login.');
+        } else {
+          toast.error('Account already exists. Please try logging in instead.');
+        }
+      } else if (errorDetail.includes('Username already exists')) {
+        toast.error('Username taken. Please choose a different username.');
+      } else if (errorDetail.includes('Email already registered')) {
+        toast.error('Email already registered. Please login or use a different email.');
+      } else {
+        toast.error(errorDetail);
+      }
+    } else {
+      toast.error('Registration failed. Please try again.');
+    }
+  };
+
   const handleSkipVerification = async () => {
     setOtpLoading(true);
     try {
@@ -203,13 +229,13 @@ const LoginPage = ({ setUser }) => {
         referral_code: formData.referralCode.trim() || null  // Include referral code (Requirement 3.7)
       });
       
-      toast.success('🎉 Account created! Please login to continue.');
+      toast.success('Account created! Please login to continue.');
       setShowOTPVerification(false);
       setOtp('');
       setIsLogin(true);
       setFormData({ ...formData, password: '', referralCode: '' });
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Registration failed');
+      handleRegistrationError(error);
     } finally {
       setOtpLoading(false);
     }
@@ -225,9 +251,14 @@ const LoginPage = ({ setUser }) => {
         role: 'admin',
         referral_code: formData.referralCode.trim() || null  // Include referral code
       });
-      toast.success('📧 New OTP sent to your email!');
+      toast.success('New OTP sent to your email!');
+      
+      // If debug mode, show OTP
+      if (response.data.otp) {
+        toast.info(`Debug OTP: ${response.data.otp}`, { duration: 10000 });
+      }
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to resend OTP');
+      handleRegistrationError(error);
     } finally {
       setOtpLoading(false);
     }

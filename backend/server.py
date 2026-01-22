@@ -1772,6 +1772,69 @@ This is a computer generated receipt
 
 
 # Auth routes
+@api_router.post("/auth/register-debug")
+async def register_debug(user_data: RegisterOTPRequest):
+    """Debug registration endpoint that returns OTP for testing"""
+    # Only enable in development/debug mode
+    if os.getenv("DEBUG_MODE", "false").lower() != "true":
+        raise HTTPException(status_code=403, detail="Debug mode not enabled")
+    
+    # Same logic as register_request but returns OTP
+    username_lower = user_data.username.lower().strip()
+    email_lower = user_data.email.lower().strip()
+    
+    # Check if username already exists (case-insensitive)
+    existing_username = await db.users.find_one(
+        {"username_lower": username_lower}, {"_id": 0}
+    )
+    if not existing_username:
+        existing_username = await db.users.find_one(
+            {"username": {"$regex": f"^{user_data.username}$", "$options": "i"}}, {"_id": 0}
+        )
+    if existing_username:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    # Check if email already exists (case-insensitive)
+    existing_email = await db.users.find_one(
+        {"email_lower": email_lower}, {"_id": 0}
+    )
+    if not existing_email:
+        existing_email = await db.users.find_one(
+            {"email": {"$regex": f"^{user_data.email}$", "$options": "i"}}, {"_id": 0}
+        )
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Generate 6-digit OTP
+    otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    
+    # Store OTP and user data temporarily
+    registration_otp_storage[email_lower] = {
+        "otp": otp,
+        "expires": expires_at,
+        "user_data": {
+            "username": user_data.username.strip(),
+            "username_lower": username_lower,
+            "email": user_data.email.strip(),
+            "email_lower": email_lower,
+            "password": user_data.password,
+            "role": user_data.role,
+            "referral_code": user_data.referral_code.strip().upper() if user_data.referral_code else None
+        }
+    }
+    
+    # Send OTP email asynchronously (non-blocking)
+    asyncio.create_task(send_registration_otp_email(user_data.email.strip(), otp, user_data.username.strip()))
+    
+    return {
+        "message": "Debug OTP generated and sent to email",
+        "email": user_data.email,
+        "otp": otp,  # Return OTP for testing in debug mode
+        "success": True
+    }
+
+
 @api_router.post("/auth/register-request")
 async def register_request(user_data: RegisterOTPRequest):
     """Step 1: Request registration - Send OTP to email"""
@@ -1881,6 +1944,7 @@ async def verify_registration(verify_data: VerifyRegistrationOTP):
     referral_code = user_data.get("referral_code")
     if referral_code:
         doc["referred_by"] = referral_code
+    # Don't set referred_by field if referral_code is None to avoid database issues
     
     # Insert user into database
     await db.users.insert_one(doc)
@@ -1976,6 +2040,7 @@ async def register_direct(user_data: UserCreate):
     referral_code = user_data.referral_code.strip().upper() if user_data.referral_code else None
     if referral_code:
         doc["referred_by"] = referral_code
+    # Don't set referred_by field if referral_code is None to avoid database issues
     
     # Insert user into database
     await db.users.insert_one(doc)
