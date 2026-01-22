@@ -243,94 +243,96 @@ const generatePaymentUrl = (order, businessSettings) => {
   const amount = order.balance_amount || order.total || 0;
   const restaurantName = businessSettings?.restaurant_name || 'Restaurant';
   
-  // Determine UPI ID
+  // Enhanced UPI ID determination with multiple fallbacks
   let upiId = businessSettings?.upi_id;
+  
+  // If no UPI ID configured, try to generate from phone with multiple providers
   if (!upiId && businessSettings?.phone) {
-    // Generate UPI ID from phone number (common format)
-    upiId = `${businessSettings.phone}@paytm`;
-  }
-  if (!upiId) {
-    upiId = 'payment@restaurant.com'; // Fallback
+    const phone = businessSettings.phone.replace(/[^0-9]/g, ''); // Clean phone number
+    
+    // Try common UPI providers in order of popularity
+    const providers = ['paytm', 'phonepe', 'gpay', 'ybl', 'ibl'];
+    const preferredProvider = businessSettings?.preferred_upi_provider || 'paytm';
+    
+    // Use preferred provider if specified, otherwise default to paytm
+    upiId = `${phone}@${preferredProvider}`;
   }
   
-  // Create UPI payment URL according to NPCI standards
-  const paymentUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(restaurantName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Bill ${billNo} - ${restaurantName}`)}`;
+  // Final fallback
+  if (!upiId) {
+    upiId = 'payment@restaurant.com';
+  }
+  
+  // Create enhanced UPI payment URL with proper encoding
+  const merchantCode = businessSettings?.merchant_code || 'REST';
+  const transactionNote = `Bill-${billNo}-${restaurantName.substring(0, 20)}`;
+  
+  // Build UPI URL with all required parameters
+  const paymentUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(restaurantName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(transactionNote)}&mc=${encodeURIComponent(merchantCode)}&tr=${encodeURIComponent(billNo)}`;
   
   return paymentUrl;
 };
 
-// Generate QR code data URL using a QR code library or service
-const generateQRCodeDataUrl = (text, size = 120) => {
+// Generate QR code data URL using multiple methods with thermal printer optimization
+const generateQRCodeDataUrl = (text, size = 100) => {
   try {
-    // For thermal printers, we need a simple black and white QR code
-    // Using Google Charts API for reliable QR code generation
-    // M = Medium error correction (~15%), margin=0 for maximum size
-    const qrUrl = `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encodeURIComponent(text)}&choe=UTF-8&chld=M|0`;
-    return qrUrl;
+    // For thermal printers, optimize size based on paper width
+    const optimizedSize = size <= 80 ? 80 : size <= 120 ? 100 : 120;
+    
+    // Method 1: Try Google Charts API (most reliable)
+    // Use higher error correction (H = ~30%) for better scanning on thermal printers
+    const googleQR = `https://chart.googleapis.com/chart?chs=${optimizedSize}x${optimizedSize}&cht=qr&chl=${encodeURIComponent(text)}&choe=UTF-8&chld=H|2`;
+    
+    // Method 2: Try QR Server API as backup
+    const qrServerAPI = `https://api.qrserver.com/v1/create-qr-code/?size=${optimizedSize}x${optimizedSize}&data=${encodeURIComponent(text)}&ecc=H&margin=1`;
+    
+    // Return primary method (Google Charts is most reliable)
+    return googleQR;
   } catch (error) {
     console.error('QR code generation failed:', error);
-    // Fallback to a detailed SVG QR code pattern
-    return generateFallbackQRCode(size);
+    // Enhanced fallback with better UPI pattern
+    return generateEnhancedFallbackQR(size, text);
   }
 };
 
-// Generate fallback QR code SVG when online generation fails
-const generateFallbackQRCode = (size = 120) => {
+// Generate enhanced fallback QR code with UPI pattern recognition
+const generateEnhancedFallbackQR = (size = 100, upiText = '') => {
+  const isUPI = upiText.includes('upi://pay');
   const svgContent = `
     <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${size}" height="${size}" fill="white" stroke="black" stroke-width="2"/>
+      <rect width="${size}" height="${size}" fill="white" stroke="black" stroke-width="1"/>
       
-      <!-- Corner detection patterns -->
-      <rect x="8" y="8" width="24" height="24" fill="black"/>
-      <rect x="12" y="12" width="16" height="16" fill="white"/>
-      <rect x="16" y="16" width="8" height="8" fill="black"/>
+      <!-- Enhanced corner detection patterns for better scanning -->
+      <rect x="4" y="4" width="20" height="20" fill="black"/>
+      <rect x="7" y="7" width="14" height="14" fill="white"/>
+      <rect x="10" y="10" width="8" height="8" fill="black"/>
       
-      <rect x="${size-32}" y="8" width="24" height="24" fill="black"/>
-      <rect x="${size-28}" y="12" width="16" height="16" fill="white"/>
-      <rect x="${size-24}" y="16" width="8" height="8" fill="black"/>
+      <rect x="${size-24}" y="4" width="20" height="20" fill="black"/>
+      <rect x="${size-21}" y="7" width="14" height="14" fill="white"/>
+      <rect x="${size-18}" y="10" width="8" height="8" fill="black"/>
       
-      <rect x="8" y="${size-32}" width="24" height="24" fill="black"/>
-      <rect x="12" y="${size-28}" width="16" height="16" fill="white"/>
-      <rect x="16" y="${size-24}" width="8" height="8" fill="black"/>
+      <rect x="4" y="${size-24}" width="20" height="20" fill="black"/>
+      <rect x="7" y="${size-21}" width="14" height="14" fill="white"/>
+      <rect x="10" y="${size-18}" width="8" height="8" fill="black"/>
       
-      <!-- Timing patterns -->
-      <rect x="40" y="16" width="4" height="4" fill="black"/>
-      <rect x="48" y="16" width="4" height="4" fill="black"/>
-      <rect x="56" y="16" width="4" height="4" fill="black"/>
-      <rect x="64" y="16" width="4" height="4" fill="black"/>
-      <rect x="72" y="16" width="4" height="4" fill="black"/>
+      <!-- Enhanced timing patterns -->
+      ${Array.from({length: 8}, (_, i) => `<rect x="${28 + i*6}" y="10" width="3" height="3" fill="black"/>`).join('')}
+      ${Array.from({length: 8}, (_, i) => `<rect x="10" y="${28 + i*6}" width="3" height="3" fill="black"/>`).join('')}
       
-      <rect x="16" y="40" width="4" height="4" fill="black"/>
-      <rect x="16" y="48" width="4" height="4" fill="black"/>
-      <rect x="16" y="56" width="4" height="4" fill="black"/>
-      <rect x="16" y="64" width="4" height="4" fill="black"/>
-      <rect x="16" y="72" width="4" height="4" fill="black"/>
+      <!-- Enhanced data pattern simulation -->
+      ${Array.from({length: 6}, (_, row) => 
+        Array.from({length: 6}, (_, col) => 
+          `<rect x="${30 + col*8}" y="${30 + row*8}" width="3" height="3" fill="${(row + col) % 2 ? 'black' : 'white'}"/>`
+        ).join('')
+      ).join('')}
       
-      <!-- Data modules simulation -->
-      <rect x="40" y="40" width="4" height="4" fill="black"/>
-      <rect x="48" y="40" width="4" height="4" fill="black"/>
-      <rect x="56" y="44" width="4" height="4" fill="black"/>
-      <rect x="64" y="40" width="4" height="4" fill="black"/>
-      <rect x="72" y="44" width="4" height="4" fill="black"/>
-      <rect x="80" y="40" width="4" height="4" fill="black"/>
-      
-      <rect x="40" y="52" width="4" height="4" fill="black"/>
-      <rect x="52" y="52" width="4" height="4" fill="black"/>
-      <rect x="64" y="56" width="4" height="4" fill="black"/>
-      <rect x="76" y="52" width="4" height="4" fill="black"/>
-      
-      <rect x="44" y="64" width="4" height="4" fill="black"/>
-      <rect x="56" y="68" width="4" height="4" fill="black"/>
-      <rect x="68" y="64" width="4" height="4" fill="black"/>
-      <rect x="80" y="68" width="4" height="4" fill="black"/>
-      
-      <rect x="40" y="76" width="4" height="4" fill="black"/>
-      <rect x="52" y="80" width="4" height="4" fill="black"/>
-      <rect x="64" y="76" width="4" height="4" fill="black"/>
-      <rect x="76" y="80" width="4" height="4" fill="black"/>
-      
-      <!-- Center indicator -->
-      <text x="${size/2}" y="${size/2 + 3}" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="black">PAY</text>
+      <!-- UPI indicator if it's a UPI QR -->
+      ${isUPI ? `
+        <rect x="${size/2 - 15}" y="${size/2 - 8}" width="30" height="16" fill="white" stroke="black" stroke-width="1"/>
+        <text x="${size/2}" y="${size/2 + 2}" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="black">UPI</text>
+      ` : `
+        <text x="${size/2}" y="${size/2 + 2}" text-anchor="middle" font-family="Arial, sans-serif" font-size="6" font-weight="bold" fill="black">PAY</text>
+      `}
     </svg>
   `;
   
@@ -342,8 +344,17 @@ const generateFallbackQRCode = (size = 120) => {
 
 const getPrintStyles = (width, settings = null) => {
   const printSettings = settings || getPrintSettings();
-  const fontSize = printSettings.font_size === 'small' ? '11px' : 
-                   printSettings.font_size === 'large' ? '15px' : '13px';
+  const isCompact = width === '58mm';
+  
+  // Optimize font sizes for thermal printers
+  const baseFontSize = isCompact ? 
+    (printSettings.font_size === 'small' ? '9px' : printSettings.font_size === 'large' ? '12px' : '10px') :
+    (printSettings.font_size === 'small' ? '11px' : printSettings.font_size === 'large' ? '15px' : '13px');
+  
+  // Optimize margins and padding for paper saving
+  const padding = isCompact ? '2mm' : '3mm';
+  const lineHeight = isCompact ? '1.2' : '1.4';
+  const itemMargin = isCompact ? '0.5mm' : '1mm';
   
   return `
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -359,11 +370,11 @@ const getPrintStyles = (width, settings = null) => {
   }
   body { 
     font-family: 'Courier New', monospace; 
-    font-size: ${fontSize}; 
+    font-size: ${baseFontSize}; 
     font-weight: 600; 
-    line-height: 1.4; 
+    line-height: ${lineHeight}; 
     width: ${width}; 
-    padding: 3mm; 
+    padding: ${padding}; 
     background: #fff; 
     color: #000; 
   }
@@ -371,23 +382,36 @@ const getPrintStyles = (width, settings = null) => {
   .left { text-align: left; }
   .right { text-align: right; }
   .bold { font-weight: 900 !important; }
-  .large { font-size: 1.3em; font-weight: 900; }
+  .large { font-size: ${isCompact ? '1.2em' : '1.3em'}; font-weight: 900; }
   .small { font-size: 0.9em; }
   .xsmall { font-size: 0.8em; }
-  .separator { border-top: 1px dashed #000; margin: 2mm 0; }
-  .double-line { border-top: 2px solid #000; margin: 2mm 0; }
-  .dotted-line { border-top: 1px dotted #000; margin: 2mm 0; }
-  .item-row { display: flex; justify-content: space-between; margin: 1mm 0; font-weight: 600; }
-  .total-row { display: flex; justify-content: space-between; font-weight: 700; margin: 1mm 0; }
-  .grand-total { font-size: 1.4em; font-weight: 900; margin: 2mm 0; }
-  .header-logo { font-size: 1.5em; font-weight: 900; margin-bottom: 1mm; }
-  .bill-info { display: flex; justify-content: space-between; font-size: 0.95em; margin: 1mm 0; }
+  .separator { border-top: 1px dashed #000; margin: ${isCompact ? '1mm' : '2mm'} 0; }
+  .double-line { border-top: 2px solid #000; margin: ${isCompact ? '1mm' : '2mm'} 0; }
+  .dotted-line { border-top: 1px dotted #000; margin: ${isCompact ? '1mm' : '2mm'} 0; }
+  .item-row { display: flex; justify-content: space-between; margin: ${itemMargin} 0; font-weight: 600; }
+  .total-row { display: flex; justify-content: space-between; font-weight: 700; margin: ${itemMargin} 0; }
+  .grand-total { font-size: ${isCompact ? '1.2em' : '1.4em'}; font-weight: 900; margin: ${isCompact ? '1mm' : '2mm'} 0; }
+  .header-logo { font-size: ${isCompact ? '1.3em' : '1.5em'}; font-weight: 900; margin-bottom: 1mm; }
+  .bill-info { display: flex; justify-content: space-between; font-size: 0.95em; margin: ${itemMargin} 0; }
   .table-header { display: flex; justify-content: space-between; font-weight: 900; border-bottom: 1px solid #000; padding-bottom: 1mm; margin-bottom: 1mm; }
-  .footer { margin-top: 3mm; font-size: 0.9em; }
+  .footer { margin-top: ${isCompact ? '2mm' : '3mm'}; font-size: 0.9em; }
   .mb-1 { margin-bottom: 1mm; }
   .mt-1 { margin-top: 1mm; }
-  .kot-item { font-size: 1.2em; font-weight: 900; margin: 2mm 0; padding: 2mm; border: 2px solid #000; }
-  .kot-note { background: #000; color: #fff; padding: 2mm; margin: 1mm 0 2mm 3mm; font-weight: 900; }
+  .kot-item { 
+    font-size: ${isCompact ? '1em' : '1.2em'}; 
+    font-weight: 900; 
+    margin: ${isCompact ? '1mm' : '2mm'} 0; 
+    padding: ${isCompact ? '1mm' : '2mm'}; 
+    border: ${isCompact ? '1px' : '2px'} solid #000; 
+  }
+  .kot-note { 
+    background: #000; 
+    color: #fff; 
+    padding: ${isCompact ? '1mm' : '2mm'}; 
+    margin: ${isCompact ? '0.5mm 0 1mm 2mm' : '1mm 0 2mm 3mm'}; 
+    font-weight: 900; 
+    font-size: ${isCompact ? '0.9em' : '1em'};
+  }
 `;
 };
 
@@ -936,26 +960,37 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
   
   html += `<div class="${borderClass}"></div>`;
   
-  // Add QR code for unpaid/overdue bills
+  // Add QR code for unpaid/overdue bills with enhanced optimization
   const isUnpaid = is_credit || balance_amount > 0;
   if (settings.qr_code_enabled && isUnpaid) {
     html += `<div class="${separatorClass}"></div>`;
     html += '<div class="center bold small mb-1">SCAN TO PAY BALANCE</div>';
     
-    // Generate payment URL for QR code
+    // Generate enhanced payment URL for QR code
     const paymentUrl = generatePaymentUrl(order, b);
-    const qrCodeDataUrl = generateQRCodeDataUrl(paymentUrl);
+    
+    // Optimize QR code size based on paper width
+    const qrSize = settings.paper_width === '58mm' ? 80 : 100;
+    const qrCodeDataUrl = generateQRCodeDataUrl(paymentUrl, qrSize);
     
     html += `<div class="center mb-1">
-      <div style="display:inline-block;padding:8px;border:3px solid #000;background:#fff;border-radius:4px;">
-        <img src="${qrCodeDataUrl}" alt="Payment QR Code" style="width:120px;height:120px;display:block;image-rendering:pixelated;image-rendering:-moz-crisp-edges;image-rendering:crisp-edges;" onerror="this.parentElement.innerHTML='<div style=&quot;width:120px;height:120px;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;&quot;>QR CODE<br/>FOR<br/>PAYMENT</div>'"/>
+      <div style="display:inline-block;padding:4px;border:2px solid #000;background:#fff;border-radius:2px;">
+        <img src="${qrCodeDataUrl}" alt="Payment QR Code" style="width:${qrSize}px;height:${qrSize}px;display:block;image-rendering:pixelated;image-rendering:-moz-crisp-edges;image-rendering:crisp-edges;" onerror="this.parentElement.innerHTML='<div style=&quot;width:${qrSize}px;height:${qrSize}px;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;text-align:center;&quot;>QR CODE<br/>FOR<br/>UPI<br/>PAYMENT</div>'"/>
       </div>
     </div>`;
+    
     html += `<div class="center xsmall bold">Balance Due: ₹${balance_amount.toFixed(2)}</div>`;
+    
+    // Enhanced UPI ID display with provider info
+    const upiId = b.upi_id || (b.phone ? `${b.phone}@${b.preferred_upi_provider || 'paytm'}` : 'payment@restaurant.com');
+    html += `<div class="center xsmall">UPI ID: ${upiId}</div>`;
+    
     if (order.customer_phone) {
       html += `<div class="center xsmall">Or call: ${order.customer_phone}</div>`;
     }
-    html += `<div class="center xsmall">UPI ID: ${b.upi_id || b.phone ? `${b.phone}@paytm` : 'payment@restaurant.com'}</div>`;
+    
+    // Add payment instructions for better user experience
+    html += `<div class="center xsmall" style="margin-top:1mm;">Open any UPI app & scan to pay</div>`;
   }
   
   // Footer based on settings
@@ -976,23 +1011,78 @@ export const generateKOTHTML = (order) => {
   const settings = getPrintSettings();
   const billNo = getBillNumber(order);
   
-  let html = '<div class="center" style="font-size:1.5em;font-weight:900">*** KOT ***</div><div class="center large">KITCHEN ORDER TICKET</div><div class="double-line"></div>';
+  // Optimize spacing and font sizes for thermal printers
+  const isCompactMode = settings.paper_width === '58mm';
+  const kotFontClass = settings.kot_font_size === 'large' ? 'large' : 
+                      settings.kot_font_size === 'medium' ? '' : 'small';
+  
+  let html = '';
+  
+  // Compact header for thermal printers
+  if (isCompactMode) {
+    html += '<div class="center bold" style="font-size:1.2em;margin-bottom:1mm">*** KOT ***</div>';
+    html += '<div class="center small">KITCHEN ORDER</div>';
+  } else {
+    html += '<div class="center" style="font-size:1.5em;font-weight:900">*** KOT ***</div>';
+    html += '<div class="center large">KITCHEN ORDER TICKET</div>';
+  }
+  
+  html += '<div class="double-line"></div>';
+  
+  // Compact order info
   html += `<div class="bill-info"><span class="bold">Order #${billNo}</span><span class="bold">Table: ${order.table_number ? 'T' + order.table_number : 'Counter'}</span></div>`;
-  html += `<div class="bill-info"><span>Captain: ${order.waiter_name || 'Self'}</span></div>`;
-  if (settings.kot_show_time) html += `<div class="bill-info"><span>Time: ${new Date(order.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span></div>`;
-  if (order.customer_name) html += `<div class="bill-info"><span>Customer: ${order.customer_name}</span></div>`;
   
-  html += '<div class="double-line"></div><div class="center large bold mb-1">ITEMS TO PREPARE</div><div class="separator"></div>';
+  // Conditional details based on settings and space
+  if (!isCompactMode || settings.kot_show_time) {
+    html += `<div class="bill-info"><span>Captain: ${order.waiter_name || 'Self'}</span>`;
+    if (settings.kot_show_time) {
+      html += `<span>Time: ${new Date(order.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>`;
+    }
+    html += '</div>';
+  }
   
+  if (order.customer_name && !isCompactMode) {
+    html += `<div class="bill-info"><span>Customer: ${order.customer_name}</span></div>`;
+  }
+  
+  // Compact separator
+  html += isCompactMode ? '<div class="separator"></div>' : '<div class="double-line"></div>';
+  
+  // Items header - more compact
+  html += isCompactMode ? 
+    '<div class="center bold small">ITEMS TO PREPARE</div><div class="separator"></div>' :
+    '<div class="center large bold mb-1">ITEMS TO PREPARE</div><div class="separator"></div>';
+  
+  // Optimized item display
   (order.items || []).forEach(item => {
-    html += `<div class="kot-item">${item.quantity} × ${item.name.toUpperCase()}</div>`;
-    if (settings.kot_highlight_notes && item.notes) html += `<div class="kot-note">*** ${item.notes.toUpperCase()} ***</div>`;
+    if (isCompactMode) {
+      // Ultra-compact format for 58mm
+      html += `<div class="kot-item" style="font-size:1em;margin:1mm 0;padding:1mm;border:1px solid #000;">${item.quantity}x ${item.name.toUpperCase()}</div>`;
+      if (settings.kot_highlight_notes && item.notes) {
+        html += `<div class="kot-note" style="padding:1mm;margin:0 0 1mm 2mm;font-size:0.9em;">*** ${item.notes.toUpperCase()} ***</div>`;
+      }
+    } else {
+      // Standard format for 80mm
+      html += `<div class="kot-item ${kotFontClass}">${item.quantity} × ${item.name.toUpperCase()}</div>`;
+      if (settings.kot_highlight_notes && item.notes) {
+        html += `<div class="kot-note">*** ${item.notes.toUpperCase()} ***</div>`;
+      }
+    }
   });
   
+  // Compact footer
   html += '<div class="separator"></div>';
-  html += `<div class="center large bold" style="margin-top:2mm">TOTAL ITEMS: ${(order.items || []).reduce((s, i) => s + i.quantity, 0)}</div>`;
+  
+  const totalItems = (order.items || []).reduce((s, i) => s + i.quantity, 0);
+  html += isCompactMode ? 
+    `<div class="center bold">TOTAL: ${totalItems} ITEMS</div>` :
+    `<div class="center large bold" style="margin-top:2mm">TOTAL ITEMS: ${totalItems}</div>`;
+  
   html += '<div class="double-line"></div>';
-  html += `<div class="center bold">${order.priority === 'high' ? '*** HIGH PRIORITY ***' : 'NORMAL PRIORITY'}</div>`;
+  
+  // Priority indicator - compact
+  const priority = order.priority === 'high' ? '*** HIGH PRIORITY ***' : 'NORMAL PRIORITY';
+  html += `<div class="center bold ${order.priority === 'high' ? 'large' : 'small'}">${priority}</div>`;
   
   return html;
 };

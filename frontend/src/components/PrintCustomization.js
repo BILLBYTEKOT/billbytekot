@@ -50,6 +50,8 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
         separator_style: ps.separator_style || 'dashes',
         footer_style: ps.footer_style || 'simple',
         qr_code_enabled: ps.qr_code_enabled ?? true,
+        qr_code_size: ps.qr_code_size || 100,
+        preferred_upi_provider: ps.preferred_upi_provider || 'paytm',
         auto_print: ps.auto_print ?? false,
         print_copies: Math.max(1, Math.min(5, ps.print_copies || 1)),
         kot_auto_print: ps.kot_auto_print ?? true,
@@ -82,6 +84,8 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
         separator_style: 'dashes',
         footer_style: 'simple',
         qr_code_enabled: true,
+        qr_code_size: 100,
+        preferred_upi_provider: 'paytm',
         auto_print: false,
         print_copies: 1,
         kot_auto_print: true,
@@ -182,196 +186,354 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
   };
 
   const generateReceiptPreview = () => {
-    const width = customization.paper_width === '58mm' ? 32 : 48;
-    const sep = customization.separator_style === 'dashes' ? '-'.repeat(width) : 
-                customization.separator_style === 'dots' ? '.'.repeat(width) :
-                customization.separator_style === 'equals' ? '='.repeat(width) : 
-                '─'.repeat(width);
-    
-    const doubleSep = customization.border_style === 'double' ? '═'.repeat(width) : sep;
-    
-    const restaurantName = businessSettings?.restaurant_name || 'Your Restaurant';
-    const center = (text) => {
-      if (text.length >= width) return text.substring(0, width);
-      const padding = Math.floor((width - text.length) / 2);
-      return ' '.repeat(padding) + text + ' '.repeat(width - text.length - padding);
+    // Use the same logic as actual print function for perfect matching
+    const mockOrder = {
+      id: 'ABC12345',
+      order_number: 'ABC12345',
+      table_number: 5,
+      waiter_name: 'John Doe',
+      customer_name: 'Guest Customer',
+      created_at: new Date().toISOString(),
+      items: [
+        { name: 'Butter Chicken', quantity: 2, price: 350, notes: customization.show_item_notes ? 'Extra spicy' : '' },
+        { name: 'Garlic Naan', quantity: 1, price: 60, notes: '' },
+        { name: 'Jeera Rice', quantity: 2, price: 120, notes: customization.show_item_notes ? 'Less salt' : '' },
+      ],
+      subtotal: 880,
+      tax: 44,
+      tax_rate: 5,
+      total: 924,
+      payment_method: 'cash',
+      payment_received: 500,
+      balance_amount: 424,
+      is_credit: true
     };
 
-    let preview = '';
+    // Create a mock business settings object with current customization
+    const mockBusinessSettings = {
+      ...businessSettings,
+      print_customization: customization
+    };
+
+    // Use the actual generatePlainTextReceipt function for perfect matching
+    try {
+      // Import the function from printUtils (we'll simulate it here)
+      return generateMockPlainTextReceipt(mockOrder, mockBusinessSettings);
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      return 'Error generating preview. Please check your settings.';
+    }
+  };
+
+  // Mock version of generatePlainTextReceipt that matches the actual function exactly
+  const generateMockPlainTextReceipt = (order, businessOverride = null) => {
+    const b = businessOverride || businessSettings;
+    const billNo = order.order_number?.toString().padStart(5, '0') || '12345';
+    const w = customization.paper_width === '58mm' ? 32 : 48;
+    const sep = customization.separator_style === 'dashes' ? '-'.repeat(w) : 
+                customization.separator_style === 'dots' ? '.'.repeat(w) :
+                customization.separator_style === 'equals' ? '='.repeat(w) : 
+                '-'.repeat(w);
+    const dsep = customization.border_style === 'double' ? '='.repeat(w) : sep;
     
-    // Header
-    preview += doubleSep + '\n';
-    preview += center(restaurantName) + '\n';
+    const center = (t) => {
+      if (!t) return '';
+      if (t.length >= w) return t.substring(0, w);
+      const padding = Math.floor((w - t.length) / 2);
+      return ' '.repeat(padding) + t;
+    };
     
-    if (customization.show_tagline && businessSettings?.tagline) {
-      preview += center(businessSettings.tagline) + '\n';
+    let r = dsep + '\n';
+    
+    // Header with logo placeholder
+    if (customization.show_logo) {
+      r += center('[LOGO]') + '\n';
     }
     
-    if (customization.show_fssai && businessSettings?.fssai) {
-      preview += center(`FSSAI: ${businessSettings.fssai}`) + '\n';
+    // Restaurant name with header style
+    const restaurantName = b?.restaurant_name || 'Your Restaurant';
+    if (customization.header_style === 'left') {
+      r += restaurantName + '\n';
+    } else if (customization.header_style === 'right') {
+      r += restaurantName.padStart(w) + '\n';
+    } else {
+      r += center(restaurantName) + '\n';
     }
     
-    preview += doubleSep + '\n';
-    
-    if (customization.show_address && businessSettings?.address) {
-      preview += center(businessSettings.address.substring(0, width)) + '\n';
+    if (customization.show_tagline && b?.tagline) {
+      r += center(b.tagline) + '\n';
     }
-    if (customization.show_phone && businessSettings?.phone) {
-      preview += center(`Phone: ${businessSettings.phone}`) + '\n';
-    }
-    if (customization.show_email && businessSettings?.email) {
-      preview += center(`Email: ${businessSettings.email}`) + '\n';
-    }
-    if (customization.show_website && businessSettings?.website) {
-      preview += center(`Web: ${businessSettings.website}`) + '\n';
-    }
-    if (customization.show_gstin && businessSettings?.gstin) {
-      preview += center(`GSTIN: ${businessSettings.gstin}`) + '\n';
+    if (customization.show_fssai && b?.fssai) {
+      r += center(`FSSAI: ${b.fssai}`) + '\n';
     }
     
-    preview += sep + '\n';
-    preview += center('BILL') + '\n';
-    preview += sep + '\n';
+    r += dsep + '\n';
     
-    // Order details
-    const date = new Date();
-    preview += `Bill #: ABC12345\n`;
-    if (customization.show_table_number) preview += `Table: 5\n`;
-    if (customization.show_waiter_name) preview += `Server: John Doe\n`;
-    if (customization.show_customer_name) preview += `Customer: Guest\n`;
-    if (customization.show_order_time) preview += `Date: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}\n`;
+    if (customization.show_address && b?.address) {
+      r += center(b.address.substring(0, w)) + '\n';
+    }
+    if (customization.show_phone && b?.phone) {
+      r += center(`Contact: ${b.phone}`) + '\n';
+    }
+    if (customization.show_email && b?.email) {
+      r += center(`Email: ${b.email}`) + '\n';
+    }
+    if (customization.show_website && b?.website) {
+      r += center(`Web: ${b.website}`) + '\n';
+    }
+    if (customization.show_gstin && b?.gstin) {
+      r += center(`GSTIN: ${b.gstin}`) + '\n';
+    }
     
-    preview += sep + '\n';
-    preview += 'Item            Qty    Rate     Amt\n';
-    preview += sep + '\n';
+    r += sep + '\n' + center('BILL') + '\n' + sep + '\n';
     
-    // Sample items
-    const items = [
-      { qty: 2, name: 'Butter Chicken', price: 350 },
-      { qty: 1, name: 'Garlic Naan', price: 60 },
-      { qty: 2, name: 'Jeera Rice', price: 120 },
-    ];
+    const d = new Date(order.created_at || Date.now());
+    r += `Bill No: ${billNo}  Table: ${customization.show_table_number ? (order.table_number ? 'T' + order.table_number : 'Counter') : 'Counter'}\n`;
+    r += `Date: ${d.toLocaleDateString('en-IN')}`;
+    if (customization.show_order_time) {
+      r += ` (${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })})`;
+    }
+    r += '\n';
     
-    items.forEach(item => {
-      const itemName = item.name.substring(0, 14).padEnd(14);
-      const qty = item.qty.toString().padStart(3);
-      const rate = item.price.toFixed(2).padStart(8);
-      const amt = (item.qty * item.price).toFixed(2).padStart(8);
-      preview += `${itemName} ${qty} ${rate} ${amt}\n`;
+    if (customization.show_waiter_name && order.waiter_name) {
+      r += `Captain: ${order.waiter_name}\n`;
+    }
+    if (customization.show_customer_name && order.customer_name) {
+      r += `Customer: ${order.customer_name}\n`;
+    }
+    
+    r += sep + '\nItem            Qty    Rate     Amt\n' + sep + '\n';
+    
+    (order.items || []).forEach(i => {
+      const itemName = i.name.substring(0, 14).padEnd(14);
+      const qty = i.quantity.toString().padStart(3);
+      const rate = i.price.toFixed(2).padStart(8);
+      const amt = (i.quantity * i.price).toFixed(2).padStart(8);
+      r += `${itemName} ${qty} ${rate} ${amt}\n`;
       
-      if (customization.show_item_notes && item.name === 'Butter Chicken') {
-        preview += `   Note: Extra spicy\n`;
+      if (customization.show_item_notes && i.notes) {
+        r += `   Note: ${i.notes}\n`;
       }
     });
     
-    preview += sep + '\n';
+    r += sep + '\n';
     
-    // Totals
-    const subtotal = 880;
-    const tax = 44;
-    const total = 924;
-    const totalItems = items.reduce((s, i) => s + i.qty, 0);
+    const sub = order.subtotal || 0;
+    const tax = order.tax || 0;
+    const tot = order.total || 0;
+    const discount = order.discount || order.discount_amount || 0;
+    const items = (order.items || []).reduce((s, i) => s + i.quantity, 0);
     
-    preview += `Sub Total       ${totalItems.toString().padStart(3)}     -  ${subtotal.toFixed(2).padStart(8)}\n`;
-    preview += `Tax (5%)                       ${tax.toFixed(2).padStart(8)}\n`;
-    preview += doubleSep + '\n';
-    preview += `TOTAL DUE                      ${total.toFixed(2).padStart(8)}\n`;
-    preview += doubleSep + '\n';
+    const itemsTotal = (order.items || []).reduce((s, i) => s + (i.price * i.quantity), 0);
+    const displaySub = discount > 0 ? itemsTotal : sub;
+    
+    r += `Sub Total       ${items.toString().padStart(3)}     -  ${displaySub.toFixed(2).padStart(8)}\n`;
+    if (discount > 0) {
+      r += `Discount                      -${discount.toFixed(2).padStart(8)}\n`;
+    }
+    
+    const taxRate = order.tax_rate || (sub > 0 && tax > 0 ? ((tax / sub) * 100) : 0);
+    if (tax > 0 || taxRate > 0) {
+      r += `Tax (${taxRate.toFixed(0)}%)                       ${tax.toFixed(2).padStart(8)}\n`;
+    }
+    
+    r += dsep + '\n' + `TOTAL DUE                      ${tot.toFixed(2).padStart(8)}\n` + dsep + '\n';
     
     // Payment details
-    preview += `Payment Mode:                      CASH\n`;
-    preview += `Amount Received:               ${500.00.toFixed(2).padStart(8)}\n`;
-    preview += `BALANCE DUE:                   ${424.00.toFixed(2).padStart(8)}\n`;
-    preview += sep + '\n';
+    const { payment_received = 0, balance_amount = 0, is_credit, payment_method } = order;
+    const methodDisplay = { cash: 'CASH', card: 'CARD', upi: 'UPI', credit: 'CREDIT' }[payment_method] || 'CASH';
+    r += `Payment Mode:                  ${methodDisplay.padStart(8)}\n`;
     
-    // QR Code section
-    if (customization.qr_code_enabled) {
-      preview += '\n' + center('SCAN TO PAY BALANCE') + '\n';
-      preview += center('[QR CODE WILL BE PRINTED HERE]') + '\n';
-      preview += center('█████████████████████████') + '\n';
-      preview += center('█ ▄▄▄▄▄ █▀█ █ ▄▄▄▄▄ █') + '\n';
-      preview += center('█ █   █ █▀▀ █ █   █ █') + '\n';
-      preview += center('█ █▄▄▄█ █▀█ █ █▄▄▄█ █') + '\n';
-      preview += center('█▄▄▄▄▄▄▄█▄▀▄█▄▄▄▄▄▄▄█') + '\n';
-      preview += center('██▄▄▄▄▄█▀▀▀█▀▀▀█▄▄▄▄█') + '\n';
-      preview += center('█ ▄▄▄▄▄ █▄█ █ ████▀▄█') + '\n';
-      preview += center('█ █▄▄▄█ █▀█ █▄▄█▄▄▄▄█') + '\n';
-      preview += center('█▄▄▄▄▄▄▄█▄▄▄█▄█▄▄▄▄▄█') + '\n';
-      preview += center('█████████████████████████') + '\n';
-      preview += center(`Balance Due: ₹424.00`) + '\n';
-      const upiId = businessSettings?.upi_id || (businessSettings?.phone ? `${businessSettings.phone}@paytm` : 'payment@restaurant.com');
-      preview += center(`UPI ID: ${upiId}`) + '\n';
-      preview += sep + '\n';
+    if (payment_received > 0) {
+      r += `Amount Received:               ${payment_received.toFixed(2).padStart(8)}\n`;
+      if (payment_received > tot) {
+        const change = payment_received - tot;
+        r += `Change to Return:              ${change.toFixed(2).padStart(8)}\n`;
+      }
+    }
+    
+    if (is_credit || balance_amount > 0) {
+      r += `BALANCE DUE:                   ${balance_amount.toFixed(2).padStart(8)}\n`;
+    } else if (payment_received >= tot) {
+      r += `Status:                            PAID\n`;
+    }
+    
+    r += sep + '\n';
+    
+    // Add QR code info for unpaid/overdue bills
+    const isUnpaid = is_credit || balance_amount > 0;
+    if (customization.qr_code_enabled && isUnpaid) {
+      r += '\n' + center('SCAN QR CODE TO PAY BALANCE') + '\n';
+      r += center(`Balance Due: ₹${balance_amount.toFixed(2)}`) + '\n';
+      r += sep + '\n';
+      
+      // QR code representation for text-based printing
+      const qrSize = customization.qr_code_size || 100;
+      const qrWidth = Math.min(25, Math.floor(w * 0.6)); // Adaptive width
+      
+      r += center('[QR CODE FOR UPI PAYMENT]') + '\n';
+      r += center('█'.repeat(qrWidth)) + '\n';
+      
+      // Generate QR pattern
+      for (let i = 0; i < Math.floor(qrWidth/3); i++) {
+        let line = '█';
+        for (let j = 1; j < qrWidth-1; j++) {
+          line += (i + j) % 3 === 0 ? '█' : (i + j) % 2 ? '▄' : ' ';
+        }
+        line += '█';
+        r += center(line) + '\n';
+      }
+      
+      r += center('█'.repeat(qrWidth)) + '\n';
+      
+      // UPI ID with provider
+      const provider = customization.preferred_upi_provider || 'paytm';
+      const upiId = b?.upi_id || (b?.phone ? `${b.phone}@${provider}` : `payment@${provider}.com`);
+      r += center(`UPI ID: ${upiId}`) + '\n';
+      
+      if (order.customer_phone) {
+        r += center(`Or call: ${order.customer_phone}`) + '\n';
+      }
+      
+      r += center('Open any UPI app & scan to pay') + '\n';
+      r += sep + '\n';
     }
     
     // Footer
-    const footer = businessSettings?.footer_message || 'Thank you for dining with us!';
-    preview += '\n' + center(footer) + '\n';
-    preview += center('Bill generated by BillByteKOT') + '\n';
-    preview += center('(billbytekot.in)') + '\n';
-    preview += doubleSep + '\n';
+    const footerMessage = customization.footer_style === 'detailed' ? 
+      `${b?.footer_message || 'Thank you! Visit Again...'}\nBill generated by BillByteKOT\n(billbytekot.in)` :
+      b?.footer_message || 'Thank you! Visit Again...';
+      
+    r += '\n' + center(footerMessage.split('\n')[0]) + '\n';
     
-    return preview;
+    if (customization.footer_style === 'simple') {
+      r += center('Bill generated by BillByteKOT') + '\n';
+      r += center('(billbytekot.in)') + '\n';
+    } else if (customization.footer_style === 'detailed') {
+      const lines = footerMessage.split('\n');
+      for (let i = 1; i < lines.length; i++) {
+        r += center(lines[i]) + '\n';
+      }
+    }
+    
+    r += dsep + '\n';
+    
+    return r;
   };
 
   const generateKOTPreview = () => {
-    const width = customization.paper_width === '58mm' ? 32 : 48;
-    const sep = '='.repeat(width);
-    const dash = '-'.repeat(width);
+    // Use the same logic as actual KOT print function for perfect matching
+    const mockOrder = {
+      id: 'KOT001234',
+      order_number: 'KOT001234',
+      table_number: 5,
+      waiter_name: 'John Doe',
+      customer_name: 'Guest Customer',
+      created_at: new Date().toISOString(),
+      priority: 'normal',
+      items: [
+        { name: 'Butter Chicken', quantity: 2, notes: customization.kot_highlight_notes ? 'Extra spicy' : '' },
+        { name: 'Garlic Naan', quantity: 1, notes: '' },
+        { name: 'Jeera Rice', quantity: 2, notes: customization.kot_highlight_notes ? 'Less salt' : '' },
+      ]
+    };
+
+    // Use the actual KOT generation logic
+    return generateMockKOTContent(mockOrder);
+  };
+
+  // Mock version of generateKOTContent that matches the actual function exactly
+  const generateMockKOTContent = (order) => {
+    const billNo = order.order_number?.toString().padStart(5, '0') || '001234';
+    const w = customization.paper_width === '58mm' ? 32 : 48;
+    const sep = '='.repeat(w);
+    const dash = '-'.repeat(w);
+    const isCompact = customization.paper_width === '58mm';
     
     const center = (text) => {
-      if (text.length >= width) return text.substring(0, width);
-      const padding = Math.floor((width - text.length) / 2);
-      return ' '.repeat(padding) + text + ' '.repeat(width - text.length - padding);
+      if (!text) return '';
+      if (text.length >= w) return text.substring(0, w);
+      const padding = Math.floor((w - text.length) / 2);
+      return ' '.repeat(padding) + text;
     };
     
-    let preview = '';
+    let k = '';
     
-    preview += sep + '\n';
-    preview += center('*** KOT ***') + '\n';
-    preview += center('KITCHEN ORDER TICKET') + '\n';
-    preview += sep + '\n\n';
-    
-    preview += `ORDER #: KOT-001234\n`;
-    preview += `TABLE: 5\n`;
-    preview += `SERVER: John Doe\n`;
-    if (customization.kot_show_time) {
-      preview += `TIME: ${new Date().toLocaleTimeString()}\n`;
+    // Header - matches actual KOT function
+    if (isCompact) {
+      k += center('*** KOT ***') + '\n';
+      k += center('KITCHEN ORDER') + '\n';
+    } else {
+      k += sep + '\n';
+      k += center('*** KOT ***') + '\n';
+      k += center('KITCHEN ORDER TICKET') + '\n';
+      k += sep + '\n\n';
     }
-    preview += `PRIORITY: NORMAL\n`;
     
-    preview += '\n' + dash + '\n';
-    preview += center('ITEMS TO PREPARE') + '\n';
-    preview += dash + '\n\n';
+    k += sep + '\n';
     
-    // Sample KOT items with large font simulation
-    const items = [
-      { qty: 2, name: 'BUTTER CHICKEN', notes: 'Extra spicy' },
-      { qty: 1, name: 'GARLIC NAAN', notes: '' },
-      { qty: 2, name: 'JEERA RICE', notes: 'Less salt' },
-    ];
+    // Order info - matches actual format
+    k += `ORDER #: ${billNo}  TABLE: ${order.table_number ? 'T' + order.table_number : 'Counter'}\n`;
+    k += `SERVER: ${order.waiter_name || 'Self'}\n`;
     
-    items.forEach((item, idx) => {
-      if (customization.kot_font_size === 'large') {
-        preview += `>>> ${item.qty} × ${item.name} <<<\n`;
-      } else if (customization.kot_font_size === 'medium') {
-        preview += `>> ${item.qty} × ${item.name} <<\n`;
+    if (!isCompact || customization.kot_show_time) {
+      if (customization.kot_show_time) {
+        k += `TIME: ${new Date(order.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}\n`;
+      }
+    }
+    
+    if (order.customer_name && !isCompact) {
+      k += `CUSTOMER: ${order.customer_name}\n`;
+    }
+    
+    k += `PRIORITY: ${order.priority === 'high' ? 'HIGH' : 'NORMAL'}\n`;
+    
+    // Items section
+    k += '\n' + dash + '\n';
+    k += isCompact ? center('ITEMS TO PREPARE') + '\n' : center('ITEMS TO PREPARE') + '\n';
+    k += dash + '\n\n';
+    
+    // Items - matches actual KOT formatting
+    (order.items || []).forEach((item, idx) => {
+      if (isCompact) {
+        k += `${item.quantity}x ${item.name.toUpperCase()}\n`;
+        if (customization.kot_highlight_notes && item.notes) {
+          k += `*** ${item.notes.toUpperCase()} ***\n`;
+        }
       } else {
-        preview += `${item.qty} × ${item.name}\n`;
+        if (customization.kot_font_size === 'large') {
+          k += `>>> ${item.quantity} × ${item.name.toUpperCase()} <<<\n`;
+        } else if (customization.kot_font_size === 'medium') {
+          k += `>> ${item.quantity} × ${item.name.toUpperCase()} <<\n`;
+        } else {
+          k += `${item.quantity} × ${item.name.toUpperCase()}\n`;
+        }
+        
+        if (customization.kot_highlight_notes && item.notes) {
+          k += `    *** ${item.notes.toUpperCase()} ***\n`;
+        }
       }
       
-      if (customization.kot_highlight_notes && item.notes) {
-        preview += `    *** ${item.notes.toUpperCase()} ***\n`;
-      }
-      
-      if (idx < items.length - 1) preview += '\n';
+      if (idx < (order.items || []).length - 1) k += '\n';
     });
     
-    preview += '\n' + dash + '\n';
-    preview += center(`TOTAL ITEMS: ${items.reduce((sum, i) => sum + i.qty, 0)}`) + '\n';
-    preview += sep + '\n';
+    // Footer
+    k += '\n' + dash + '\n';
+    const totalItems = (order.items || []).reduce((sum, i) => sum + i.quantity, 0);
     
-    return preview;
+    if (isCompact) {
+      k += center(`TOTAL: ${totalItems} ITEMS`) + '\n';
+    } else {
+      k += center(`TOTAL ITEMS: ${totalItems}`) + '\n';
+    }
+    
+    k += sep + '\n';
+    
+    // Priority indicator
+    const priority = order.priority === 'high' ? '*** HIGH PRIORITY ***' : 'NORMAL PRIORITY';
+    k += center(priority) + '\n';
+    
+    return k;
   };
 
   const handleSave = async () => {
@@ -421,6 +583,8 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
         separator_style: customization.separator_style || 'dashes',
         footer_style: customization.footer_style || 'simple',
         qr_code_enabled: Boolean(customization.qr_code_enabled),
+        qr_code_size: parseInt(customization.qr_code_size) || 100,
+        preferred_upi_provider: customization.preferred_upi_provider || 'paytm',
         auto_print: Boolean(customization.auto_print),
         print_copies: Math.max(1, Math.min(5, parseInt(customization.print_copies) || 1)),
         kot_auto_print: Boolean(customization.kot_auto_print),
@@ -554,6 +718,8 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
       separator_style: 'dashes',
       footer_style: 'simple',
       qr_code_enabled: true,
+      qr_code_size: 100,
+      preferred_upi_provider: 'paytm',
       auto_print: false,
       print_copies: 1,
       kot_auto_print: true,
@@ -1016,6 +1182,59 @@ const PrintCustomization = ({ businessSettings, onUpdate }) => {
                     onChange={(v) => updateCustomization({ qr_code_enabled: v })}
                     description="Add UPI payment QR code for unpaid/overdue bills"
                   />
+                  
+                  {customization.qr_code_enabled && (
+                    <div className="ml-4 mt-2 space-y-3 p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <Label>QR Code Size</Label>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {[
+                            { id: 'small', label: '80px', size: 80 },
+                            { id: 'medium', label: '100px', size: 100 },
+                            { id: 'large', label: '120px', size: 120 }
+                          ].map(option => (
+                            <button
+                              key={option.id}
+                              onClick={() => updateCustomization({ qr_code_size: option.size })}
+                              className={`p-2 border-2 rounded-lg text-xs transition-all ${
+                                (customization.qr_code_size || 100) === option.size 
+                                  ? 'border-violet-600 bg-violet-50' 
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Smaller sizes save paper on thermal printers</p>
+                      </div>
+                      
+                      <div>
+                        <Label>Preferred UPI Provider</Label>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          {[
+                            { id: 'paytm', label: 'Paytm' },
+                            { id: 'phonepe', label: 'PhonePe' },
+                            { id: 'gpay', label: 'Google Pay' },
+                            { id: 'ybl', label: 'YBL' }
+                          ].map(provider => (
+                            <button
+                              key={provider.id}
+                              onClick={() => updateCustomization({ preferred_upi_provider: provider.id })}
+                              className={`p-2 border-2 rounded-lg text-xs transition-all ${
+                                (customization.preferred_upi_provider || 'paytm') === provider.id 
+                                  ? 'border-violet-600 bg-violet-50' 
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              {provider.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Used when UPI ID is auto-generated from phone</p>
+                      </div>
+                    </div>
+                  )}
                   <ToggleSwitch 
                     label="Auto Print After Payment" 
                     checked={customization.auto_print}
