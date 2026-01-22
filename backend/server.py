@@ -3549,6 +3549,60 @@ async def create_menu_item(
     return menu_obj
 
 
+@api_router.get("/menu/lightweight")
+async def get_menu_lightweight(current_user: dict = Depends(get_current_user)):
+    """Get menu items with minimal data for faster loading"""
+    user_org_id = get_secure_org_id(current_user)
+
+    try:
+        # Use Redis-cached service for menu items with minimal fields
+        cached_service = get_cached_order_service()
+        items = await cached_service.get_menu_items(user_org_id, use_cache=True)
+        
+        # Return only essential fields for faster loading
+        lightweight_items = []
+        for item in items:
+            lightweight_items.append({
+                "id": item.get("id"),
+                "name": item.get("name"),
+                "category": item.get("category"),
+                "price": item.get("price"),
+                "available": item.get("available", True),
+                "image_url": item.get("image_url", ""),
+                "description": item.get("description", "")[:100] if item.get("description") else "",  # Truncate description
+                "preparation_time": item.get("preparation_time", 15)
+            })
+        
+        print(f"🚀 Returned {len(lightweight_items)} lightweight menu items (Redis cached)")
+        return lightweight_items
+        
+    except Exception as e:
+        print(f"❌ Error fetching lightweight menu from cache: {e}")
+        # Fallback to direct MongoDB query with projection
+        items = await db.menu_items.find(
+            {"organization_id": user_org_id}, 
+            {
+                "_id": 0,
+                "id": 1,
+                "name": 1,
+                "category": 1,
+                "price": 1,
+                "available": 1,
+                "image_url": 1,
+                "description": 1,
+                "preparation_time": 1
+            }
+        ).to_list(1000)
+        
+        # Truncate descriptions for faster transfer
+        for item in items:
+            if item.get("description") and len(item["description"]) > 100:
+                item["description"] = item["description"][:100] + "..."
+        
+        print(f"📊 Fallback: Returned {len(items)} lightweight menu items from MongoDB")
+        return items
+
+
 @api_router.get("/menu", response_model=List[MenuItem])
 async def get_menu(current_user: dict = Depends(get_current_user)):
     # Get user's organization_id
