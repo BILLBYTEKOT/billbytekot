@@ -332,25 +332,50 @@ axios.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Add response interceptor for automatic retry on failure
+// Enhanced response interceptor with better error handling
 axios.interceptors.response.use(
   (response) => response,
   async (error) => {
     const config = error.config;
+    const originalRequest = error.config;
     
-    // Don't auto-logout on 401 for /auth/me endpoint - let the app handle it gracefully
-    const isAuthMeRequest = config?.url?.includes('/auth/me');
-    
-    // Handle 401/403 errors carefully
-    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      // NEVER auto-clear auth data from interceptor
-      // Let the app components handle auth state
-      // This prevents logout loops on mobile
-      console.log('Auth error:', error.response.status, 'for', config?.url);
+    // Handle 401 Unauthorized errors
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      // Clear invalid token and redirect to login
+      console.log('🔑 Token invalid/expired, clearing auth and redirecting to login');
+      delete axios.defaults.headers.common['Authorization'];
+      clearAuthData();
+      
+      // Call global logout callback to clear React state
+      if (globalLogoutCallback) {
+        globalLogoutCallback();
+      }
+      
+      // Redirect to login page
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+      
       return Promise.reject(error);
     }
     
-    // Retry logic for network errors or 5xx errors
+    // Handle 403 Forbidden errors
+    if (error.response?.status === 403) {
+      console.error('🚫 Access forbidden:', config?.url);
+      // Don't retry 403 errors - they won't succeed
+      return Promise.reject(error);
+    }
+    
+    // Handle 404 Not Found errors (missing endpoints)
+    if (error.response?.status === 404) {
+      console.error('🔍 Endpoint not found:', config?.url);
+      // Don't retry 404 errors - endpoint doesn't exist
+      return Promise.reject(error);
+    }
+    
+    // Retry logic for network errors or 5xx server errors only
     if (!config || !config.retry) {
       config.retry = 0;
     }
@@ -361,7 +386,7 @@ axios.interceptors.response.use(
     
     if (shouldRetry) {
       config.retry += 1;
-      console.log(`Retrying request (${config.retry}/2)...`);
+      console.log(`🔄 Retrying request (${config.retry}/2) for server error:`, config?.url);
       
       // Ensure auth token is included in retry
       const token = getStoredToken();
@@ -494,8 +519,7 @@ const AuthLoading = () => (
   </div>
 );
 
-// Create a context to share auth checking state
-const AuthContext = { isChecking: true };
+// Create a context to share auth checking state (removed unused variable)
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -652,36 +676,40 @@ function App() {
       
       return true;
     } catch (e) {
-      console.error('Failed to fetch user', e);
+      console.error('Failed to fetch user:', e.message);
       
-      // Only clear auth on explicit 401 AND if token is actually expired
+      // Handle specific error cases
       if (e.response?.status === 401) {
-        const token = getStoredToken();
-        if (token) {
-          try {
-            // Try to decode token to check expiry
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const isExpired = payload.exp && (payload.exp * 1000) < Date.now();
-            
-            if (isExpired) {
-              console.log('Token expired, clearing auth');
-              setAuthToken(null);
-              setUser(null);
-              return false;
-            }
-          } catch (decodeError) {
-            // Can't decode token, keep cached user
-            console.log('Could not decode token, keeping cached user');
-          }
+        // Token is invalid/expired - clear auth data
+        console.log('🔑 Token expired, clearing auth data');
+        setAuthToken(null);
+        setUser(null);
+        return false;
+      } else if (e.response?.status === 403) {
+        // Access forbidden - keep cached user but log issue
+        console.log('🚫 Access forbidden to /auth/me endpoint');
+        const storedUser = getStoredUser();
+        if (storedUser) {
+          setUser(storedUser);
+          console.log('Using cached user data due to 403 error');
+          return true;
         }
-      }
-      
-      // For network errors or other issues, keep using cached user
-      const storedUser = getStoredUser();
-      if (storedUser) {
-        setUser(storedUser);
-        console.log('Using cached user data');
-        return true;
+      } else if (e.response?.status === 404) {
+        // Endpoint doesn't exist - use cached user
+        console.log('🔍 /auth/me endpoint not found, using cached user');
+        const storedUser = getStoredUser();
+        if (storedUser) {
+          setUser(storedUser);
+          return true;
+        }
+      } else {
+        // Network error or other issue - keep using cached user
+        console.log('🌐 Network error, using cached user data');
+        const storedUser = getStoredUser();
+        if (storedUser) {
+          setUser(storedUser);
+          return true;
+        }
       }
       
       return false;

@@ -8133,6 +8133,18 @@ async def check_notifications(user_id: str = Query(None), since: str = Query("0"
         return {"notifications": [], "count": 0}
 
 
+@api_router.get("/notifications/unread")
+async def get_unread_notifications(current_user: dict = Depends(get_current_user)):
+    """Get unread notifications for the current user"""
+    try:
+        # For now, return empty array until full notifications system is implemented
+        # This prevents 404 errors in the frontend
+        return []
+    except Exception as e:
+        logger.error(f"Error fetching unread notifications: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch notifications")
+
+
 @app.get("/api/app-version")
 async def get_app_version():
     """Get latest app version info for in-app updates"""
