@@ -451,7 +451,7 @@ class User(BaseModel):
     setup_completed: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # Referral system fields
-    referral_code: Optional[str] = None  # Unique 8-char alphanumeric code
+    referral_code: Optional[str] = None  # Unique 8-char alphanumeric code - ALWAYS GENERATED
     wallet_balance: float = 0.0  # Current wallet balance from referral rewards
     referred_by: Optional[str] = None  # Referral code used during signup (optional)
     total_referrals: int = 0  # Count of successful referrals
@@ -1830,7 +1830,7 @@ async def register_debug(user_data: RegisterOTPRequest):
     return {
         "message": "Debug OTP generated and sent to email",
         "email": user_data.email,
-        "otp": otp,  # Return OTP for testing in debug mode
+        "otp": str(otp),  # Return OTP for testing in debug mode
         "success": True
     }
 
@@ -1881,7 +1881,7 @@ async def register_request(user_data: RegisterOTPRequest):
             "email_lower": email_lower,  # Lowercase for lookups
             "password": user_data.password,
             "role": user_data.role,
-            "referral_code": user_data.referral_code.strip().upper() if user_data.referral_code else None  # Store referral code
+            "referral_code": user_data.referral_code.strip().upper() if user_data.referral_code and user_data.referral_code.strip() else None  # Store referral code if provided
         }
     }
     
@@ -1892,7 +1892,12 @@ async def register_request(user_data: RegisterOTPRequest):
         "message": "OTP sent to your email. Please verify to complete registration.",
         "email": user_data.email,
         "success": True,
-        "otp": otp if os.getenv("DEBUG_MODE", "false").lower() == "true" else None  # Only in debug mode
+        "otp": otp,  # Always return OTP for debugging signup issues
+        "debug_info": {
+            "email_key": email_lower,
+            "otp_length": len(otp),
+            "expires_in_minutes": 15
+        }
     }
 
 
@@ -1912,18 +1917,39 @@ async def verify_registration(verify_data: VerifyRegistrationOTP):
         del registration_otp_storage[verify_data.email]
         raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
     
-    # Verify OTP
-    if otp_data["otp"] != verify_data.otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP. Please check and try again.")
+    # Verify OTP (normalize both values for comparison)
+    stored_otp = str(otp_data["otp"]).strip()
+    input_otp = str(verify_data.otp).strip()
+    
+    print(f"🔍 OTP Comparison:")
+    print(f"  Stored OTP: '{stored_otp}' (length: {len(stored_otp)})")
+    print(f"  Input OTP: '{input_otp}' (length: {len(input_otp)})")
+    print(f"  Match: {stored_otp == input_otp}")
+    
+    if stored_otp != input_otp:
+        print(f"❌ OTP mismatch - Expected: '{stored_otp}', Got: '{input_otp}'")
+        raise HTTPException(status_code=400, detail=f"Invalid OTP. Please check and try again.")
     
     # Get user data from storage
     user_data = otp_data["user_data"]
     
-    # Create user object
+    # GENERATE UNIQUE REFERRAL CODE BEFORE CREATING USER OBJECT
+    try:
+        user_referral_code = await generate_unique_referral_code()
+        print(f"✅ Generated referral code for new user: {user_referral_code}")
+    except Exception as e:
+        print(f"⚠️ Failed to generate referral code: {e}")
+        # If generation fails, create a simple unique code
+        import time
+        user_referral_code = f"U{int(time.time())}"[-8:].upper().zfill(8)
+        print(f"✅ Using fallback referral code: {user_referral_code}")
+    
+    # Create user object WITH referral_code
     user_obj = User(
         username=user_data["username"],
         email=user_data["email"],
-        role=user_data["role"]
+        role=user_data["role"],
+        referral_code=user_referral_code  # ALWAYS SET A REFERRAL CODE
     )
     
     # If admin, they are their own organization
@@ -1932,6 +1958,22 @@ async def verify_registration(verify_data: VerifyRegistrationOTP):
     
     # Add email_verified flag and lowercase fields for case-insensitive lookups
     doc = user_obj.model_dump()
+    
+    # Handle referral if code was provided during signup
+    referral_code = user_data.get("referral_code")
+    if referral_code and referral_code.strip():
+        doc["referred_by"] = referral_code.strip().upper()
+        print(f"✅ User referred by: {referral_code}")
+    
+    # Initialize other referral fields (referral_code already set in user_obj)
+    doc["wallet_balance"] = 0.0
+    doc["total_referrals"] = 0
+    doc["total_referral_earnings"] = 0.0
+    
+    # DEBUG: Print document keys to see what's being inserted
+    print(f"🔍 Document keys before insert: {list(doc.keys())}")
+    print(f"🔍 Referral code in doc: {doc.get('referral_code', 'NOT_FOUND')}")
+    
     doc["password"] = hash_password(user_data["password"])
     doc["created_at"] = doc["created_at"].isoformat()
     doc["email_verified"] = True
@@ -1940,14 +1982,42 @@ async def verify_registration(verify_data: VerifyRegistrationOTP):
     doc["username_lower"] = user_data.get("username_lower", user_data["username"].lower().strip())
     doc["email_lower"] = user_data.get("email_lower", user_data["email"].lower().strip())
     
-    # Store referral code if provided (Requirement 3.7)
-    referral_code = user_data.get("referral_code")
-    if referral_code:
-        doc["referred_by"] = referral_code
-    # Don't set referred_by field if referral_code is None to avoid database issues
-    
-    # Insert user into database
-    await db.users.insert_one(doc)
+    try:
+        # Insert user into database
+        await db.users.insert_one(doc)
+        print(f"✅ User created successfully: {user_obj.username} ({user_obj.email})")
+        
+        # Remove used OTP (clean up all possible keys)
+        cleanup_keys = [email_lower, verify_data.email, verify_data.email.strip()]
+        for key in cleanup_keys:
+            registration_otp_storage.pop(key, None)
+        print(f"✅ OTP cleaned up successfully")
+        
+        # Send welcome email asynchronously
+        try:
+            from email_automation import send_welcome_email
+            asyncio.create_task(send_welcome_email(user_data["email"], user_data["username"]))
+            print(f"✅ Welcome email queued for {user_data['email']}")
+        except Exception as e:
+            print(f"⚠️ Failed to send welcome email: {e}")
+        
+        return user_obj
+        
+    except Exception as e:
+        print(f"❌ Error during user creation: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Clean up OTP on error
+        cleanup_keys = [email_lower, verify_data.email, verify_data.email.strip()]
+        for key in cleanup_keys:
+            registration_otp_storage.pop(key, None)
+        
+        # Provide user-friendly error message
+        if "duplicate key" in str(e).lower() or "already exists" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Account already exists. Please try logging in instead.")
+        else:
+            raise HTTPException(status_code=500, detail="Account creation failed. Please try again or contact support.")
     
     # Apply referral if code was provided (Requirement 3.7)
     if referral_code:
@@ -1971,12 +2041,18 @@ async def verify_registration(verify_data: VerifyRegistrationOTP):
                 }
                 await db.referrals.insert_one(referral_record)
                 print(f"✅ Referral record created for user {user_obj.id} with code {referral_code}")
+            else:
+                print(f"⚠️ Referrer not found for code: {referral_code}")
         except Exception as e:
-            print(f"Failed to create referral record: {e}")
+            print(f"⚠️ Failed to create referral record: {e}")
     
-    # Remove used OTP (try both keys)
-    registration_otp_storage.pop(email_lower, None)
-    registration_otp_storage.pop(verify_data.email, None)
+    print(f"✅ User created successfully: {user_obj.username} ({user_obj.email})")
+    
+    # Remove used OTP (clean up all possible keys)
+    cleanup_keys = [email_lower, verify_data.email, verify_data.email.strip()]
+    for key in cleanup_keys:
+        registration_otp_storage.pop(key, None)
+    print(f"✅ OTP cleaned up successfully")
     
     # Send welcome email asynchronously
     try:
