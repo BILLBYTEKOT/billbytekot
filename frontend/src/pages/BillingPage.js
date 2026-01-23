@@ -1047,19 +1047,56 @@ const BillingPage = ({ user }) => {
           animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         
-        /* Enhanced touch feedback */
-        .touch-feedback {
-          transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Enhanced mobile responsiveness */
+        @media (max-width: 640px) {
+          .mobile-search-container {
+            padding: 0.5rem;
+          }
+          
+          .mobile-search-input {
+            font-size: 16px; /* Prevents zoom on iOS */
+            min-height: 44px; /* iOS touch target minimum */
+          }
+          
+          .mobile-dropdown {
+            max-height: 50vh;
+            border-radius: 12px;
+          }
+          
+          .mobile-dropdown-item {
+            min-height: 48px;
+            padding: 12px;
+          }
+          
+          .mobile-price-input {
+            width: 48px;
+            min-width: 48px;
+          }
+          
+          .mobile-add-button {
+            min-width: 44px;
+            min-height: 44px;
+          }
         }
         
-        .touch-feedback:active {
-          transform: scale(0.96);
-          filter: brightness(0.95);
+        /* Prevent zoom on input focus (iOS) */
+        @media screen and (max-width: 767px) {
+          input[type="text"], 
+          input[type="number"], 
+          input[type="search"] {
+            font-size: 16px !important;
+          }
         }
         
-        /* Smooth keyboard adaptation */
-        .keyboard-adaptive {
-          transition: padding-bottom 0.3s ease-out, margin-bottom 0.3s ease-out;
+        /* Enhanced touch targets */
+        .touch-target {
+          min-height: 44px;
+          min-width: 44px;
+        }
+        
+        /* Smooth keyboard handling */
+        .keyboard-safe {
+          padding-bottom: env(keyboard-inset-height, 0px);
         }
         
         /* Enhanced gradient animations */
@@ -1075,30 +1112,30 @@ const BillingPage = ({ user }) => {
         }
       `}</style>
       {/* ========== MOBILE LAYOUT ========== */}
-      <div className="lg:hidden" style={{ paddingBottom: keyboardHeight > 0 ? '20px' : '16px' }}>
+      <div className="lg:hidden mobile-search-container keyboard-safe" style={{ paddingBottom: keyboardHeight > 0 ? '20px' : '16px' }}>
         <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-3 py-2 rounded-t-xl flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span className="font-bold">#{order.invoice_number || order.id.slice(0, 6)}</span>
-            <span className="text-violet-200 text-sm">{order.table_number ? `• T${order.table_number}` : '• Counter'}</span>
+            <span className="font-bold text-sm sm:text-base">#{order.invoice_number || order.id.slice(0, 6)}</span>
+            <span className="text-violet-200 text-xs sm:text-sm">{order.table_number ? `• T${order.table_number}` : '• Counter'}</span>
           </div>
-          <span className="text-sm">{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          <span className="text-xs sm:text-sm">{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
         </div>
         <Card className="rounded-t-none border-0 shadow-lg" style={{ marginBottom: keyboardHeight > 0 ? '10px' : '0' }}>
-          <CardContent className="p-3">
-            {/* Enhanced Smart Search Bar */}
+          <CardContent className="p-2 sm:p-3">
+            {/* Enhanced Smart Search Bar - Mobile Optimized */}
             <div className="relative mb-2" ref={dropdownRef}>
-              <div className="flex gap-1">
-                <div className="relative flex-1">
+              <div className="flex gap-1 sm:gap-2">
+                <div className="relative flex-1 min-w-0">
                   <Search className={`absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 ${searchFocused ? 'text-violet-500' : 'text-gray-400'}`} />
                   <Input 
                     placeholder={
-                      menuError ? "Click retry to reload menu" : 
-                      menuItems.length === 0 ? "No menu items - Go to Menu page to add items" :
-                      "Search item... (Enter to add)"
+                      menuError ? "Retry to reload" : 
+                      menuItems.length === 0 ? "Add items in Menu" :
+                      "Search items..."
                     } 
                     value={searchQuery} 
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className={`pl-8 pr-12 h-10 text-base transition-all duration-200 ${
+                    className={`pl-8 pr-16 h-10 text-sm sm:text-base transition-all duration-200 ${
                       searchFocused ? 'ring-2 ring-violet-500 border-violet-300' : 'border-gray-300'
                     } ${menuError ? 'border-red-300 bg-red-50' : ''} ${
                       menuItems.length === 0 && !menuLoading ? 'border-yellow-300 bg-yellow-50' : ''
@@ -1126,14 +1163,14 @@ const BillingPage = ({ user }) => {
                     data-testid="menu-search-input"
                   />
                   
-                  {/* Action buttons for different states - no loading spinner */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {/* Action buttons for different states - Mobile optimized */}
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     {menuError && (
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => fetchMenuItems(true)}
-                        className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         Retry
                       </Button>
@@ -1144,43 +1181,15 @@ const BillingPage = ({ user }) => {
                         size="sm"
                         variant="ghost"
                         onClick={() => navigate('/menu')}
-                        className="h-6 px-2 text-xs text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+                        className="h-7 px-2 text-xs text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
                       >
-                        Add Items
+                        Menu
                       </Button>
                     )}
                   </div>
-                  
-                  <Input 
-                    placeholder={
-                      menuError ? "Click retry to reload menu" : 
-                      menuItems.length === 0 ? "No menu items - Go to Menu page to add items" :
-                      "Search item... (Enter to add)"
-                    } 
-                    value={searchQuery} 
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    onFocus={() => {
-                      setSearchFocused(true);
-                      if (searchQuery.trim() && menuItems.length > 0) {
-                        setShowMenuDropdown(true);
-                      }
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => setSearchFocused(false), 200);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && hasMatches) {
-                        e.preventDefault();
-                        handleAddMenuItem(filteredMenuItems[0]);
-                      }
-                      if (e.key === 'Escape') {
-                        setShowMenuDropdown(false);
-                        setSearchFocused(false);
-                      }
-                    }}
-                    className={`pl-8 h-10 text-base transition-all duration-200 ${searchFocused ? 'ring-2 ring-violet-500 border-violet-300' : 'border-gray-300'}`}
-                  />
                 </div>
+                
+                {/* Custom item addition - Mobile responsive */}
                 {!hasMatches && searchQuery.trim() && (
                   <>
                     <Input 
@@ -1188,13 +1197,13 @@ const BillingPage = ({ user }) => {
                       placeholder="₹" 
                       value={customPrice} 
                       onChange={(e) => setCustomPrice(e.target.value)} 
-                      className="w-16 h-10 text-base transition-all duration-200 focus:ring-2 focus:ring-green-500" 
+                      className="w-12 sm:w-16 h-10 text-sm sm:text-base transition-all duration-200 focus:ring-2 focus:ring-green-500" 
                       ref={priceInputRef} 
                     />
                     <Button 
                       size="sm" 
                       onClick={handleAddCustomItem} 
-                      className="h-10 px-3 bg-green-600 hover:bg-green-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
+                      className="h-10 px-2 sm:px-3 bg-green-600 hover:bg-green-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
@@ -1236,21 +1245,21 @@ const BillingPage = ({ user }) => {
                 </div>
               )}
               
-              {/* Enhanced Suggested Items with Intelligent Positioning */}
+              {/* Enhanced Suggested Items - Mobile Optimized */}
               {showMenuDropdown && searchQuery.trim() && hasMatches && (
                 <div 
-                  className={`absolute z-50 w-full bg-white border-2 border-violet-400 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 transform ${
+                  className={`absolute z-50 w-full bg-white border-2 border-violet-400 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 transform ${
                     isDropdownAnimating ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
                   } ${
                     dropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
                   }`}
                   style={{
-                    maxHeight: Math.min(300, screenHeight - keyboardHeight - 200),
+                    maxHeight: Math.min(280, screenHeight - keyboardHeight - 180),
                     animation: isDropdownAnimating ? 'none' : 'slideIn 0.2s ease-out'
                   }}
                 >
-                  <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-4 py-2.5 text-sm font-semibold flex justify-between items-center">
-                    <span className="flex items-center gap-2">
+                  <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold flex justify-between items-center">
+                    <span className="flex items-center gap-1 sm:gap-2">
                       <span className="animate-pulse">👆</span>
                       <span>Tap to add ({filteredMenuItems.length})</span>
                     </span>
@@ -1259,19 +1268,19 @@ const BillingPage = ({ user }) => {
                         setShowMenuDropdown(false);
                         setSearchFocused(false);
                       }}
-                      className="bg-white/20 hover:bg-white/30 rounded-full w-7 h-7 flex items-center justify-center transition-all duration-200 transform hover:scale-110 active:scale-95"
+                      className="bg-white/20 hover:bg-white/30 rounded-full w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center transition-all duration-200 transform hover:scale-110 active:scale-95"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3 h-3 sm:w-4 sm:h-4" />
                     </button>
                   </div>
                   <div 
                     className="overflow-y-auto scrollbar-thin scrollbar-thumb-violet-300 scrollbar-track-gray-100" 
                     style={{ 
                       WebkitOverflowScrolling: 'touch',
-                      maxHeight: Math.min(240, screenHeight - keyboardHeight - 260)
+                      maxHeight: Math.min(220, screenHeight - keyboardHeight - 240)
                     }}
                   >
-                    {filteredMenuItems.slice(0, 8).map((item, idx) => (
+                    {filteredMenuItems.slice(0, 6).map((item, idx) => (
                       <div 
                         key={item.id}
                         role="button"
@@ -1285,7 +1294,7 @@ const BillingPage = ({ user }) => {
                           e.preventDefault();
                           handleAddMenuItem(item);
                         }}
-                        className={`w-full flex items-center justify-between px-4 py-4 border-b border-gray-100 cursor-pointer select-none transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] ${
+                        className={`w-full flex items-center justify-between px-3 sm:px-4 py-3 sm:py-4 border-b border-gray-100 cursor-pointer select-none transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99] ${
                           idx === 0 
                             ? 'bg-gradient-to-r from-violet-50 to-purple-50 border-violet-200 shadow-sm' 
                             : 'bg-white hover:bg-gray-50'
@@ -1293,20 +1302,20 @@ const BillingPage = ({ user }) => {
                         style={{ 
                           touchAction: 'manipulation', 
                           WebkitTapHighlightColor: 'rgba(139, 92, 246, 0.1)', 
-                          minHeight: '56px' 
+                          minHeight: '48px' 
                         }}
                       >
                         <div className="flex-1 min-w-0">
-                          <span className={`font-semibold text-base block truncate ${idx === 0 ? 'text-violet-700' : 'text-gray-800'}`}>
+                          <span className={`font-semibold text-sm sm:text-base block truncate ${idx === 0 ? 'text-violet-700' : 'text-gray-800'}`}>
                             {idx === 0 && <span className="text-green-500 mr-1">⏎</span>}
                             {item.name}
                           </span>
                           {item.category && (
-                            <span className="text-xs text-gray-500 mt-0.5 block">{item.category}</span>
+                            <span className="text-xs text-gray-500 mt-0.5 block truncate">{item.category}</span>
                           )}
                         </div>
-                        <div className="ml-3 flex-shrink-0">
-                          <span className={`px-3 py-1.5 rounded-xl font-bold text-sm text-white transition-all duration-200 ${
+                        <div className="ml-2 sm:ml-3 flex-shrink-0">
+                          <span className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm text-white transition-all duration-200 ${
                             idx === 0 ? 'bg-gradient-to-r from-violet-600 to-purple-600 shadow-md' : 'bg-violet-500'
                           }`}>
                             {currency}{item.price}
@@ -1315,9 +1324,9 @@ const BillingPage = ({ user }) => {
                       </div>
                     ))}
                     
-                    {filteredMenuItems.length > 8 && (
-                      <div className="px-4 py-3 text-center text-sm text-gray-500 bg-gray-50">
-                        +{filteredMenuItems.length - 8} more items available
+                    {filteredMenuItems.length > 6 && (
+                      <div className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs sm:text-sm text-gray-500 bg-gray-50">
+                        +{filteredMenuItems.length - 6} more items available
                       </div>
                     )}
                   </div>
