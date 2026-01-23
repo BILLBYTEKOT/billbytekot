@@ -7125,6 +7125,106 @@ async def category_analysis_report(current_user: dict = Depends(get_current_user
     return sorted(result, key=lambda x: x["total_revenue"], reverse=True)
 
 
+@api_router.get("/reports/customer-balances")
+async def customer_balances_report(current_user: dict = Depends(get_current_user)):
+    """Get customer balance report showing customers with outstanding balances"""
+    user_org_id = get_secure_org_id(current_user)
+    
+    try:
+        # Get all orders with customer information and balance amounts
+        orders = await db.orders.find({
+            "organization_id": user_org_id,
+            "$or": [
+                {"is_credit": True},  # Credit orders
+                {"balance_amount": {"$gt": 0}},  # Orders with outstanding balance
+                {"customer_name": {"$exists": True, "$ne": ""}},  # Orders with customer names
+                {"customer_phone": {"$exists": True, "$ne": ""}}  # Orders with customer phones
+            ]
+        }, {"_id": 0}).to_list(1000)
+        
+        # Group by customer (using phone as primary key, name as secondary)
+        from collections import defaultdict
+        customer_data = defaultdict(lambda: {
+            "customer_name": "",
+            "customer_phone": "",
+            "balance_amount": 0.0,
+            "total_orders": 0,
+            "total_amount_ordered": 0.0,
+            "total_paid": 0.0,
+            "last_order_date": None,
+            "orders": []
+        })
+        
+        for order in orders:
+            # Use phone as primary identifier, fallback to name if no phone
+            customer_key = order.get("customer_phone") or order.get("customer_name") or f"unknown_{order.get('id', '')[:8]}"
+            
+            if not customer_key or customer_key == "":
+                continue
+                
+            customer = customer_data[customer_key]
+            
+            # Update customer info (prefer non-empty values)
+            if order.get("customer_name") and not customer["customer_name"]:
+                customer["customer_name"] = order["customer_name"]
+            if order.get("customer_phone") and not customer["customer_phone"]:
+                customer["customer_phone"] = order["customer_phone"]
+            
+            # Accumulate balance amount (only for credit orders)
+            if order.get("is_credit") and order.get("balance_amount", 0) > 0:
+                customer["balance_amount"] += order.get("balance_amount", 0)
+            
+            # Count orders and amounts
+            customer["total_orders"] += 1
+            customer["total_amount_ordered"] += order.get("total", 0)
+            customer["total_paid"] += order.get("payment_received", 0)
+            
+            # Track latest order date
+            order_date = order.get("created_at")
+            if order_date:
+                if not customer["last_order_date"] or order_date > customer["last_order_date"]:
+                    customer["last_order_date"] = order_date
+            
+            customer["orders"].append({
+                "id": order.get("id"),
+                "total": order.get("total", 0),
+                "balance": order.get("balance_amount", 0),
+                "date": order_date,
+                "status": order.get("status")
+            })
+        
+        # Convert to list and clean up
+        result = []
+        for customer_key, customer in customer_data.items():
+            # Only include customers with meaningful data
+            if customer["total_orders"] > 0:
+                # Clean up customer name/phone display
+                if not customer["customer_name"]:
+                    customer["customer_name"] = customer["customer_phone"] or "Unknown Customer"
+                
+                # Remove orders list from response (too much data)
+                customer_summary = {
+                    "customer_name": customer["customer_name"],
+                    "customer_phone": customer["customer_phone"],
+                    "balance_amount": round(customer["balance_amount"], 2),
+                    "total_orders": customer["total_orders"],
+                    "total_amount_ordered": round(customer["total_amount_ordered"], 2),
+                    "total_paid": round(customer["total_paid"], 2),
+                    "last_order_date": customer["last_order_date"]
+                }
+                result.append(customer_summary)
+        
+        # Sort by balance amount (highest first)
+        result.sort(key=lambda x: x["balance_amount"], reverse=True)
+        
+        print(f"📊 Customer balance report: Found {len(result)} customers")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error generating customer balance report: {e}")
+        return []
+
+
 # Thermal printer route
 @api_router.post("/print")
 async def print_receipt(

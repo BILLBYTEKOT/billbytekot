@@ -219,10 +219,27 @@ const ReportsPage = ({ user }) => {
   const fetchCustomerBalances = useCallback(async () => {
     setCustomerBalanceLoading(true);
     try {
+      console.log('🔍 Fetching customer balances...');
       const response = await axios.get(`${API}/reports/customer-balances`);
+      console.log('📊 Customer balance response:', response.data);
       setCustomerBalances(response.data || []);
+      
+      if (response.data && response.data.length > 0) {
+        console.log(`✅ Found ${response.data.length} customers with balance data`);
+        // Log first few customers for debugging
+        response.data.slice(0, 3).forEach((customer, i) => {
+          console.log(`  ${i + 1}. ${customer.customer_name || 'Unknown'} (${customer.customer_phone || 'No phone'}): ₹${customer.balance_amount || 0}`);
+        });
+      } else {
+        console.log('⚠️ No customer balance data received');
+      }
     } catch (error) {
-      console.error("Failed to fetch customer balances", error);
+      console.error("❌ Failed to fetch customer balances", error);
+      console.error("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
       setCustomerBalances([]);
     } finally {
       setCustomerBalanceLoading(false);
@@ -1820,6 +1837,16 @@ const ReportsPage = ({ user }) => {
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <Users className="w-4 h-4 sm:w-5 sm:h-5 text-violet-600" />
                   Customer Balance Management
+                  <Button
+                    onClick={fetchCustomerBalances}
+                    disabled={customerBalanceLoading}
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto"
+                  >
+                    <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 ${customerBalanceLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
                 </CardTitle>
               </CardHeader>
               <CardContent>
