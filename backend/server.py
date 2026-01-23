@@ -35,6 +35,23 @@ from redis_cache import init_redis_cache, cleanup_redis_cache, get_cached_order_
 # Import monitoring system
 from monitoring import init_monitoring, collect_metrics_task, monitoring_router
 
+# ✅ Import Performance Optimization Modules
+try:
+    from response_optimizer import (
+        CacheDecorator,
+        ResponseOptimizer,
+        PerformanceMetrics,
+        ResponseHeaders
+    )
+    from query_optimizer import (
+        QueryOptimizer,
+        CacheKeyGenerator,
+        PerformanceConstants
+    )
+    print("✅ Performance optimization modules imported successfully")
+except ImportError as e:
+    print(f"⚠️ Performance modules not found: {e}. Core features will still work.")
+
 try:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
 
@@ -2093,11 +2110,23 @@ async def register_direct(user_data: UserCreate):
     if existing_email:
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # GENERATE UNIQUE REFERRAL CODE BEFORE CREATING USER OBJECT
+    try:
+        user_referral_code = await generate_unique_referral_code()
+        print(f"✅ Generated referral code for new user: {user_referral_code}")
+    except Exception as e:
+        print(f"⚠️ Failed to generate referral code: {e}")
+        # If generation fails, create a simple unique code
+        import time
+        user_referral_code = f"U{int(time.time())}"[-8:].upper().zfill(8)
+        print(f"✅ Using fallback referral code: {user_referral_code}")
+    
     # Create user object
     user_obj = User(
         username=user_data.username.strip(),
         email=user_data.email.strip(),
-        role=user_data.role
+        role=user_data.role,
+        referral_code=user_referral_code  # ALWAYS SET A REFERRAL CODE
     )
     
     # If admin, they are their own organization
@@ -2119,7 +2148,28 @@ async def register_direct(user_data: UserCreate):
     # Don't set referred_by field if referral_code is None to avoid database issues
     
     # Insert user into database
-    await db.users.insert_one(doc)
+    try:
+        await db.users.insert_one(doc)
+        print(f"✅ User created successfully: {user_obj.username}")
+    except Exception as e:
+        if "duplicate key error" in str(e):
+            if "username" in str(e):
+                raise HTTPException(status_code=400, detail="Username already exists")
+            elif "email" in str(e):
+                raise HTTPException(status_code=400, detail="Email already registered")
+            elif "referral_code" in str(e):
+                # This shouldn't happen with proper generation, but handle it
+                print(f"⚠️ Referral code collision, retrying...")
+                # Generate a new referral code and retry
+                user_referral_code = await generate_unique_referral_code()
+                doc["referral_code"] = user_referral_code
+                user_obj.referral_code = user_referral_code
+                await db.users.insert_one(doc)
+            else:
+                raise HTTPException(status_code=400, detail="User already exists")
+        else:
+            print(f"❌ Database error during user creation: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create user")
     
     # Apply referral if code was provided (Requirement 3.7)
     if referral_code:
@@ -4278,7 +4328,10 @@ async def create_order(
 
 @api_router.get("/orders", response_model=List[Order])
 async def get_orders(
-    status: Optional[str] = None, current_user: dict = Depends(get_current_user)
+    status: Optional[str] = None, 
+    current_user: dict = Depends(get_current_user),
+    page: int = Query(1, ge=1, description="Page number starting from 1"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)")
 ):
     # Get user's organization_id - CRITICAL for data isolation
     user_org_id = current_user.get("organization_id")
@@ -4384,9 +4437,6 @@ async def get_orders(
         print(f"❌ Critical error in get_orders: {e}")
         # Last resort: return empty list to prevent API crash
         return []
-        
-        print(f"📊 Final fallback: Returned {len(orders)} orders from MongoDB")
-        return orders
 
 
 @api_router.get("/orders/today-bills", response_model=List[Order])
@@ -6862,6 +6912,16 @@ async def sales_forecast(current_user: dict = Depends(get_current_user)):
 async def daily_report(current_user: dict = Depends(get_current_user)):
     user_org_id = get_secure_org_id(current_user)
     
+    # ✅ PERFORMANCE: Check cache first (1-hour TTL for daily reports)
+    cache_key = f"daily_report:{user_org_id}"
+    current_time = time.time()
+    
+    with _cache_lock:
+        if cache_key in _cache and cache_key in _cache_ttl:
+            if current_time < _cache_ttl[cache_key]:
+                print(f"💾 Cache hit for daily_report: {cache_key}")
+                return _cache[cache_key]
+    
     # Use IST (Indian Standard Time) for "today" calculation
     # IST is UTC+5:30
     from datetime import timedelta
@@ -6920,12 +6980,142 @@ async def daily_report(current_user: dict = Depends(get_current_user)):
         total_orders = 0
         total_sales = 0
 
-    return {
+    result = {
         "date": today_ist.isoformat(),
         "total_orders": total_orders,
         "total_sales": total_sales,
         "orders": today_orders,
     }
+    
+    # ✅ PERFORMANCE: Cache the result for 1 hour to reduce database load
+    with _cache_lock:
+        _cache[cache_key] = result
+        _cache_ttl[cache_key] = current_time + 3600  # 1 hour TTL
+    
+    print(f"✅ Cached daily_report for: {cache_key} (TTL: 1 hour)")
+    return result
+
+
+# ✅ NEW: Performance Metrics Endpoint
+@api_router.get("/admin/performance-metrics")
+async def get_performance_metrics(current_user: dict = Depends(get_current_user)):
+    """Get API performance metrics - only for admin users"""
+    user_org_id = get_secure_org_id(current_user)
+    
+    # Check if user is super admin
+    user_doc = await db.users.find_one({"email": current_user.get("email")}, {"_id": 0})
+    if not user_doc or not user_doc.get("is_super_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get cache metrics
+    cache_size = len(_cache)
+    expired_count = sum(1 for k, v in _cache_ttl.items() if time.time() >= v)
+    
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "cache_stats": {
+            "total_cached_keys": cache_size,
+            "expired_keys": expired_count,
+            "active_keys": cache_size - expired_count,
+            "cache_memory_bytes": sum(len(str(v).encode()) for v in _cache.values()) if _cache else 0
+        },
+        "endpoints_with_cache": [
+            {"endpoint": "/reports/daily", "ttl_seconds": 3600, "description": "Daily sales report"},
+            {"endpoint": "/orders", "ttl_seconds": 300, "description": "List orders (browser cache)"},
+            {"endpoint": "/menu", "ttl_seconds": 600, "description": "Menu items list"}
+        ]
+    }
+
+
+# ✅ NEW: Clear Cache Endpoint (for admin)
+@api_router.post("/admin/clear-cache")
+async def clear_cache(current_user: dict = Depends(get_current_user), pattern: Optional[str] = None):
+    """Clear cache entries - admin only"""
+    user_doc = await db.users.find_one({"email": current_user.get("email")}, {"_id": 0})
+    if not user_doc or not user_doc.get("is_super_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    global _cache, _cache_ttl
+    
+    if pattern:
+        # Clear cache entries matching pattern
+        with _cache_lock:
+            matching_keys = [k for k in _cache.keys() if pattern in k]
+            for key in matching_keys:
+                _cache.pop(key, None)
+                _cache_ttl.pop(key, None)
+        
+        return {"message": f"Cleared {len(matching_keys)} cache entries", "pattern": pattern}
+    else:
+        # Clear all cache
+        with _cache_lock:
+            cleared = len(_cache)
+            _cache.clear()
+            _cache_ttl.clear()
+        
+        return {"message": f"Cleared all {cleared} cache entries"}
+
+
+# ✅ NEW: Batch Update Orders Endpoint (reduces N+1 queries)
+@api_router.post("/orders/batch-update-status")
+async def batch_update_order_status(
+    current_user: dict = Depends(get_current_user),
+    updates: List[dict] = Body(...)
+):
+    """Batch update order statuses - reduces database round trips"""
+    user_org_id = get_secure_org_id(current_user)
+    
+    if not updates or len(updates) > 100:
+        raise HTTPException(status_code=400, detail="Provide 1-100 updates")
+    
+    try:
+        from pymongo import UpdateOne
+        
+        # Build bulk operations
+        bulk_ops = []
+        for update in updates:
+            order_id = update.get("order_id")
+            new_status = update.get("status")
+            
+            if not order_id or not new_status:
+                continue
+            
+            bulk_ops.append(
+                UpdateOne(
+                    {
+                        "_id": order_id,
+                        "organization_id": user_org_id
+                    },
+                    {
+                        "$set": {
+                            "status": new_status,
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+            )
+        
+        if bulk_ops:
+            result = await db.orders.bulk_write(bulk_ops)
+            
+            # Clear related cache entries
+            with _cache_lock:
+                cache_keys_to_clear = [k for k in _cache.keys() if "order" in k or user_org_id in k]
+                for key in cache_keys_to_clear:
+                    _cache.pop(key, None)
+                    _cache_ttl.pop(key, None)
+            
+            return {
+                "success": True,
+                "modified_count": result.modified_count,
+                "message": f"Updated {result.modified_count} orders"
+            }
+        
+        return {"success": True, "modified_count": 0, "message": "No valid updates provided"}
+        
+    except Exception as e:
+        logger.error(f"Batch update error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to batch update orders")
 
 
 @api_router.get("/reports/export")
