@@ -60,20 +60,23 @@ const Dashboard = ({ user }) => {
 
   const fetchStats = async () => {
     try {
-      const [dailyReport, ordersRes] = await Promise.all([
-        axios.get(`${API}/reports/daily`),
+      const [dashboardRes, ordersRes] = await Promise.all([
+        axios.get(`${API}/dashboard`),  // Use new real-time dashboard endpoint
         axios.get(`${API}/orders`)
       ]);
       
       const orders = ordersRes.data;
       const activeOrders = orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
-      const avgValue = dailyReport.data.total_orders > 0 
-        ? dailyReport.data.total_sales / dailyReport.data.total_orders 
+      const dashboardData = dashboardRes.data;
+      
+      // Calculate average order value from dashboard data
+      const avgValue = dashboardData.todaysOrders > 0 
+        ? dashboardData.todaysRevenue / dashboardData.todaysOrders 
         : 0;
 
       setStats({
-        todayOrders: dailyReport.data.total_orders,
-        todaySales: dailyReport.data.total_sales,
+        todayOrders: dashboardData.todaysOrders,
+        todaySales: dashboardData.todaysRevenue,
         activeOrders: activeOrders.length,
         avgOrderValue: avgValue,
         pendingOrders: activeOrders.filter(o => o.status === 'pending').length,
@@ -82,6 +85,30 @@ const Dashboard = ({ user }) => {
       });
     } catch (error) {
       console.error('Failed to fetch stats', error);
+      
+      // Fallback to daily report endpoint if dashboard fails
+      try {
+        const dailyReport = await axios.get(`${API}/reports/daily`);
+        const orders = await axios.get(`${API}/orders`);
+        
+        const ordersData = orders.data;
+        const activeOrders = ordersData.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
+        const avgValue = dailyReport.data.total_orders > 0 
+          ? dailyReport.data.total_sales / dailyReport.data.total_orders 
+          : 0;
+
+        setStats({
+          todayOrders: dailyReport.data.total_orders,
+          todaySales: dailyReport.data.total_sales,
+          activeOrders: activeOrders.length,
+          avgOrderValue: avgValue,
+          pendingOrders: activeOrders.filter(o => o.status === 'pending').length,
+          preparingOrders: activeOrders.filter(o => o.status === 'preparing').length,
+          readyOrders: activeOrders.filter(o => o.status === 'ready').length
+        });
+      } catch (fallbackError) {
+        console.error('Both dashboard endpoints failed', fallbackError);
+      }
     }
   };
 

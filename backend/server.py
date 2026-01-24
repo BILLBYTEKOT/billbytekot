@@ -6912,7 +6912,7 @@ async def sales_forecast(current_user: dict = Depends(get_current_user)):
 async def daily_report(current_user: dict = Depends(get_current_user)):
     user_org_id = get_secure_org_id(current_user)
     
-    # ✅ PERFORMANCE: Check cache first (1-hour TTL for daily reports)
+    # ✅ PERFORMANCE: Check cache first (30-second TTL for real-time dashboard updates)
     cache_key = f"daily_report:{user_org_id}"
     current_time = time.time()
     
@@ -6987,12 +6987,12 @@ async def daily_report(current_user: dict = Depends(get_current_user)):
         "orders": today_orders,
     }
     
-    # ✅ PERFORMANCE: Cache the result for 1 hour to reduce database load
+    # ✅ PERFORMANCE: Cache the result for 30 seconds for real-time updates
     with _cache_lock:
         _cache[cache_key] = result
-        _cache_ttl[cache_key] = current_time + 3600  # 1 hour TTL
+        _cache_ttl[cache_key] = current_time + 30  # 30 seconds TTL for real-time dashboard
     
-    print(f"✅ Cached daily_report for: {cache_key} (TTL: 1 hour)")
+    print(f"✅ Cached daily_report for: {cache_key} (TTL: 30 seconds)")
     return result
 
 
