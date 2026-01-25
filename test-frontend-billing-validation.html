@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Billing Validation Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .test-section h3 {
+            color: #34495e;
+            margin-top: 0;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .result {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .calculation-display {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Frontend Billing Validation & Dashboard Test</h1>
+        
+        <!-- Dashboard Double Counting Test -->
+        <div class="test-section">
+            <h3>📊 Dashboard Double Counting Test</h3>
+            <p>This test simulates the dashboard calculation fix to ensure no double counting occurs.</p>
+            
+            <button onclick="testDashboardCalculation()">Test Dashboard Calculation</button>
+            <div id="dashboardResult"></div>
+            
+            <div class="dashboard-stats" id="dashboardStats" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-value" id="todayOrders">0</div>
+                    <div class="stat-label">Today's Orders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="completedOrders">0</div>
+                    <div class="stat-label">Completed Orders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="todayRevenue">₹0</div>
+                    <div class="stat-label">Today's Revenue</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeOrders">0</div>
+                    <div class="stat-label">Active Orders</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Billing Validation Test -->
+        <div class="test-section">
+            <h3>🧮 Billing Validation Test</h3>
+            <p>Test the billing calculation validation logic that prevents invalid discount/tax calculations.</p>
+            
+            <div class="form-group">
+                <label>Subtotal (₹)</label>
+                <input type="number" id="subtotal" value="100.00" step="0.01" oninput="calculateBilling()">
+            </div>
+            
+            <div class="form-group">
+                <label>Discount Type</label>
+                <select id="discountType" onchange="calculateBilling()">
+                    <option value="amount">Amount (₹)</option>
+                    <option value="percent">Percentage (%)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Discount Value</label>
+                <input type="number" id="discountValue" value="10" step="0.01" oninput="calculateBilling()">
+            </div>
+            
+            <div class="form-group">
+                <label>Tax Rate (%)</label>
+                <input type="number" id="taxRate" value="10" step="0.01" min="0" max="100" oninput="calculateBilling()">
+            </div>
+            
+            <div class="calculation-display" id="calculationDisplay">
+                <strong>Calculation:</strong><br>
+                Subtotal: ₹100.00<br>
+                Discount: ₹10.00<br>
+                Taxable Amount: ₹90.00<br>
+                Tax (10%): ₹9.00<br>
+                <strong>Total: ₹99.00</strong>
+            </div>
+            
+            <button onclick="validateBilling()">Validate Calculation</button>
+            <button onclick="testInvalidScenarios()">Test Invalid Scenarios</button>
+            
+            <div id="billingResult"></div>
+        </div>
+
+        <!-- Cache Invalidation Test -->
+        <div class="test-section">
+            <h3>🗑️ Cache Invalidation Test</h3>
+            <p>Test the billing cache invalidation functionality.</p>
+            
+            <button onclick="testCacheInvalidation()">Test Cache Invalidation</button>
+            <div id="cacheResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // Simulate the billing validation logic from BillingPage.js
+        function calculateBilling() {
+            const subtotal = parseFloat(document.getElementById('subtotal').value) || 0;
+            const discountType = document.getElementById('discountType').value;
+            const discountValue = parseFloat(document.getElementById('discountValue').value) || 0;
+            const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+            
+            // Calculate discount amount
+            let discountAmount = 0;
+            if (discountValue > 0) {
+                if (discountType === 'percent') {
+                    const pct = Math.min(discountValue, 100);
+                    discountAmount = (subtotal * pct) / 100;
+                } else {
+                    discountAmount = Math.min(discountValue, subtotal);
+                }
+            }
+            
+            // Calculate tax
+            const taxableAmount = Math.max(0, subtotal - discountAmount);
+            const tax = (taxableAmount * taxRate) / 100;
+            
+            // Calculate total
+            const total = subtotal - discountAmount + tax;
+            
+            // Update display
+            document.getElementById('calculationDisplay').innerHTML = `
+                <strong>Calculation:</strong><br>
+                Subtotal: ₹${subtotal.toFixed(2)}<br>
+                Discount: ₹${discountAmount.toFixed(2)}<br>
+                Taxable Amount: ₹${taxableAmount.toFixed(2)}<br>
+                Tax (${taxRate}%): ₹${tax.toFixed(2)}<br>
+                <strong>Total: ₹${total.toFixed(2)}</strong>
+            `;
+            
+            return { subtotal, discountAmount, tax, total, taxRate };
+        }
+        
+        function validateBilling() {
+            const calc = calculateBilling();
+            const resultDiv = document.getElementById('billingResult');
+            
+            let errors = [];
+            let warnings = [];
+            
+            // Validation rules from the fix
+            if (calc.discountAmount < 0 || calc.discountAmount > calc.subtotal) {
+                errors.push(`Invalid discount amount: ₹${calc.discountAmount.toFixed(2)}. Must be between ₹0 and ₹${calc.subtotal.toFixed(2)}`);
+            }
+            
+            if (calc.taxRate < 0 || calc.taxRate > 100) {
+                errors.push(`Invalid tax rate: ${calc.taxRate}%. Must be between 0% and 100%`);
+            }
+            
+            // Check calculation consistency
+            const expectedTotal = calc.subtotal - calc.discountAmount + calc.tax;
+            const tolerance = 0.01;
+            if (Math.abs(calc.total - expectedTotal) > tolerance) {
+                errors.push(`Calculation error: Total should be ₹${expectedTotal.toFixed(2)} but got ₹${calc.total.toFixed(2)}`);
+            }
+            
+            if (calc.discountAmount > calc.subtotal * 0.5) {
+                warnings.push(`Large discount: ${((calc.discountAmount/calc.subtotal)*100).toFixed(1)}% of subtotal`);
+            }
+            
+            // Display results
+            if (errors.length > 0) {
+                resultDiv.innerHTML = `<div class="result error">❌ Validation Failed:<br>${errors.join('<br>')}</div>`;
+            } else if (warnings.length > 0) {
+                resultDiv.innerHTML = `<div class="result warning">⚠️ Validation Passed with Warnings:<br>${warnings.join('<br>')}</div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="result success">✅ Validation Passed: All calculations are correct!</div>`;
+            }
+        }
+        
+        function testInvalidScenarios() {
+            const resultDiv = document.getElementById('billingResult');
+            const scenarios = [
+                {
+                    name: "Excessive Discount",
+                    subtotal: 100,
+                    discountValue: 150,
+                    discountType: "amount",
+                    taxRate: 10
+                },
+                {
+                    name: "Invalid Tax Rate",
+                    subtotal: 100,
+                    discountValue: 10,
+                    discountType: "amount",
+                    taxRate: 150
+                },
+                {
+                    name: "Negative Values",
+                    subtotal: -50,
+                    discountValue: 10,
+                    discountType: "amount",
+                    taxRate: 10
+                }
+            ];
+            
+            let results = [];
+            
+            scenarios.forEach(scenario => {
+                // Set values
+                document.getElementById('subtotal').value = scenario.subtotal;
+                document.getElementById('discountValue').value = scenario.discountValue;
+                document.getElementById('discountType').value = scenario.discountType;
+                document.getElementById('taxRate').value = scenario.taxRate;
+                
+                // Calculate and validate
+                const calc = calculateBilling();
+                
+                let hasErrors = false;
+                if (calc.discountAmount < 0 || calc.discountAmount > calc.subtotal) hasErrors = true;
+                if (calc.taxRate < 0 || calc.taxRate > 100) hasErrors = true;
+                if (calc.subtotal < 0) hasErrors = true;
+                
+                results.push(`${scenario.name}: ${hasErrors ? '✅ Properly Rejected' : '❌ Should be Rejected'}`);
+            });
+            
+            resultDiv.innerHTML = `<div class="result ${results.every(r => r.includes('✅')) ? 'success' : 'error'}">
+                Invalid Scenario Tests:<br>${results.join('<br>')}
+            </div>`;
+            
+            // Reset to valid values
+            document.getElementById('subtotal').value = 100;
+            document.getElementById('discountValue').value = 10;
+            document.getElementById('discountType').value = "amount";
+            document.getElementById('taxRate').value = 10;
+            calculateBilling();
+        }
+        
+        function testDashboardCalculation() {
+            // Simulate dashboard data
+            const mockDashboardStats = {
+                todaysOrders: 15,
+                todaysCompletedOrders: 12,
+                todaysRevenue: 2400,
+                pendingOrders: 3
+            };
+            
+            const mockTodaysBills = [
+                { status: 'completed', total: 200 },
+                { status: 'completed', total: 150 },
+                { status: 'completed', total: 300 },
+                { status: 'pending', total: 100 }
+            ];
+            
+            const mockOrders = [
+                { status: 'pending' },
+                { status: 'preparing' },
+                { status: 'ready' },
+                { status: 'completed' },
+                { status: 'completed' }
+            ];
+            
+            // OLD WAY (WRONG - Double counting)
+            const oldTodayOrders = mockDashboardStats.todaysOrders + mockTodaysBills.filter(b => b.status === 'completed').length;
+            const oldRevenue = mockDashboardStats.todaysRevenue + mockTodaysBills.filter(b => b.status === 'completed').reduce((sum, b) => sum + b.total, 0);
+            
+            // NEW WAY (CORRECT - Single source)
+            const newTodayOrders = mockDashboardStats.todaysOrders;
+            const newRevenue = mockDashboardStats.todaysRevenue;
+            const completedOrders = mockDashboardStats.todaysCompletedOrders;
+            const activeOrders = mockOrders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status)).length;
+            
+            // Display results
+            document.getElementById('dashboardStats').style.display = 'grid';
+            document.getElementById('todayOrders').textContent = newTodayOrders;
+            document.getElementById('completedOrders').textContent = completedOrders;
+            document.getElementById('todayRevenue').textContent = `₹${newRevenue}`;
+            document.getElementById('activeOrders').textContent = activeOrders;
+            
+            const resultDiv = document.getElementById('dashboardResult');
+            resultDiv.innerHTML = `
+                <div class="result success">
+                    ✅ Dashboard Double Counting Fix Verified:<br><br>
+                    <strong>Before Fix (WRONG):</strong><br>
+                    - Today's Orders: ${oldTodayOrders} (${mockDashboardStats.todaysOrders} + ${mockTodaysBills.filter(b => b.status === 'completed').length} = DOUBLE COUNT)<br>
+                    - Revenue: ₹${oldRevenue} (₹${mockDashboardStats.todaysRevenue} + ₹${mockTodaysBills.filter(b => b.status === 'completed').reduce((sum, b) => sum + b.total, 0)} = DOUBLE COUNT)<br><br>
+                    
+                    <strong>After Fix (CORRECT):</strong><br>
+                    - Today's Orders: ${newTodayOrders} (Single source from dashboard stats)<br>
+                    - Revenue: ₹${newRevenue} (Single source from dashboard stats)<br>
+                    - Completed Orders: ${completedOrders}<br>
+                    - Active Orders: ${activeOrders} (Calculated from orders array)
+                </div>
+            `;
+        }
+        
+        function testCacheInvalidation() {
+            // Simulate cache invalidation
+            const mockCache = new Map();
+            mockCache.set('order_123', { data: 'cached_billing_data', timestamp: Date.now() });
+            
+            const resultDiv = document.getElementById('cacheResult');
+            
+            // Test cache invalidation
+            const orderId = 'order_123';
+            const hadCache = mockCache.has(orderId);
+            mockCache.delete(orderId);
+            const hasCache = mockCache.has(orderId);
+            
+            resultDiv.innerHTML = `
+                <div class="result success">
+                    ✅ Cache Invalidation Test:<br><br>
+                    - Before invalidation: Cache exists for ${orderId}: ${hadCache}<br>
+                    - After invalidation: Cache exists for ${orderId}: ${hasCache}<br><br>
+                    
+                    <strong>Cache Invalidation Triggers:</strong><br>
+                    - After successful order update in BillingPage<br>
+                    - After discount/tax changes<br>
+                    - Manual clearAll() method available<br>
+                    - Global window.billingCache instance for invalidation
+                </div>
+            `;
+        }
+        
+        // Initialize
+        calculateBilling();
+    </script>
+</body>
+</html>

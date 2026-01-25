@@ -4894,11 +4894,38 @@ async def update_order(
             if field in order_data:
                 update_data[field] = order_data[field]
         
-        # Also update discount and tax fields if provided
+        # Also update discount and tax fields if provided - WITH VALIDATION
         discount_fields = ["discount", "discount_type", "discount_value", "discount_amount", "tax", "tax_rate", "subtotal", "total", "items"]
         for field in discount_fields:
             if field in order_data:
                 update_data[field] = order_data[field]
+        
+        # ✅ BILLING VALIDATION - Ensure calculations are correct
+        if all(field in order_data for field in ["subtotal", "discount", "tax", "total"]):
+            subtotal = float(order_data["subtotal"])
+            discount = float(order_data["discount"])
+            tax = float(order_data["tax"])
+            total = float(order_data["total"])
+            
+            # Validate discount
+            if discount < 0 or discount > subtotal:
+                raise HTTPException(status_code=400, detail=f"Invalid discount amount: {discount}. Must be between 0 and {subtotal}")
+            
+            # Validate tax rate if provided
+            if "tax_rate" in order_data:
+                tax_rate = float(order_data["tax_rate"])
+                if tax_rate < 0 or tax_rate > 100:
+                    raise HTTPException(status_code=400, detail=f"Invalid tax rate: {tax_rate}%. Must be between 0 and 100")
+            
+            # Validate total calculation
+            calculated_total = subtotal - discount + tax
+            tolerance = 0.01  # Allow 1 cent difference for rounding
+            
+            if abs(total - calculated_total) > tolerance:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Calculation error: Total should be {calculated_total:.2f} (subtotal {subtotal:.2f} - discount {discount:.2f} + tax {tax:.2f}) but got {total:.2f}"
+                )
         
         await db.orders.update_one(
             {"id": order_id, "organization_id": user_org_id},
@@ -5018,7 +5045,34 @@ async def update_order(
         
         return {"message": "Order payment details updated successfully"}
     
-    # For non-completed orders, allow full editing
+    # For non-completed orders, allow full editing - WITH VALIDATION
+    # ✅ BILLING VALIDATION - Validate calculations before updating
+    if all(field in order_data for field in ["subtotal", "discount", "tax", "total"]):
+        subtotal = float(order_data["subtotal"])
+        discount = float(order_data["discount"])
+        tax = float(order_data["tax"])
+        total = float(order_data["total"])
+        
+        # Validate discount
+        if discount < 0 or discount > subtotal:
+            raise HTTPException(status_code=400, detail=f"Invalid discount amount: {discount}. Must be between 0 and {subtotal}")
+        
+        # Validate tax rate if provided
+        if "tax_rate" in order_data:
+            tax_rate = float(order_data["tax_rate"])
+            if tax_rate < 0 or tax_rate > 100:
+                raise HTTPException(status_code=400, detail=f"Invalid tax rate: {tax_rate}%. Must be between 0 and 100")
+        
+        # Validate total calculation
+        calculated_total = subtotal - discount + tax
+        tolerance = 0.01  # Allow 1 cent difference for rounding
+        
+        if abs(total - calculated_total) > tolerance:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Calculation error: Total should be {calculated_total:.2f} (subtotal {subtotal:.2f} - discount {discount:.2f} + tax {tax:.2f}) but got {total:.2f}"
+            )
+    
     update_data = {
         "items": order_data.get("items", existing_order["items"]),
         "subtotal": order_data.get("subtotal", existing_order["subtotal"]),

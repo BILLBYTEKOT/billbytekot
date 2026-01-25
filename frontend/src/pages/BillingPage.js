@@ -613,66 +613,72 @@ const BillingPage = ({ user }) => {
       return false; 
     }
 
-    // ✅ FRONTEND VALIDATION - No server changes needed
-    const orderData = {
-      id: orderId,
-      table_number: order?.table_number,
-      items: orderItems.map(item => ({
-        id: item.id || `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: item.name,
-        price: parseFloat(item.price) || 0,
-        quantity: parseInt(item.quantity) || 1
-      })),
-      subtotal: calculateSubtotal(),
-      tax: calculateTax(),
-      total: calculateTotal()
-    };
-
-    // Validate order data before sending to server
-    const validation = OrderValidator.validateOrder(orderData);
-    
-    if (!validation.valid) {
-      // Show validation errors
-      validation.errors.forEach(error => {
-        toast.error(`Validation Error: ${error}`);
-      });
-      return false;
-    }
-
-    // Show warnings if any
-    validation.warnings.forEach(warning => {
-      toast.warning(`Warning: ${warning}`);
-    });
-
     try {
       const subtotal = calculateSubtotal();
       const discountAmt = calculateDiscountAmount();
       const tax = calculateTax();
       const total = calculateTotal();
       
-      await axios.put(`${API}/orders/${orderId}`, {
+      // ✅ BILLING VALIDATION - Ensure calculations are correct
+      const calculatedTotal = subtotal - discountAmt + tax;
+      const tolerance = 0.01; // Allow 1 cent difference for rounding
+      
+      if (Math.abs(total - calculatedTotal) > tolerance) {
+        toast.error(`Calculation error: Total should be ${calculatedTotal.toFixed(2)} but got ${total.toFixed(2)}`);
+        return false;
+      }
+      
+      // Validate discount amount
+      if (discountAmt < 0 || discountAmt > subtotal) {
+        toast.error('Invalid discount amount');
+        return false;
+      }
+      
+      // Validate tax rate
+      const taxRate = getEffectiveTaxRate();
+      if (taxRate < 0 || taxRate > 100) {
+        toast.error('Invalid tax rate');
+        return false;
+      }
+      
+      const orderUpdateData = {
         items: orderItems, 
-        subtotal: subtotal - discountAmt, 
+        subtotal: subtotal, // Send original subtotal
         tax, 
-        tax_rate: getEffectiveTaxRate(), 
+        tax_rate: taxRate, 
         total,
         discount: discountAmt, 
         discount_type: discountType, 
         discount_value: parseFloat(discountValue) || 0, 
         discount_amount: discountAmt
-      });
+      };
+      
+      await axios.put(`${API}/orders/${orderId}`, orderUpdateData);
+      
+      // Invalidate billing cache after successful update
+      if (window.billingCache) {
+        window.billingCache.invalidateCache(orderId);
+      }
       
       setOrder(prev => ({ 
         ...prev, 
         items: orderItems, 
-        subtotal: subtotal - discountAmt, 
+        subtotal: subtotal, 
         tax, 
-        total 
+        total,
+        discount: discountAmt,
+        discount_type: discountType,
+        discount_value: parseFloat(discountValue) || 0
       }));
       
       return true;
     } catch (error) {
-      toast.error('Failed to update order');
+      console.error('Failed to update order:', error);
+      if (error.response?.data?.detail) {
+        toast.error(`Update failed: ${error.response.data.detail}`);
+      } else {
+        toast.error('Failed to update order');
+      }
       return false;
     }
   };

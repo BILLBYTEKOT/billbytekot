@@ -100,30 +100,29 @@ const Dashboard = ({ user }) => {
   const restaurantName = businessSettingsData?.business_settings?.restaurant_name || user?.username || '';
   const isOffline = !navigator.onLine;
   
-  // Calculate stats from dashboard data, orders, and today's bills
+  // Calculate stats from dashboard data and orders (fix double counting)
   const stats = React.useMemo(() => {
     const activeOrders = orders ? orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status)) : [];
-    const completedOrders = todaysBills ? todaysBills.filter(o => o.status === 'completed') : [];
     
-    // Calculate today's orders from both dashboard stats and completed bills
-    const todayOrdersCount = (dashboardStats?.todaysOrders || 0) + completedOrders.length;
+    // Use ONLY dashboard stats to avoid double counting
+    // dashboardStats already includes all today's data correctly
+    const todayOrdersCount = dashboardStats?.todaysOrders || 0;
+    const todaySalesAmount = dashboardStats?.todaysRevenue || 0;
+    const completedOrdersCount = dashboardStats?.todaysCompletedOrders || 0;
     
-    // Calculate today's sales from both dashboard stats and completed bills
-    const todaySalesAmount = (dashboardStats?.todaysRevenue || 0) + 
-      completedOrders.reduce((sum, order) => sum + (order.total || 0), 0);
-    
-    const avgValue = todayOrdersCount > 0 ? todaySalesAmount / todayOrdersCount : 0;
+    const avgValue = completedOrdersCount > 0 ? todaySalesAmount / completedOrdersCount : 0;
 
     return {
       todayOrders: todayOrdersCount,
       todaySales: todaySalesAmount,
+      completedOrders: completedOrdersCount,
       activeOrders: activeOrders.length,
       avgOrderValue: avgValue,
       pendingOrders: activeOrders.filter(o => o.status === 'pending').length,
       preparingOrders: activeOrders.filter(o => o.status === 'preparing').length,
       readyOrders: activeOrders.filter(o => o.status === 'ready').length
     };
-  }, [dashboardStats, orders, todaysBills]);
+  }, [dashboardStats, orders]);
 
   useEffect(() => {
     fetchRecommendations();

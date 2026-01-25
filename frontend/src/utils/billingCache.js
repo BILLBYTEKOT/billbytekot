@@ -39,23 +39,21 @@ class BillingCache {
   }
 
   /**
-   * Get cached billing data instantly
+   * Invalidate cached billing data for an order
    */
-  getCachedBillingData(orderId) {
-    const cached = this.cache.get(orderId);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      console.log(`⚡ Using cached billing data for order ${orderId}`);
-      trackCacheHit(orderId, 'full');
-      return cached.data;
-    }
-    
-    if (cached) {
-      trackCacheMiss(orderId, 'expired');
-    } else {
-      trackCacheMiss(orderId, 'not_found');
-    }
-    
-    return null;
+  invalidateCache(orderId) {
+    this.cache.delete(orderId);
+    this.preloadPromises.delete(orderId);
+    console.log(`🗑️ Billing cache invalidated for order ${orderId}`);
+  }
+
+  /**
+   * Clear all cached data
+   */
+  clearAll() {
+    this.cache.clear();
+    this.preloadPromises.clear();
+    console.log('🗑️ All billing cache cleared');
   }
 
   /**
@@ -189,6 +187,16 @@ export function useBillingCache() {
     clearCache: () => billingCache.clearCache(),
     getCacheStats: () => billingCache.getCacheStats()
   };
+}
+
+export default billingCache;
+
+// Create global instance
+const billingCache = new BillingCache();
+
+// Make it available globally for cache invalidation
+if (typeof window !== 'undefined') {
+  window.billingCache = billingCache;
 }
 
 export default billingCache;
