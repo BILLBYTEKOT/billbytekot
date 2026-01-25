@@ -298,7 +298,7 @@ class ElectronStorage {
 // Capacitor Storage Implementation (SQLite)
 class CapacitorStorage {
   constructor() {
-    this.Storage = null;
+    this.Preferences = null;
     this.SQLite = null;
     this.Filesystem = null;
     this.Device = null;
@@ -309,13 +309,12 @@ class CapacitorStorage {
     try {
       // Import Capacitor plugins dynamically
       if (typeof window !== 'undefined' && window.Capacitor) {
-        const { Storage } = await import('@capacitor/storage');
+        const { Preferences } = await import('@capacitor/preferences');
         const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
         const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
         const { Device } = await import('@capacitor/device');
-        const { Permissions } = await import('@capacitor/permissions');
         
-        this.Storage = Storage;
+        this.Preferences = Preferences;
         this.SQLite = CapacitorSQLite;
         this.Filesystem = Filesystem;
         this.Directory = Directory;
@@ -342,27 +341,27 @@ class CapacitorStorage {
   }
 
   async get(key) {
-    const result = await this.Storage.get({ key });
+    const result = await this.Preferences.get({ key });
     return result.value ? JSON.parse(result.value) : null;
   }
 
   async set(key, value) {
-    await this.Storage.set({ 
+    await this.Preferences.set({ 
       key, 
       value: JSON.stringify(value) 
     });
   }
 
   async remove(key) {
-    await this.Storage.remove({ key });
+    await this.Preferences.remove({ key });
   }
 
   async clear() {
-    await this.Storage.clear();
+    await this.Preferences.clear();
   }
 
   async keys() {
-    const result = await this.Storage.keys();
+    const result = await this.Preferences.keys();
     return result.keys;
   }
 

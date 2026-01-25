@@ -2,7 +2,7 @@
 // Provides SQLite storage with Capacitor plugins
 
 import { Capacitor } from '@capacitor/core';
-import { Storage } from '@capacitor/storage';
+import { Preferences } from '@capacitor/preferences';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
 
@@ -144,7 +144,7 @@ class MobileStorageManager {
   // Key-value operations using Capacitor Storage
   async get(key) {
     try {
-      const result = await Storage.get({ key });
+      const result = await Preferences.get({ key });
       return result.value ? JSON.parse(result.value) : null;
     } catch (error) {
       console.error('Storage get error:', error);
@@ -154,7 +154,7 @@ class MobileStorageManager {
 
   async set(key, value) {
     try {
-      await Storage.set({ 
+      await Preferences.set({ 
         key, 
         value: JSON.stringify(value) 
       });
@@ -166,7 +166,7 @@ class MobileStorageManager {
 
   async remove(key) {
     try {
-      await Storage.remove({ key });
+      await Preferences.remove({ key });
     } catch (error) {
       console.error('Storage remove error:', error);
       throw error;
@@ -175,7 +175,7 @@ class MobileStorageManager {
 
   async clear() {
     try {
-      await Storage.clear();
+      await Preferences.clear();
     } catch (error) {
       console.error('Storage clear error:', error);
       throw error;
@@ -184,7 +184,7 @@ class MobileStorageManager {
 
   async keys() {
     try {
-      const result = await Storage.keys();
+      const result = await Preferences.keys();
       return result.keys;
     } catch (error) {
       console.error('Storage keys error:', error);
@@ -457,17 +457,8 @@ class MobileStorageManager {
 
   async requestPermissions() {
     try {
-      // Request storage permissions if needed
-      if (this.platform === 'android') {
-        const { Permissions } = await import('@capacitor/permissions');
-        
-        const result = await Permissions.requestPermissions({
-          permissions: ['storage']
-        });
-        
-        return result.storage === 'granted';
-      }
-      
+      // Storage permissions are handled automatically in Capacitor 6
+      // No explicit permission request needed for basic storage operations
       return true;
     } catch (error) {
       console.error('Permission request failed:', error);
