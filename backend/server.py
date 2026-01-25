@@ -704,6 +704,10 @@ class OrderCreate(BaseModel):
     customer_phone: Optional[str] = None  # For WhatsApp notifications
     frontend_origin: Optional[str] = None  # For generating tracking links
     order_type: Optional[str] = "dine_in"  # dine_in, takeaway, delivery
+    discount: Optional[float] = 0.0  # Discount amount
+    discount_type: Optional[str] = "amount"  # "amount" or "percent"
+    discount_value: Optional[float] = 0.0  # Discount value (amount or percentage)
+    tax_rate: Optional[float] = None  # Custom tax rate
 
 
 class Payment(BaseModel):
@@ -4387,8 +4391,24 @@ async def create_order(
 
     # CREATE NEW ORDER (original logic)
     subtotal = sum(item.price * item.quantity for item in order_data.items)
-    tax = subtotal * tax_rate
-    total = subtotal + tax
+    
+    # Handle discount calculations
+    discount = 0
+    if order_data.discount and order_data.discount > 0:
+        discount = float(order_data.discount)
+    elif order_data.discount_value and order_data.discount_value > 0:
+        if order_data.discount_type == "percent":
+            discount_pct = min(float(order_data.discount_value), 100)
+            discount = (subtotal * discount_pct) / 100
+        else:
+            discount = min(float(order_data.discount_value), subtotal)
+    
+    # Calculate tax on discounted amount
+    taxable_amount = max(0, subtotal - discount)
+    tax = taxable_amount * tax_rate
+    
+    # Calculate total with proper discount and tax
+    total = max(0, subtotal - discount + tax)
     
     # Generate tracking token for customer live tracking
     tracking_token = str(uuid.uuid4())[:12]
@@ -4401,6 +4421,7 @@ async def create_order(
         table_number=table_number,
         items=[item.model_dump() for item in order_data.items],
         subtotal=subtotal,
+        discount=discount,
         tax=tax,
         tax_rate=tax_rate_setting if tax_rate_setting is not None else 5.0,  # Store the tax rate used
         total=total,
@@ -4870,6 +4891,12 @@ async def update_order(
         # Also update payment fields if provided
         payment_fields = ["payment_method", "is_credit", "payment_received", "balance_amount"]
         for field in payment_fields:
+            if field in order_data:
+                update_data[field] = order_data[field]
+        
+        # Also update discount and tax fields if provided
+        discount_fields = ["discount", "discount_type", "discount_value", "discount_amount", "tax", "tax_rate", "subtotal", "total", "items"]
+        for field in discount_fields:
             if field in order_data:
                 update_data[field] = order_data[field]
         
