@@ -8,10 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Users, Shield, UserCheck, Mail, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, Shield, UserCheck, Mail, CheckCircle, Settings, Database } from 'lucide-react';
+import SyncControlPanel from '../components/SyncControlPanel';
 
 const StaffManagementPage = ({ user }) => {
   const [staff, setStaff] = useState([]);
+  const [activeTab, setActiveTab] = useState('staff');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
@@ -248,14 +250,15 @@ const StaffManagementPage = ({ user }) => {
             <h1 className="text-4xl font-bold" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Staff Management</h1>
             <p className="text-gray-600 mt-2">Manage your restaurant staff and roles</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-violet-600 to-purple-600" data-testid="add-staff-button">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Staff Member
-              </Button>
-            </DialogTrigger>
-            <DialogContent data-testid="staff-dialog">
+          {activeTab === 'staff' && (
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-violet-600 to-purple-600" data-testid="add-staff-button">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Staff Member
+                </Button>
+              </DialogTrigger>
+              <DialogContent data-testid="staff-dialog">
               <DialogHeader>
                 <DialogTitle>{editingStaff ? 'Edit Staff Member' : showOTPVerification ? 'Verify Staff Email' : 'Add Staff Member'}</DialogTitle>
               </DialogHeader>
@@ -413,8 +416,34 @@ const StaffManagementPage = ({ user }) => {
               )}
             </DialogContent>
           </Dialog>
+        )}
         </div>
 
+        {/* Tab Navigation */}
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+          <button
+            onClick={() => setActiveTab('staff')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'staff' ? 'bg-white shadow text-violet-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Staff Members
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('sync-control')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'sync-control' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            Sync Control
+          </button>
+        </div>
+
+        {/* Staff Management Tab */}
+        {activeTab === 'staff' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {staff.map((member) => {
             const RoleIcon = getRoleIcon(member.role);
@@ -495,6 +524,12 @@ const StaffManagementPage = ({ user }) => {
             </div>
           )}
         </div>
+        )}
+
+        {/* Sync Control Tab */}
+        {activeTab === 'sync-control' && (
+          <SyncControlPanel user={user} />
+        )}
       </div>
     </Layout>
   );

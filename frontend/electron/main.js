@@ -1,6 +1,9 @@
 const { app, BrowserWindow, BrowserView, Menu, shell, ipcMain, Notification, session, globalShortcut } = require('electron');
 const path = require('path');
 
+// Import storage manager
+const { setupStorageIPC } = require('./storage');
+
 // Handle config loading with proper path resolution for packaged app
 let CONFIG;
 try {
@@ -781,6 +784,9 @@ function checkForUpdates() {
 // App lifecycle
 app.whenReady().then(() => {
   createWindow();
+  
+  // Setup storage IPC handlers
+  setupStorageIPC();
   
   // Register global shortcuts for DevTools
   const toggleDevTools = () => {

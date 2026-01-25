@@ -12,6 +12,12 @@ import {
   ResourcePrefetcher,
   MemoryManager
 } from './utils/apiClient';
+
+// ✅ Import Offline-First System
+import { offlineDataManager } from './utils/offlineDataManager';
+import { NetworkStatusToast } from './components/OfflineIndicator';
+import { platformStorage } from './utils/platformStorage';
+import './utils/devToolsAccess'; // Initialize dev tools
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -588,6 +594,19 @@ function App() {
     ResourcePrefetcher.preconnect('billbytekot-backend.onrender.com')
     console.log('🔗 Resource prefetching enabled')
     
+    // ✅ OFFLINE-FIRST: Initialize offline data management
+    console.log('💾 Initializing offline-first system...');
+    
+    // Initialize platform-specific storage
+    platformStorage.initializeStorage()
+      .then(() => console.log('✅ Platform storage initialized'))
+      .catch(err => console.log('⚠️ Platform storage initialization failed:', err));
+    
+    // Preload critical data for offline access
+    offlineDataManager.preloadCriticalData()
+      .then(() => console.log('✅ Critical data preloaded for offline access'))
+      .catch(err => console.log('⚠️ Critical data preload failed:', err));
+    
     // Initialize Service Worker Manager
     ServiceWorkerManager.register()
       .then(reg => console.log('✅ Service Worker registered'))
@@ -938,6 +957,7 @@ function App() {
         <UpdateBanner />
       </BrowserRouter>
       <Toaster position="top-center" richColors />
+      <NetworkStatusToast />
     </div>
   );
 }

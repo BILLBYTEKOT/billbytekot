@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API } from '../App';
 import Layout from '../components/Layout';
+import { enhancedApiClient } from '../utils/enhancedApiClient';
+import { offlineStorage } from '../utils/offlineStorage';
+import { dataSyncService } from '../utils/dataSyncService';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
@@ -97,6 +100,8 @@ const OrdersPage = ({ user }) => {
   // Tab state for Active Orders vs Today's Bills
   const [activeTab, setActiveTab] = useState('active'); // 'active' or 'history'
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const navigate = useNavigate();
   const dataLoadedRef = useRef(false);
 
@@ -108,16 +113,45 @@ const OrdersPage = ({ user }) => {
       dataLoadedRef.current = true;
       loadInitialData();
     }
+    
+    // Initialize offline status listeners
+    const handleOnline = () => {
+      setIsOffline(false);
+      console.log('🌐 Back online - syncing data');
+      dataSyncService.forceSyncNow().then(() => {
+        if (activeTab === 'active') {
+          fetchOrders();
+        } else {
+          fetchTodaysBills();
+        }
+      });
+    };
+    
+    const handleOffline = () => {
+      setIsOffline(true);
+      console.log('📴 Gone offline - using cached data');
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   // Real-time polling for active orders and today's bills (every 2 seconds for real-time experience)
   useEffect(() => {
     const interval = setInterval(() => {
-      if (activeTab === 'active') {
-        fetchOrders(); // Refresh orders when viewing active tab
-      } else if (activeTab === 'history') {
-        fetchTodaysBills(); // Refresh today's bills when viewing history tab
+      if (navigator.onLine) {
+        if (activeTab === 'active') {
+          fetchOrders(); // Refresh orders when viewing active tab
+        } else if (activeTab === 'history') {
+          fetchTodaysBills(); // Refresh today's bills when viewing history tab
+        }
       }
+      updateSyncStatus(); // Update sync status regardless of online status
     }, 2000); // Poll every 2 seconds for real-time experience
 
     return () => clearInterval(interval);

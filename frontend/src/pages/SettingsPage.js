@@ -8,11 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, MessageCircle, Megaphone, Plus, Trash2, Calendar, Eye, EyeOff, Sparkles, Upload, Image, X } from 'lucide-react';
+import { Settings as SettingsIcon, CreditCard, Shield, Info, Printer, Building2, MessageCircle, Megaphone, Plus, Trash2, Calendar, Eye, EyeOff, Sparkles, Upload, Image, X, Database, Monitor } from 'lucide-react';
 import PrintCustomization from '../components/PrintCustomization';
 import BluetoothPrinterSettings from '../components/BluetoothPrinterSettings';
 import WhatsAppDesktop from '../components/WhatsAppDesktop';
 import ValidationAlert from '../components/ValidationAlert';
+import OfflineDataManager from '../components/OfflineDataManager';
+import DataAccessPanel from '../components/DataAccessPanel';
+import PlatformDataAccess from '../components/PlatformDataAccess';
 
 const SettingsPage = ({ user }) => {
   const [activeTab, setActiveTab] = useState('business');
@@ -648,6 +651,36 @@ const SettingsPage = ({ user }) => {
               WhatsApp Pro
             </button>
           )}
+          
+          <button
+            onClick={() => setActiveTab('offline-data')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'offline-data' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            Offline Data
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('data-access')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'data-access' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Eye className="w-4 h-4" />
+            Data Access
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('platform-data')}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === 'platform-data' ? 'bg-white shadow text-indigo-600' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Monitor className="w-4 h-4" />
+            Platform Data
+          </button>
         </div>
 
         {/* Print Customization Tab */}
@@ -1704,6 +1737,21 @@ const SettingsPage = ({ user }) => {
         {/* WhatsApp Desktop Tab */}
         {activeTab === 'whatsapp-desktop' && (
           <WhatsAppDesktop isElectron={!!window.electronAPI?.isElectron} />
+        )}
+        
+        {/* Offline Data Management Tab */}
+        {activeTab === 'offline-data' && (
+          <OfflineDataManager />
+        )}
+        
+        {/* Data Access Panel Tab */}
+        {activeTab === 'data-access' && (
+          <DataAccessPanel />
+        )}
+        
+        {/* Platform Data Access Tab */}
+        {activeTab === 'platform-data' && (
+          <PlatformDataAccess />
         )}
         </div>
       )}

@@ -12,6 +12,7 @@ import { Plus, Edit, Trash2, Search, Upload, X } from 'lucide-react';
 import BulkUpload from '../components/BulkUpload';
 import TrialBanner from '../components/TrialBanner';
 import ValidationAlert from '../components/ValidationAlert';
+import { MenuItemValidator } from '../utils/validation';
 
 const MenuPage = ({ user }) => {
   const [menuItems, setMenuItems] = useState([]);
@@ -34,6 +35,16 @@ const MenuPage = ({ user }) => {
     available: true,
     preparation_time: 15
   });
+
+  // ✅ Initialize menu validator for duplicate prevention
+  const menuValidator = useRef(new MenuItemValidator());
+
+  // Update validator when menu items change
+  useEffect(() => {
+    if (menuItems.length > 0) {
+      menuValidator.current.loadExistingItems(menuItems);
+    }
+  }, [menuItems]);
 
   // Memoized filtered items for better performance
   const filteredItems = useMemo(() => {
@@ -177,7 +188,41 @@ const MenuPage = ({ user }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation
+    // ✅ ENHANCED FRONTEND VALIDATION - No server changes needed
+    const menuItemData = {
+      id: formData.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+      name: formData.name.trim(),
+      category: formData.category.trim(),
+      price: parseFloat(formData.price) || 0,
+      description: formData.description?.trim() || '',
+      image_url: formData.image_url?.trim() || '',
+      available: formData.available,
+      preparation_time: parseInt(formData.preparation_time) || 15
+    };
+
+    // Validate menu item
+    const validation = menuValidator.current.validateMenuItem(
+      menuItemData, 
+      !!editingItem, 
+      editingItem?.id
+    );
+    
+    if (!validation.valid) {
+      // Show validation errors
+      setValidationErrors(validation.errors);
+      validation.errors.forEach(error => {
+        toast.error(`Validation Error: ${error}`);
+      });
+      setTimeout(() => setValidationErrors([]), 5000);
+      return;
+    }
+
+    // Show warnings if any
+    validation.warnings.forEach(warning => {
+      toast.warning(`Warning: ${warning}`);
+    });
+
+    // Legacy validation (keeping existing logic)
     const errors = [];
     if (!formData.name || formData.name.trim() === '') {
       errors.push('Item Name is required');
@@ -198,9 +243,13 @@ const MenuPage = ({ user }) => {
     try {
       if (editingItem) {
         await axios.put(`${API}/menu/${editingItem.id}`, formData);
+        // Update validator
+        menuValidator.current.updateMenuItem(editingItem.id, menuItemData);
         toast.success('Menu item updated!');
       } else {
         await axios.post(`${API}/menu`, formData);
+        // Add to validator
+        menuValidator.current.addMenuItem(menuItemData);
         toast.success('Menu item created!');
       }
       setDialogOpen(false);

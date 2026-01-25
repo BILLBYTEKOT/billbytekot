@@ -46,6 +46,13 @@
     "ajv": "^8.17.1",
     "ajv-keywords": "^5.1.0",
     "axios": "^1.8.4",
+    "better-sqlite3": "^9.2.2",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/storage": "^1.2.5",
+    "@capacitor/filesystem": "^6.0.0",
+    "@capacitor/device": "^6.0.0",
+    "@capacitor/permissions": "^6.0.0",
+    "@capacitor-community/sqlite": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -140,7 +147,7 @@
     "productName": "BillByteKOT",
     "copyright": "Copyright © 2025 BillByteKOT",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist"
     },
     "files": [
       "build/**/*",
@@ -151,6 +158,7 @@
       "main": "electron/main.js"
     },
     "icon": "electron/icons/icon",
+    "compression": "maximum",
     "win": {
       "target": [
         {
@@ -161,14 +169,19 @@
         }
       ],
       "icon": "electron/icons/icon.ico",
-      "artifactName": "${productName}-Setup-${version}-win.${ext}"
+      "artifactName": "${productName}-Setup-${version}-win.${ext}",
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "BillByteKOT"
+      "shortcutName": "BillByteKOT",
+      "displayLanguageSelector": false,
+      "installerIcon": "electron/icons/icon.ico",
+      "uninstallerIcon": "electron/icons/icon.ico",
+      "installerHeaderIcon": "electron/icons/icon.ico"
     },
     "mac": {
       "target": [

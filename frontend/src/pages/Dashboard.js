@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API } from '../App';
 import Layout from '../components/Layout';
+import { useDashboardStats, useOrders, useBusinessSettings } from '../hooks/useOfflineData';
+import OfflineIndicator, { SyncStatusBadge, DataFreshnessIndicator } from '../components/OfflineIndicator';
+import { offlineDataManager } from '../utils/offlineDataManager';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { 
   DollarSign, ShoppingCart, TrendingUp, MessageSquare, Sparkles, 
@@ -16,113 +19,72 @@ import TrialBanner from '../components/TrialBanner';
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    todayOrders: 0,
-    todaySales: 0,
-    activeOrders: 0,
-    avgOrderValue: 0,
-    pendingOrders: 0,
-    preparingOrders: 0,
-    readyOrders: 0
-  });
+  
+  // Use offline-first hooks
+  const { data: dashboardStats, loading: statsLoading, lastUpdated: statsLastUpdated, refresh: refreshStats } = useDashboardStats();
+  const { data: orders, loading: ordersLoading, lastUpdated: ordersLastUpdated } = useOrders();
+  const { data: businessSettingsData } = useBusinessSettings();
+  
   const [recentOrders, setRecentOrders] = useState([]);
   const [topItems, setTopItems] = useState([]);
   const [chatMessage, setChatMessage] = useState('');
   const [chatResponse, setChatResponse] = useState('');
   const [recommendations, setRecommendations] = useState('');
   const [loading, setLoading] = useState(false);
-  const [restaurantName, setRestaurantName] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Derived state from hooks
+  const restaurantName = businessSettingsData?.business_settings?.restaurant_name || user?.username || '';
+  const isOffline = !navigator.onLine;
+  
+  // Calculate stats from dashboard data and orders
+  const stats = React.useMemo(() => {
+    if (!dashboardStats && !orders) {
+      return {
+        todayOrders: 0,
+        todaySales: 0,
+        activeOrders: 0,
+        avgOrderValue: 0,
+        pendingOrders: 0,
+        preparingOrders: 0,
+        readyOrders: 0
+      };
+    }
+    
+    const activeOrders = orders ? orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status)) : [];
+    const avgValue = dashboardStats?.todaysOrders > 0 
+      ? dashboardStats.todaysRevenue / dashboardStats.todaysOrders 
+      : 0;
+
+    return {
+      todayOrders: dashboardStats?.todaysOrders || 0,
+      todaySales: dashboardStats?.todaysRevenue || 0,
+      activeOrders: activeOrders.length,
+      avgOrderValue: avgValue,
+      pendingOrders: activeOrders.filter(o => o.status === 'pending').length,
+      preparingOrders: activeOrders.filter(o => o.status === 'preparing').length,
+      readyOrders: activeOrders.filter(o => o.status === 'ready').length
+    };
+  }, [dashboardStats, orders]);
 
   useEffect(() => {
-    fetchStats();
     fetchRecommendations();
-    fetchBusinessSettings();
-    fetchRecentOrders();
-    fetchTopItems();
-    const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
-    const refreshInterval = setInterval(fetchStats, 30000); // Auto refresh every 30s
-    return () => {
-      clearInterval(clockInterval);
-      clearInterval(refreshInterval);
-    };
-  }, []);
-
-  const fetchBusinessSettings = async () => {
-    try {
-      const response = await axios.get(`${API}/business/settings`);
-      setRestaurantName(response.data.business_settings?.restaurant_name || '');
-    } catch (error) {
-      console.error('Failed to fetch business settings', error);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const [dashboardRes, ordersRes] = await Promise.all([
-        axios.get(`${API}/dashboard`),  // Use new real-time dashboard endpoint
-        axios.get(`${API}/orders`)
-      ]);
-      
-      const orders = ordersRes.data;
-      const activeOrders = orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
-      const dashboardData = dashboardRes.data;
-      
-      // Calculate average order value from dashboard data
-      const avgValue = dashboardData.todaysOrders > 0 
-        ? dashboardData.todaysRevenue / dashboardData.todaysOrders 
-        : 0;
-
-      setStats({
-        todayOrders: dashboardData.todaysOrders,
-        todaySales: dashboardData.todaysRevenue,
-        activeOrders: activeOrders.length,
-        avgOrderValue: avgValue,
-        pendingOrders: activeOrders.filter(o => o.status === 'pending').length,
-        preparingOrders: activeOrders.filter(o => o.status === 'preparing').length,
-        readyOrders: activeOrders.filter(o => o.status === 'ready').length
-      });
-    } catch (error) {
-      console.error('Failed to fetch stats', error);
-      
-      // Fallback to daily report endpoint if dashboard fails
-      try {
-        const dailyReport = await axios.get(`${API}/reports/daily`);
-        const orders = await axios.get(`${API}/orders`);
-        
-        const ordersData = orders.data;
-        const activeOrders = ordersData.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
-        const avgValue = dailyReport.data.total_orders > 0 
-          ? dailyReport.data.total_sales / dailyReport.data.total_orders 
-          : 0;
-
-        setStats({
-          todayOrders: dailyReport.data.total_orders,
-          todaySales: dailyReport.data.total_sales,
-          activeOrders: activeOrders.length,
-          avgOrderValue: avgValue,
-          pendingOrders: activeOrders.filter(o => o.status === 'pending').length,
-          preparingOrders: activeOrders.filter(o => o.status === 'preparing').length,
-          readyOrders: activeOrders.filter(o => o.status === 'ready').length
-        });
-      } catch (fallbackError) {
-        console.error('Both dashboard endpoints failed', fallbackError);
-      }
-    }
-  };
-
-  const fetchRecentOrders = async () => {
-    try {
-      const response = await axios.get(`${API}/orders`);
-      const recent = response.data
+    
+    // Process recent orders when orders data changes
+    if (orders && orders.length > 0) {
+      const recent = orders
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 5);
       setRecentOrders(recent);
-    } catch (error) {
-      console.error('Failed to fetch recent orders', error);
     }
-  };
+    
+    const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
+    
+    return () => {
+      clearInterval(clockInterval);
+    };
+  }, [orders]);
 
   const fetchTopItems = async () => {
     try {
@@ -158,9 +120,22 @@ const Dashboard = ({ user }) => {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([fetchStats(), fetchRecentOrders(), fetchTopItems()]);
-    toast.success('Dashboard refreshed!');
-    setTimeout(() => setIsRefreshing(false), 500);
+    
+    try {
+      // Force refresh all data
+      await Promise.all([
+        refreshStats(),
+        fetchTopItems(),
+        offlineDataManager.preloadCriticalData()
+      ]);
+      
+      toast.success('Dashboard refreshed!');
+    } catch (error) {
+      console.error('Refresh failed:', error);
+      toast.error('Refresh failed - showing cached data');
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
   };
 
   const getGreeting = () => {
@@ -192,7 +167,11 @@ const Dashboard = ({ user }) => {
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-gray-500 text-sm font-medium">{getGreeting()}</p>
+            <div className="flex items-center gap-3 mb-1">
+              <p className="text-gray-500 text-sm font-medium">{getGreeting()}</p>
+              <OfflineIndicator />
+              <SyncStatusBadge />
+            </div>
             <h1 className="text-3xl sm:text-4xl font-black bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
               {restaurantName || user?.username}
             </h1>
@@ -202,6 +181,7 @@ const Dashboard = ({ user }) => {
               <span className="text-violet-600 font-mono font-bold">
                 {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
+              <DataFreshnessIndicator lastUpdated={statsLastUpdated} />
             </p>
           </div>
           <Button 

@@ -77,7 +77,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     appVersion: CONFIG.APP_VERSION,
     companyName: CONFIG.COMPANY_NAME,
     companyUrl: CONFIG.COMPANY_URL
-  })
+  }),
+  
+  // Storage operations
+  initDatabase: () => ipcRenderer.invoke('storage:init'),
+  storageGet: (key) => ipcRenderer.invoke('storage:get', key),
+  storageSet: (key, value) => ipcRenderer.invoke('storage:set', key, value),
+  storageRemove: (key) => ipcRenderer.invoke('storage:remove', key),
+  storageClear: () => ipcRenderer.invoke('storage:clear'),
+  storageKeys: () => ipcRenderer.invoke('storage:keys'),
+  query: (sql, params) => ipcRenderer.invoke('storage:query', sql, params),
+  executeBatch: (operations) => ipcRenderer.invoke('storage:batch', operations),
+  exportToFile: (data, filename) => ipcRenderer.invoke('storage:export', data, filename),
+  importFromFile: (filepath) => ipcRenderer.invoke('storage:import', filepath),
+  getStorageInfo: () => ipcRenderer.invoke('storage:info'),
+  createBackup: () => ipcRenderer.invoke('storage:backup'),
+  restoreFromBackup: (backupPath) => ipcRenderer.invoke('storage:restore', backupPath),
+  vacuumDatabase: () => ipcRenderer.invoke('storage:vacuum'),
+  analyzeDatabase: () => ipcRenderer.invoke('storage:analyze')
 });
 
 // Log that preload script loaded

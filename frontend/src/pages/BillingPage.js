@@ -13,6 +13,7 @@ import { printReceipt, manualPrintReceipt } from '../utils/printUtils';
 import { processPaymentFast, preloadPaymentData } from '../utils/optimizedPayment';
 import { billingCache } from '../utils/billingCache';
 import { startBillingTimer, endBillingTimer } from '../utils/performanceMonitor';
+import { OrderValidator } from '../utils/validation';
 
 const BillingPage = ({ user }) => {
   const { orderId } = useParams();
@@ -607,17 +608,68 @@ const BillingPage = ({ user }) => {
   const handleRemoveItem = (index) => setOrderItems(orderItems.filter((_, i) => i !== index));
 
   const updateOrderItems = async () => {
-    if (orderItems.length === 0) { toast.error('Order must have at least one item'); return false; }
+    if (orderItems.length === 0) { 
+      toast.error('Order must have at least one item'); 
+      return false; 
+    }
+
+    // ✅ FRONTEND VALIDATION - No server changes needed
+    const orderData = {
+      id: orderId,
+      table_number: order?.table_number,
+      items: orderItems.map(item => ({
+        id: item.id || `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: item.name,
+        price: parseFloat(item.price) || 0,
+        quantity: parseInt(item.quantity) || 1
+      })),
+      subtotal: calculateSubtotal(),
+      tax: calculateTax(),
+      total: calculateTotal()
+    };
+
+    // Validate order data before sending to server
+    const validation = OrderValidator.validateOrder(orderData);
+    
+    if (!validation.valid) {
+      // Show validation errors
+      validation.errors.forEach(error => {
+        toast.error(`Validation Error: ${error}`);
+      });
+      return false;
+    }
+
+    // Show warnings if any
+    validation.warnings.forEach(warning => {
+      toast.warning(`Warning: ${warning}`);
+    });
+
     try {
       const subtotal = calculateSubtotal();
       const discountAmt = calculateDiscountAmount();
       const tax = calculateTax();
       const total = calculateTotal();
+      
       await axios.put(`${API}/orders/${orderId}`, {
-        items: orderItems, subtotal: subtotal - discountAmt, tax, tax_rate: getEffectiveTaxRate(), total,
-        discount: discountAmt, discount_type: discountType, discount_value: parseFloat(discountValue) || 0, discount_amount: discountAmt
+        items: orderItems, 
+        subtotal: subtotal - discountAmt, 
+        tax, 
+        tax_rate: getEffectiveTaxRate(), 
+        total,
+        discount: discountAmt, 
+        discount_type: discountType, 
+        discount_value: parseFloat(discountValue) || 0, 
+        discount_amount: discountAmt
       });
-      setOrder(prev => ({ ...prev, items: orderItems, subtotal: subtotal - discountAmt, tax, total }));
+      
+      setOrder(prev => ({ 
+        ...prev, 
+        items: orderItems, 
+        subtotal: subtotal - discountAmt, 
+        tax, 
+        total 
+      }));
+      
       return true;
     } catch (error) {
       toast.error('Failed to update order');
