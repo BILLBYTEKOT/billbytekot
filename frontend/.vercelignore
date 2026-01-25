@@ -1,0 +1,35 @@
+# Electron files
+electron/
+dist/
+dist-electron/
+
+# Development files
+.env.local
+.env.development
+.env.test
+
+# Build artifacts
+build/
+node_modules/
+
+# Native modules that might cause issues
+**/better-sqlite3/
+**/sqlite3/
+**/node-gyp/
+
+# Test files
+**/__tests__/
+**/*.test.js
+**/*.spec.js
+
+# Documentation
+*.md
+docs/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

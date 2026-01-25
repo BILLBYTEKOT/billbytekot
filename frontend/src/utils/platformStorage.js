@@ -310,7 +310,7 @@ class CapacitorStorage {
       // Import Capacitor plugins dynamically
       if (typeof window !== 'undefined' && window.Capacitor) {
         const { Preferences } = await import('@capacitor/preferences');
-        const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
+        const { CapacitorSQLite } = await import('@capacitor-community/sqlite').catch(() => ({ CapacitorSQLite: null }));
         const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
         const { Device } = await import('@capacitor/device');
         
@@ -322,13 +322,15 @@ class CapacitorStorage {
         this.Device = Device;
         this.Permissions = Permissions;
         
-        // Initialize SQLite database
-        await this.SQLite.createConnection({
-          database: 'billbytekot.db',
-          version: 1,
-          encrypted: false,
-          mode: 'full'
-        });
+        // Initialize SQLite database only if available
+        if (this.SQLite) {
+          await this.SQLite.createConnection({
+            database: 'billbytekot.db',
+            version: 1,
+            encrypted: false,
+            mode: 'full'
+          });
+        }
         
         console.log('✅ Capacitor storage initialized');
       } else {
@@ -384,6 +386,10 @@ class CapacitorStorage {
   }
 
   async query(sql, params = []) {
+    if (!this.SQLite) {
+      console.warn('SQLite not available, skipping query');
+      return [];
+    }
     const result = await this.SQLite.query({
       database: 'billbytekot.db',
       statement: sql,
@@ -393,6 +399,10 @@ class CapacitorStorage {
   }
 
   async executeBatch(operations) {
+    if (!this.SQLite) {
+      console.warn('SQLite not available, skipping batch execution');
+      return { changes: 0 };
+    }
     const statements = operations.map(op => ({
       statement: op.sql,
       values: op.params || []

@@ -4,7 +4,21 @@
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
+
+// Conditional import for SQLite to prevent build issues
+let CapacitorSQLite, SQLiteConnection, SQLiteDBConnection;
+
+// Only import SQLite modules in mobile environment
+if (typeof window !== 'undefined' && window.Capacitor) {
+  try {
+    const sqliteModule = require('@capacitor-community/sqlite');
+    CapacitorSQLite = sqliteModule.CapacitorSQLite;
+    SQLiteConnection = sqliteModule.SQLiteConnection;
+    SQLiteDBConnection = sqliteModule.SQLiteDBConnection;
+  } catch (error) {
+    console.warn('SQLite modules not available:', error.message);
+  }
+}
 
 class MobileStorageManager {
   constructor() {
@@ -18,6 +32,13 @@ class MobileStorageManager {
   async initialize() {
     try {
       console.log(`🚀 Initializing mobile storage for ${this.platform}...`);
+      
+      // Check if SQLite is available
+      if (!CapacitorSQLite || !SQLiteConnection) {
+        console.warn('SQLite not available, falling back to Preferences API');
+        this.isInitialized = true;
+        return;
+      }
       
       // Initialize SQLite connection
       this.sqlite = new SQLiteConnection(CapacitorSQLite);

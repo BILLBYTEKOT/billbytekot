@@ -46,7 +46,6 @@
     "ajv": "^8.17.1",
     "ajv-keywords": "^5.1.0",
     "axios": "^1.8.4",
-    "better-sqlite3": "^9.2.2",
     "@capacitor/core": "^6.0.0",
     "@capacitor/preferences": "^6.0.0",
     "@capacitor/filesystem": "^6.0.0",
@@ -83,8 +82,9 @@
     "build": "cross-env DISABLE_ESLINT_PLUGIN=true craco build && node scripts/fix-build.js",
     "postbuild": "node scripts/ensure-public-dir.js && node src/utils/generateSitemap.js",
     "test": "craco test",
+    "test-build": "node test-build.js",
     "clean-install": "rm -rf node_modules package-lock.json && npm install",
-    "vercel-build": "npm run build",
+    "vercel-build": "npm run test-build && npm run build",
     "validate-env": "node scripts/validate-env.js",
     "validate-env:guide": "node scripts/validate-env.js --guide",
     "env:setup": "cp .env.local.template .env.local && echo '✅ .env.local created from template. Please edit it with your actual values.'",
@@ -95,7 +95,7 @@
     "electron:build:mac": "npm run build && electron-builder --mac",
     "electron:build:linux": "npm run build && electron-builder --linux",
     "electron:build:all": "npm run build && electron-builder -mwl",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "if [ \"$VERCEL\" != \"1\" ]; then electron-builder install-app-deps; fi"
   },
   "browserslist": {
     "production": [
