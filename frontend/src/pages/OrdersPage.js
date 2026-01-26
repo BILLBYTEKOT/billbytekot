@@ -658,14 +658,68 @@ const OrdersPage = ({ user }) => {
     }
   };
 
-  // Add state for table-wise ordering toggle
-  const [tableWiseOrdering, setTableWiseOrdering] = useState(true);
+  // Add state for table-wise ordering toggle - make it persistent in localStorage
+  const [tableWiseOrdering, setTableWiseOrdering] = useState(() => {
+    // Default to true, but allow user to override
+    const saved = localStorage.getItem('tableWiseOrdering');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const tableWiseOrderingRef = useRef(tableWiseOrdering);
+  
+  // Update ref and localStorage whenever state changes
+  useEffect(() => {
+    tableWiseOrderingRef.current = tableWiseOrdering;
+    localStorage.setItem('tableWiseOrdering', JSON.stringify(tableWiseOrdering));
+  }, [tableWiseOrdering]);
 
-  // Get available tables for selection
+  // Handle table-wise ordering toggle
+  const handleTableWiseOrderingToggle = (checked) => {
+    setTableWiseOrdering(checked);
+    if (!checked) {
+      // Clear table selection when disabling table-wise ordering
+      setFormData(prev => ({ ...prev, table_id: '' }));
+    }
+  };
   const availableTables = tables.filter(t => t.status === 'available');
 
   return (
     <Layout user={user}>
+      <style jsx>{`
+        .touch-target {
+          min-height: 44px;
+          min-width: 44px;
+        }
+        
+        @media (max-width: 640px) {
+          .touch-target {
+            min-height: 48px;
+            min-width: 48px;
+          }
+        }
+        
+        /* Prevent zoom on input focus (iOS) */
+        @media screen and (max-width: 767px) {
+          input[type="text"], 
+          input[type="number"], 
+          input[type="search"],
+          select {
+            font-size: 16px !important;
+          }
+        }
+        
+        /* Enhanced modal responsiveness */
+        .modal-content {
+          max-height: calc(100vh - 2rem);
+          overflow-y: auto;
+        }
+        
+        @media (max-width: 640px) {
+          .modal-content {
+            max-height: calc(100vh - 1rem);
+            margin: 0.5rem;
+          }
+        }
+      `}</style>
       {/* Full-screen Menu Selection Page (Step 2) */}
       {showMenuPage && (
         <div className="fixed inset-0 z-50 bg-gray-100">
@@ -1068,13 +1122,13 @@ const OrdersPage = ({ user }) => {
 
         {/* Unified New Order Dialog - Works for both KOT enabled/disabled */}
         {dialogOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+                  <div className="bg-white rounded-2xl w-full max-w-md sm:max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[95vh] overflow-y-auto">
                     {/* Header with Icon */}
-                    <div className="bg-gradient-to-br from-violet-500 to-purple-600 p-5 text-center relative">
+                    <div className="bg-gradient-to-br from-violet-500 to-purple-600 p-4 sm:p-5 text-center relative">
                       <button 
                         onClick={() => { setDialogOpen(false); resetForm(); }}
-                        className="absolute top-3 right-3 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors"
+                        className="absolute top-3 right-3 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors touch-target"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -1088,14 +1142,14 @@ const OrdersPage = ({ user }) => {
                       <h2 className="text-xl font-bold text-white">New Order</h2>
                       <p className="text-violet-200 text-sm mt-1">
                         {businessSettings?.kot_mode_enabled !== false 
-                          ? 'Select table & add customer info' 
+                          ? (tableWiseOrdering ? 'Select table & add customer info' : '✓ Table selection disabled - add customer info')
                           : 'Add customer details or skip'}
                       </p>
                     </div>
                     
                     {/* Form */}
-                    <div className="p-5 space-y-4">
-                      {/* Table-wise Ordering Toggle */}
+                    <div className="p-4 sm:p-5 space-y-4">
+                      {/* Table-wise Ordering Toggle - Only show when KOT is enabled */}
                       {businessSettings?.kot_mode_enabled !== false && (
                         <div className="mb-4">
                           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
@@ -1108,26 +1162,24 @@ const OrdersPage = ({ user }) => {
                                 type="checkbox"
                                 className="sr-only peer"
                                 checked={tableWiseOrdering}
-                                onChange={(e) => {
-                                  setTableWiseOrdering(e.target.checked);
-                                  if (!e.target.checked) {
-                                    setFormData({ ...formData, table_id: '' });
-                                  }
-                                }}
+                                onChange={(e) => handleTableWiseOrderingToggle(e.target.checked)}
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
                           </div>
                           {!tableWiseOrdering && (
-                            <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                              <span className="text-green-500">✓</span>
-                              Orders will be created without table assignment
-                            </p>
+                            <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-xl">
+                              <p className="text-sm text-green-700 flex items-center gap-2">
+                                <span className="text-green-500">✓</span>
+                                <span className="font-medium">Table selection disabled</span>
+                              </p>
+                              <p className="text-xs text-green-600 mt-1">Orders will be created as counter sales without table assignment</p>
+                            </div>
                           )}
                         </div>
                       )}
 
-                      {/* Table Selection - Only show when KOT is enabled and table-wise ordering is on */}
+                      {/* Table Selection - Only show when KOT is enabled AND table-wise ordering is on */}
                       {businessSettings?.kot_mode_enabled !== false && tableWiseOrdering && (
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -1138,7 +1190,7 @@ const OrdersPage = ({ user }) => {
                             <button
                               type="button"
                               onClick={() => fetchTables(true)}
-                              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 touch-target p-1"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1168,22 +1220,23 @@ const OrdersPage = ({ user }) => {
                           </div>
                           {availableTables.length === 0 && (
                             <div className="space-y-2 mt-2">
-                              <div className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg">
-                                <span className="text-orange-500">⚠️</span>
-                                <p className="text-xs text-orange-600">No tables available. All tables are occupied.</p>
+                              <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+                                <span className="text-orange-500 text-lg">⚠️</span>
+                                <p className="text-sm text-orange-700 font-medium">No tables available</p>
                               </div>
-                              <div className="flex gap-2">
+                              <p className="text-xs text-orange-600 px-3">All tables are currently occupied. You can:</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => setTableWiseOrdering(false)}
-                                  className="flex-1 px-3 py-2 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                                  onClick={() => handleTableWiseOrderingToggle(false)}
+                                  className="w-full px-3 py-3 text-sm bg-blue-100 text-blue-700 rounded-xl hover:bg-blue-200 transition-colors font-medium touch-target"
                                 >
                                   Skip Table Selection
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => window.open('/tables', '_blank')}
-                                  className="flex-1 px-3 py-2 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                                  className="w-full px-3 py-3 text-sm bg-green-100 text-green-700 rounded-xl hover:bg-green-200 transition-colors font-medium touch-target"
                                 >
                                   Create New Table
                                 </button>
@@ -1231,7 +1284,7 @@ const OrdersPage = ({ user }) => {
                       
                       {/* Don't ask again - Only show when KOT is disabled */}
                       {businessSettings?.kot_mode_enabled === false && (
-                        <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                        <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors touch-target">
                           <input
                             type="checkbox"
                             checked={skipCustomerPrompt}
@@ -1249,25 +1302,26 @@ const OrdersPage = ({ user }) => {
                       )}
                     </div>
                     
-                    {/* Buttons */}
-                    <div className="p-5 pt-0 flex gap-3">
+                    {/* Buttons - Improved responsive layout */}
+                    <div className="p-4 sm:p-5 pt-0 flex flex-col sm:flex-row gap-3">
                       <button 
                         onClick={() => { setDialogOpen(false); resetForm(); }}
-                        className="flex-1 h-12 border-2 border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                        className="w-full sm:flex-1 h-12 border-2 border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-colors touch-target"
                       >
                         Cancel
                       </button>
                       <button 
                         onClick={() => {
-                          // KOT enabled - require table selection
-                          if (businessSettings?.kot_mode_enabled !== false && !formData.table_id) {
-                            toast.error('Please select a table');
+                          // Only require table selection if KOT is enabled AND table-wise ordering is on
+                          if (businessSettings?.kot_mode_enabled !== false && tableWiseOrdering && !formData.table_id) {
+                            toast.error('Please select a table or disable table-wise ordering');
                             return;
                           }
+                          
                           setDialogOpen(false);
                           setShowMenuPage(true);
                         }}
-                        className="flex-1 h-12 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-500/25"
+                        className="w-full sm:flex-1 h-12 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-500/25 touch-target"
                       >
                         {businessSettings?.kot_mode_enabled !== false ? (
                           <>
