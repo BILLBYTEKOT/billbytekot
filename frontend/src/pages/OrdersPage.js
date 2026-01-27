@@ -16,7 +16,7 @@ import OptimizedBillingButton from '../components/OptimizedBillingButton';
 import { billingCache } from '../utils/billingCache';
 import EditOrderModal from '../components/EditOrderModal';
 
-// Sound effects for better UX
+// Enhanced sound effects for better UX
 const playSound = (type) => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -46,7 +46,7 @@ const playSound = (type) => {
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.1);
     } else if (type === 'success') {
-      // Success chime
+      // Success chime - ascending notes
       oscillator.frequency.setValueAtTime(523, audioContext.currentTime);
       oscillator.frequency.setValueAtTime(659, audioContext.currentTime + 0.1);
       oscillator.frequency.setValueAtTime(784, audioContext.currentTime + 0.2);
@@ -54,6 +54,25 @@ const playSound = (type) => {
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.4);
+    } else if (type === 'cooking') {
+      // Cooking sound - warm, bubbling effect
+      oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(550, audioContext.currentTime + 0.1);
+      oscillator.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.2);
+      oscillator.frequency.exponentialRampToValueAtTime(500, audioContext.currentTime + 0.3);
+      gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.35);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.35);
+    } else if (type === 'error') {
+      // Error sound - descending notes
+      oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(300, audioContext.currentTime + 0.1);
+      oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.25);
     }
   } catch (e) {
     // Silently fail if audio not supported
@@ -97,6 +116,7 @@ const OrdersPage = ({ user }) => {
   // Tab state for Active Orders vs Today's Bills
   const [activeTab, setActiveTab] = useState('active'); // 'active' or 'history'
   const [loading, setLoading] = useState(true);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const navigate = useNavigate();
   const dataLoadedRef = useRef(false);
 
@@ -494,9 +514,49 @@ const OrdersPage = ({ user }) => {
   };
 
   const handleStatusChange = async (orderId, status) => {
+    // Set loading state for this specific order
+    setUpdatingOrderId(orderId);
+    
+    // Immediate visual feedback - optimistic update
+    const statusSounds = {
+      'preparing': 'cooking',
+      'ready': 'success',
+      'completed': 'success'
+    };
+    
+    // Play sound immediately for instant feedback
+    if (statusSounds[status]) {
+      playSound(statusSounds[status]);
+    }
+    
+    // Optimistic UI update - update local state immediately
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === orderId 
+          ? { ...order, status, updated_at: new Date().toISOString() }
+          : order
+      )
+    );
+    
+    // Show immediate success feedback
+    const statusMessages = {
+      'preparing': '👨‍🍳 Started cooking!',
+      'ready': '✅ Marked as ready!',
+      'completed': '🎉 Order completed!'
+    };
+    
+    if (statusMessages[status]) {
+      toast.success(statusMessages[status]);
+    }
+
     try {
       const response = await axios.put(`${API}/orders/${orderId}/status?status=${status}&frontend_origin=${encodeURIComponent(window.location.origin)}`);
-      toast.success('Status updated!');
+      
+      // Background refresh to sync with server
+      setTimeout(() => {
+        fetchOrders();
+        fetchTables();
+      }, 500);
       
       if (response.data?.whatsapp_link && response.data?.customer_phone) {
         setTimeout(() => {
@@ -506,10 +566,24 @@ const OrdersPage = ({ user }) => {
         }, 300);
       }
       
-      await Promise.all([fetchOrders(), fetchTables()]);
     } catch (error) {
       console.error('Status update failed:', error);
+      
+      // Revert optimistic update on error
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, status: order.original_status || order.status }
+            : order
+        )
+      );
+      
+      // Play error sound
+      playSound('error');
       toast.error(error.response?.data?.detail || 'Failed to update status');
+    } finally {
+      // Clear loading state
+      setUpdatingOrderId(null);
     }
   };
 
@@ -1574,13 +1648,39 @@ const OrdersPage = ({ user }) => {
                   {/* Actions */}
                   <div className="px-3 pb-3 flex gap-2">
                     {['admin', 'kitchen'].includes(user?.role) && order.status === 'pending' && (
-                      <button onClick={() => handleStatusChange(order.id, 'preparing')} className="flex-1 h-10 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5">
-                        👨‍🍳 Start Cooking
+                      <button 
+                        onClick={() => handleStatusChange(order.id, 'preparing')} 
+                        className="flex-1 h-10 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-150 active:scale-95 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={updatingOrderId === order.id}
+                      >
+                        {updatingOrderId === order.id ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Cooking...
+                          </>
+                        ) : (
+                          <>
+                            <span className="animate-bounce">👨‍🍳</span> Start Cooking
+                          </>
+                        )}
                       </button>
                     )}
                     {['admin', 'kitchen'].includes(user?.role) && order.status === 'preparing' && (
-                      <button onClick={() => handleStatusChange(order.id, 'ready')} className="flex-1 h-10 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5">
-                        ✅ Mark Ready
+                      <button 
+                        onClick={() => handleStatusChange(order.id, 'ready')} 
+                        className="flex-1 h-10 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-150 active:scale-95 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={updatingOrderId === order.id}
+                      >
+                        {updatingOrderId === order.id ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Ready...
+                          </>
+                        ) : (
+                          <>
+                            <span className="animate-pulse">✅</span> Mark Ready
+                          </>
+                        )}
                       </button>
                     )}
                     {['admin', 'waiter', 'cashier'].includes(user?.role) && order.status !== 'completed' && (
