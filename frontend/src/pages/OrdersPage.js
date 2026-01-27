@@ -115,13 +115,23 @@ const OrdersPage = ({ user }) => {
     const interval = setInterval(() => {
       if (activeTab === 'active') {
         fetchOrders(); // Refresh orders when viewing active tab
+        
+        // Background sync cached data for active orders
+        const activeOrderIds = orders
+          .filter(order => ['ready', 'preparing', 'pending'].includes(order.status))
+          .map(order => order.id)
+          .slice(0, 10);
+        
+        if (activeOrderIds.length > 0) {
+          billingCache.backgroundSync(activeOrderIds);
+        }
       } else if (activeTab === 'history') {
         fetchTodaysBills(); // Refresh today's bills when viewing history tab
       }
     }, 2000); // Poll every 2 seconds for real-time experience
 
     return () => clearInterval(interval);
-  }, [activeTab]);
+  }, [activeTab, orders]); // Added orders dependency for background sync
 
   // Aggressive real-time refresh on window focus (when user returns to tab)
   useEffect(() => {
@@ -238,17 +248,20 @@ const OrdersPage = ({ user }) => {
       setTodaysBills(validBills.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
       setTables(validTables);
       
-      // 🚀 PERFORMANCE OPTIMIZATION: Pre-load billing data for active orders
+      // 🚀 PERFORMANCE OPTIMIZATION: Smart pre-loading with persistent cache
       const activeOrderIds = validOrders
         .filter(order => ['ready', 'preparing', 'pending'].includes(order.status))
         .map(order => order.id)
-        .slice(0, 10); // Limit to first 10 orders to avoid overwhelming the system
+        .slice(0, 15); // Increased from 10 to 15 for better coverage
       
       if (activeOrderIds.length > 0) {
-        console.log(`💾 Pre-loading billing data for ${activeOrderIds.length} active orders...`);
+        // Smart preloading - only preload uncached orders
         billingCache.preloadMultipleOrders(activeOrderIds).catch(error => {
-          console.warn('Batch preload failed:', error);
+          console.warn('Smart preload failed:', error);
         });
+        
+        // Background sync for potentially stale cached orders
+        billingCache.backgroundSync(activeOrderIds);
       }
       
       // Load secondary data in background
@@ -1093,21 +1106,6 @@ const OrdersPage = ({ user }) => {
           </div>
           {['admin', 'waiter', 'cashier'].includes(user?.role) && (
             <div className="flex items-center gap-3">
-              {/* Manual Refresh Button */}
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  fetchOrders();
-                  fetchTables(true);
-                  fetchTodaysBills();
-                  toast.success('Orders refreshed!');
-                }}
-                className="text-sm"
-              >
-                <RefreshCw className="w-4 h-4 mr-1" />
-                Refresh
-              </Button>
-              
               {/* New Order Button - Unified for both KOT modes */}
               <Button 
                 onClick={() => {
@@ -1126,15 +1124,16 @@ const OrdersPage = ({ user }) => {
                 <span>New Order</span>
               </Button>
 
-              {/* Real-time Refresh Button */}
+              {/* Real-time Refresh Button - Responsive: Round on mobile, full button on desktop */}
               <Button 
                 onClick={handleManualRefresh}
                 variant="outline"
-                className="text-sm sm:text-base border-violet-200 text-violet-600 hover:bg-violet-50" 
+                className="sm:text-sm sm:border-violet-200 sm:text-violet-600 sm:hover:bg-violet-50 sm:px-3 sm:py-2 sm:h-auto sm:w-auto sm:rounded-lg w-10 h-10 rounded-full p-0 flex items-center justify-center" 
                 disabled={loading}
+                title="Real-time Refresh"
               >
-                <RefreshCw className={`w-4 h-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
-                <span>Refresh</span>
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''} sm:mr-2`} />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
             </div>
           )}
