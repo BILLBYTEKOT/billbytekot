@@ -147,7 +147,23 @@ const KitchenPage = ({ user }) => {
   const fetchOrders = async () => {
     try {
       const response = await axios.get(`${API}/orders`);
-      const activeOrders = response.data.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
+      const activeOrders = response.data.filter(o => {
+        // Include pending, preparing, ready orders
+        if (['pending', 'preparing', 'ready'].includes(o.status)) {
+          return true;
+        }
+        
+        // Also include recently completed orders (within last 30 seconds) for smooth transition
+        if (o.status === 'completed') {
+          const completedTime = new Date(o.updated_at || o.created_at);
+          const now = new Date();
+          const timeDiff = (now - completedTime) / 1000; // seconds
+          return timeDiff <= 30; // Show completed orders for 30 seconds
+        }
+        
+        return false;
+      });
+      
       const sorted = activeOrders.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       
       // Check for new orders and trigger notifications
@@ -282,11 +298,11 @@ const KitchenPage = ({ user }) => {
     // Trigger haptic feedback
     triggerVibration([100]);
     
-    // Optimistic UI update
+    // Optimistic UI update with error handling
     setOrders(prevOrders => 
       prevOrders.map(order => 
         order.id === orderId 
-          ? { ...order, status, processing: true }
+          ? { ...order, status, processing: true, updated_at: new Date().toISOString() }
           : order
       )
     );
@@ -313,8 +329,18 @@ const KitchenPage = ({ user }) => {
         className: 'font-bold'
       });
       
-      // Refresh orders to get server state
-      fetchOrders();
+      // For completed orders, show a brief success animation before removing
+      if (status === 'completed') {
+        // Keep the order visible for 2 seconds with completed status
+        setTimeout(() => {
+          setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+        }, 2000);
+      }
+      
+      // Refresh orders to get server state (but don't override completed order immediately)
+      if (status !== 'completed') {
+        fetchOrders();
+      }
       
     } catch (error) {
       // Error feedback
