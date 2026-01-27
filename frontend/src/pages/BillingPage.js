@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import axios from 'axios';
 import { API } from '../App';
 import Layout from '../components/Layout';
 import { Button } from '../components/ui/button';
@@ -13,6 +12,7 @@ import { printReceipt, manualPrintReceipt } from '../utils/printUtils';
 import { processPaymentFast, preloadPaymentData } from '../utils/optimizedPayment';
 import { billingCache } from '../utils/billingCache';
 import { startBillingTimer, endBillingTimer } from '../utils/performanceMonitor';
+import apiClient, { apiWithRetry, apiSilent } from '../utils/apiClient';
 
 const BillingPage = ({ user }) => {
   const { orderId } = useParams();
@@ -312,7 +312,11 @@ const BillingPage = ({ user }) => {
 
   const fetchOrder = async () => {
     try {
-      const response = await axios.get(`${API}/orders/${orderId}`);
+      const response = await apiWithRetry({
+        method: 'get',
+        url: `${API}/orders/${orderId}`,
+        timeout: 10000
+      });
       setOrder(response.data);
       setOrderItems(response.data.items || []);
       if (response.data.customer_phone) setWhatsappPhone(response.data.customer_phone);
@@ -321,15 +325,21 @@ const BillingPage = ({ user }) => {
         setDiscountValue(response.data.discount_value || response.data.discount || '');
       }
     } catch (error) {
-      toast.error('Failed to fetch order');
+      // Error handling is done by apiWithRetry
       navigate('/orders');
     }
   };
 
   const fetchBusinessSettings = async () => {
     try {
-      const response = await axios.get(`${API}/business/settings`);
-      setBusinessSettings(response.data.business_settings);
+      const response = await apiSilent({
+        method: 'get',
+        url: `${API}/business/settings`,
+        timeout: 8000
+      });
+      if (response?.data) {
+        setBusinessSettings(response.data.business_settings);
+      }
     } catch (error) {
       console.error('Failed to fetch business settings', error);
     }
@@ -399,11 +409,14 @@ const BillingPage = ({ user }) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
-      const response = await axios.get(`${API}/menu`, {
+      const response = await apiWithRetry({
+        method: 'get',
+        url: `${API}/menu`,
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        signal: controller.signal
+        signal: controller.signal,
+        timeout: 15000
       });
       
       clearTimeout(timeoutId);
@@ -613,9 +626,14 @@ const BillingPage = ({ user }) => {
       const discountAmt = calculateDiscountAmount();
       const tax = calculateTax();
       const total = calculateTotal();
-      await axios.put(`${API}/orders/${orderId}`, {
-        items: orderItems, subtotal: subtotal - discountAmt, tax, tax_rate: getEffectiveTaxRate(), total,
-        discount: discountAmt, discount_type: discountType, discount_value: parseFloat(discountValue) || 0, discount_amount: discountAmt
+      await apiWithRetry({
+        method: 'put',
+        url: `${API}/orders/${orderId}`,
+        data: {
+          items: orderItems, subtotal: subtotal - discountAmt, tax, tax_rate: getEffectiveTaxRate(), total,
+          discount: discountAmt, discount_type: discountType, discount_value: parseFloat(discountValue) || 0, discount_amount: discountAmt
+        },
+        timeout: 12000
       });
       setOrder(prev => ({ ...prev, items: orderItems, subtotal: subtotal - discountAmt, tax, total }));
       return true;
@@ -653,12 +671,15 @@ const BillingPage = ({ user }) => {
       
       console.log('📤 Sending table update:', updateData);
       
-      const response = await axios.put(`${API}/tables/${order.table_id}`, updateData, {
+      const response = await apiWithRetry({
+        method: 'put',
+        url: `${API}/tables/${order.table_id}`,
+        data: updateData,
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        timeout: 10000 // 10 second timeout
+        timeout: 10000 // 10 second timeout for table updates
       });
       
       console.log('📥 Table update response:', response.data);
@@ -686,10 +707,13 @@ const BillingPage = ({ user }) => {
       // Try alternative approach - just mark as available
       try {
         console.log('🔄 Trying alternative table clearing method...');
-        await axios.patch(`${API}/tables/${order.table_id}/status`, 
-          { status: 'available' }, 
-          { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-        );
+        await apiSilent({
+          method: 'patch',
+          url: `${API}/tables/${order.table_id}/status`,
+          data: { status: 'available' },
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          timeout: 8000
+        });
         console.log('✅ Table cleared using alternative method');
         return true;
       } catch (altError) {
@@ -782,8 +806,12 @@ const BillingPage = ({ user }) => {
         
         // Fallback to standard payment processing
         const token = localStorage.getItem('token');
-        result = await axios.put(`${API}/orders/${orderId}`, paymentData, {
-          headers: { Authorization: `Bearer ${token}` }
+        result = await apiWithRetry({
+          method: 'put',
+          url: `${API}/orders/${orderId}`,
+          data: paymentData,
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 15000 // Longer timeout for payment processing
         });
         
         // Set completed payment data for fallback
@@ -869,12 +897,15 @@ const BillingPage = ({ user }) => {
       try {
         console.log('🔍 Verifying payment status after error...');
         const token = localStorage.getItem('token');
-        const verifyResponse = await axios.get(`${API}/orders/${orderId}`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const verifyResponse = await apiSilent({
+          method: 'get',
+          url: `${API}/orders/${orderId}`,
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 8000
         });
         
-        const updatedOrder = verifyResponse.data;
-        if (updatedOrder.status === 'completed' || updatedOrder.payment_received > 0) {
+        const updatedOrder = verifyResponse?.data;
+        if (updatedOrder && (updatedOrder.status === 'completed' || updatedOrder.payment_received > 0)) {
           console.log('✅ Payment actually succeeded despite error!');
           
           // 🗑️ CACHE INVALIDATION: Clear cached billing data after successful payment
@@ -923,14 +954,33 @@ const BillingPage = ({ user }) => {
   };
 
   const handlePayment = async () => {
-    // 🚀 INSTANT FEEDBACK: Show immediate response
+    // 🚀 ENHANCED INSTANT FEEDBACK: Multiple feedback mechanisms
     setLoading(true);
     
-    // Play sound effect for instant feedback
+    // 🔊 ENHANCED SOUND EFFECTS: Multiple sound types for better feedback
     try {
-      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
-      audio.volume = 0.3;
-      audio.play().catch(() => {}); // Ignore audio errors
+      // Payment processing sound (cash register)
+      const paymentSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
+      paymentSound.volume = 0.4;
+      paymentSound.play().catch(() => {});
+      
+      // Success chime (delayed)
+      setTimeout(() => {
+        try {
+          const successSound = new Audio('data:audio/wav;base64,UklGRvIBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
+          successSound.volume = 0.5;
+          successSound.play().catch(() => {});
+        } catch (e) {}
+      }, 300);
+      
+    } catch (e) {}
+    
+    // 📳 VIBRATION FEEDBACK: Enhanced haptic feedback
+    try {
+      if (navigator.vibrate) {
+        // Payment processing vibration pattern
+        navigator.vibrate([100, 50, 100, 50, 200]);
+      }
     } catch (e) {}
     
     try {
@@ -974,10 +1024,23 @@ const BillingPage = ({ user }) => {
         paymentMethod: splitPayment ? 'split' : paymentMethod
       });
       
-      // Show immediate success feedback
-      toast.success(isCredit ? 'Partial payment recorded!' : 'Payment completed!', {
-        duration: 2000
+      // 🎉 ENHANCED SUCCESS FEEDBACK: Multiple feedback types
+      toast.success(isCredit ? '💰 Partial payment recorded!' : '🎉 Payment completed!', {
+        duration: 3000,
+        style: {
+          background: 'linear-gradient(135deg, #10b981, #059669)',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '16px'
+        }
       });
+      
+      // 📳 SUCCESS VIBRATION: Different pattern for success
+      try {
+        if (navigator.vibrate) {
+          navigator.vibrate([200, 100, 200]);
+        }
+      } catch (e) {}
       
       // Process payment in background
       processPayment().catch(error => {
@@ -985,29 +1048,48 @@ const BillingPage = ({ user }) => {
         // Revert optimistic update on error
         setPaymentCompleted(false);
         setCompletedPaymentData(null);
-        toast.error('Payment processing failed. Please try again.');
+        toast.error('❌ Payment processing failed. Please try again.');
+        
+        // Error vibration
+        try {
+          if (navigator.vibrate) {
+            navigator.vibrate([300, 100, 300, 100, 300]);
+          }
+        } catch (e) {}
       }).finally(() => {
         setLoading(false);
       });
       
     } catch (error) {
       console.error('Error in handlePayment:', error);
-      toast.error('Payment processing failed. Please try again.');
+      toast.error('❌ Payment processing failed. Please try again.');
       setLoading(false);
       // Revert optimistic update
       setPaymentCompleted(false);
       setCompletedPaymentData(null);
+      
+      // Error vibration
+      try {
+        if (navigator.vibrate) {
+          navigator.vibrate([300, 100, 300, 100, 300]);
+        }
+      } catch (e) {}
     }
   };
 
   const handleWhatsappShare = async () => {
     if (!whatsappPhone.trim()) { toast.error('Enter phone number'); return; }
     try {
-      const response = await axios.post(`${API}/whatsapp/send-receipt/${orderId}`, { phone_number: whatsappPhone, customer_name: order?.customer_name });
+      const response = await apiWithRetry({
+        method: 'post',
+        url: `${API}/whatsapp/send-receipt/${orderId}`,
+        data: { phone_number: whatsappPhone, customer_name: order?.customer_name },
+        timeout: 10000
+      });
       window.open(response.data.whatsapp_link, '_blank');
       setShowWhatsappModal(false);
     } catch (error) {
-      toast.error('Failed to share');
+      // Error handling is done by apiWithRetry
     }
   };
 
@@ -1235,6 +1317,39 @@ const BillingPage = ({ user }) => {
           }
         }
         
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+        
+        @keyframes buttonPulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7);
+          }
+          70% {
+            box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+          }
+        }
+        
+        @keyframes successGlow {
+          0% {
+            box-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+          }
+          50% {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.8), 0 0 30px rgba(34, 197, 94, 0.6);
+          }
+          100% {
+            box-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+          }
+        }
+        
         .scrollbar-thin {
           scrollbar-width: thin;
         }
@@ -1258,6 +1373,14 @@ const BillingPage = ({ user }) => {
         
         .animate-pulse-slow {
           animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        .animate-button-pulse {
+          animation: buttonPulse 2s infinite;
+        }
+        
+        .animate-success-glow {
+          animation: successGlow 2s ease-in-out infinite;
         }
         
         /* Enhanced mobile responsiveness */
@@ -1322,6 +1445,36 @@ const BillingPage = ({ user }) => {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
+        }
+        
+        /* Enhanced button interactions */
+        .pay-button-enhanced {
+          position: relative;
+          overflow: hidden;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .pay-button-enhanced:hover {
+          transform: translateY(-2px);
+        }
+        
+        .pay-button-enhanced:active {
+          transform: translateY(0) scale(0.98);
+        }
+        
+        .pay-button-enhanced::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+          transition: left 0.5s;
+        }
+        
+        .pay-button-enhanced:hover::before {
+          left: 100%;
         }
       `}</style>
       {/* ========== MOBILE LAYOUT ========== */}
@@ -1947,46 +2100,91 @@ const BillingPage = ({ user }) => {
               <Button 
                 onClick={handlePayment} 
                 disabled={loading} 
-                className={`w-full h-12 mt-3 text-lg font-bold rounded-lg transition-all duration-200 transform ${
+                className={`w-full h-12 mt-3 text-lg font-bold rounded-lg transition-all duration-200 transform relative overflow-hidden ${
                   loading 
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 scale-95' 
-                    : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 hover:scale-105 active:scale-95'
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 scale-95 shadow-lg animate-pulse' 
+                    : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 hover:scale-105 active:scale-95 shadow-xl hover:shadow-2xl'
                 }`}
+                style={{
+                  boxShadow: loading 
+                    ? '0 0 30px rgba(34, 197, 94, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.2)' 
+                    : '0 10px 25px rgba(139, 92, 246, 0.3)',
+                  background: loading 
+                    ? 'linear-gradient(135deg, #10b981, #059669, #047857)' 
+                    : undefined
+                }}
+                onMouseDown={(e) => {
+                  // Instant visual feedback on press
+                  e.currentTarget.style.transform = 'scale(0.95)';
+                  e.currentTarget.style.boxShadow = '0 5px 15px rgba(139, 92, 246, 0.4)';
+                }}
+                onMouseUp={(e) => {
+                  // Reset on release
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 15px 30px rgba(139, 92, 246, 0.4)';
+                }}
+                onTouchStart={(e) => {
+                  // Mobile touch feedback
+                  e.currentTarget.style.transform = 'scale(0.95)';
+                  e.currentTarget.style.boxShadow = '0 5px 15px rgba(139, 92, 246, 0.4)';
+                }}
+                onTouchEnd={(e) => {
+                  // Mobile touch release
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
               >
+                {/* Animated background effect */}
+                <div 
+                  className={`absolute inset-0 bg-gradient-to-r from-white/20 to-transparent transition-all duration-300 ${
+                    loading ? 'animate-pulse' : 'opacity-0 hover:opacity-100'
+                  }`}
+                  style={{
+                    background: loading 
+                      ? 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)'
+                      : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                    animation: loading ? 'shimmer 1.5s infinite' : undefined
+                  }}
+                />
+                
                 {loading ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3 relative z-10">
                     <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-                    <span>Processing...</span>
+                    <span className="animate-pulse">✨ Processing Payment...</span>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center gap-2">
-                    <span>💳</span>
-                    <span>
+                  <div className="flex items-center justify-center gap-2 relative z-10">
+                    <span className="text-2xl animate-bounce">💳</span>
+                    <span className="font-bold">
                       {splitPayment ? (
                         getTotalSplitAmount() === 0 ? 'Enter Split Payment Amounts' :
-                        getTotalSplitAmount() < calculateTotal() ? `Record Split Payment ${currency}${getTotalSplitAmount().toFixed(0)} (Due: ${currency}${(calculateTotal() - getTotalSplitAmount()).toFixed(0)})` :
-                        getTotalSplitAmount() > calculateTotal() ? `Pay Split ${currency}${getTotalSplitAmount().toFixed(0)} (Change: ${currency}${(getTotalSplitAmount() - calculateTotal()).toFixed(0)})` :
-                        `Pay Split ${currency}${getTotalSplitAmount().toFixed(0)}`
+                        getTotalSplitAmount() < calculateTotal() ? `💰 Record Split Payment ${currency}${getTotalSplitAmount().toFixed(0)} (Due: ${currency}${(calculateTotal() - getTotalSplitAmount()).toFixed(0)})` :
+                        getTotalSplitAmount() > calculateTotal() ? `💸 Pay Split ${currency}${getTotalSplitAmount().toFixed(0)} (Change: ${currency}${(getTotalSplitAmount() - calculateTotal()).toFixed(0)})` :
+                        `✅ Pay Split ${currency}${getTotalSplitAmount().toFixed(0)}`
                       ) : showReceivedAmount && receivedAmount ? (
-                        isPartialPayment() ? `Record Partial Payment ${currency}${calculateReceivedAmount().toFixed(0)}` :
-                        isOverPayment() ? `Pay ${currency}${calculateReceivedAmount().toFixed(0)} (Change: ${currency}${calculateChangeAmount().toFixed(0)})` :
-                        `Pay ${currency}${calculateReceivedAmount().toFixed(0)}`
-                      ) : `Pay ${currency}${calculateTotal().toFixed(0)}`}
+                        isPartialPayment() ? `💰 Record Partial Payment ${currency}${calculateReceivedAmount().toFixed(0)}` :
+                        isOverPayment() ? `💸 Pay ${currency}${calculateReceivedAmount().toFixed(0)} (Change: ${currency}${calculateChangeAmount().toFixed(0)})` :
+                        `✅ Pay ${currency}${calculateReceivedAmount().toFixed(0)}`
+                      ) : `🚀 Pay ${currency}${calculateTotal().toFixed(0)}`}
                     </span>
                   </div>
                 )}
               </Button>
             ) : (
-              <div className="bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-300 rounded-lg p-3 mt-3 flex items-center gap-3 animate-pulse">
-                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center animate-bounce">
+              <div className="bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-300 rounded-lg p-3 mt-3 flex items-center gap-3 animate-success-glow">
+                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center animate-bounce shadow-lg">
                   <Check className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-bold text-green-800 text-base">Payment Completed! 🎉</p>
+                  <p className="font-bold text-green-800 text-base flex items-center gap-2">
+                    <span>🎉 Payment Completed!</span>
+                    <span className="animate-pulse">✨</span>
+                  </p>
                   <p className="text-sm text-green-700">
-                    {currency}{(completedPaymentData?.received || calculateTotal()).toFixed(0)} received via {completedPaymentData?.paymentMethod || paymentMethod}
+                    <span className="font-semibold">{currency}{(completedPaymentData?.received || calculateTotal()).toFixed(0)}</span> received via <span className="font-semibold">{completedPaymentData?.paymentMethod || paymentMethod}</span>
                     {completedPaymentData?.balance > 0 && (
-                      <span className="block text-red-600 font-medium">Balance Due: {currency}{completedPaymentData.balance.toFixed(0)}</span>
+                      <span className="block text-red-600 font-medium mt-1">
+                        💰 Balance Due: <span className="font-bold">{currency}{completedPaymentData.balance.toFixed(0)}</span>
+                      </span>
                     )}
                   </p>
                 </div>
@@ -2386,22 +2584,91 @@ const BillingPage = ({ user }) => {
           </div>
           <div className="p-4 flex-1 flex flex-col">
             {!paymentCompleted ? (
-              <Button onClick={handlePayment} disabled={loading} className="w-full h-14 text-xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl shadow-xl">
-                {loading ? <div className="animate-spin w-5 h-5 border-3 border-white border-t-transparent rounded-full" /> : (
-                  showReceivedAmount ? 
-                    `Pay ${currency}${calculateReceivedAmount().toFixed(0)}` : 
-                    `Pay ${currency}${calculateTotal().toFixed(0)}`
+              <Button 
+                onClick={handlePayment} 
+                disabled={loading} 
+                className={`w-full h-14 text-xl font-bold rounded-xl shadow-xl transition-all duration-200 transform relative overflow-hidden ${
+                  loading 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 scale-95 animate-pulse' 
+                    : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 hover:scale-105 active:scale-95'
+                }`}
+                style={{
+                  boxShadow: loading 
+                    ? '0 0 40px rgba(34, 197, 94, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.2)' 
+                    : '0 15px 35px rgba(139, 92, 246, 0.4)',
+                  background: loading 
+                    ? 'linear-gradient(135deg, #10b981, #059669, #047857)' 
+                    : undefined
+                }}
+                onMouseDown={(e) => {
+                  // Instant visual feedback on press
+                  e.currentTarget.style.transform = 'scale(0.95)';
+                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(139, 92, 246, 0.5)';
+                }}
+                onMouseUp={(e) => {
+                  // Reset on release
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 20px 40px rgba(139, 92, 246, 0.5)';
+                }}
+                onMouseEnter={(e) => {
+                  // Enhanced hover effect
+                  if (!loading) {
+                    e.currentTarget.style.boxShadow = '0 20px 40px rgba(139, 92, 246, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  // Reset hover
+                  if (!loading) {
+                    e.currentTarget.style.boxShadow = '0 15px 35px rgba(139, 92, 246, 0.4)';
+                  }
+                }}
+              >
+                {/* Animated background effect */}
+                <div 
+                  className={`absolute inset-0 transition-all duration-300 ${
+                    loading ? 'animate-pulse' : 'opacity-0 hover:opacity-100'
+                  }`}
+                  style={{
+                    background: loading 
+                      ? 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)'
+                      : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                    animation: loading ? 'shimmer 1.5s infinite' : undefined
+                  }}
+                />
+                
+                {loading ? (
+                  <div className="flex items-center gap-3 relative z-10">
+                    <div className="animate-spin w-6 h-6 border-3 border-white border-t-transparent rounded-full" />
+                    <span className="animate-pulse text-xl">✨ Processing Payment...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-3 relative z-10">
+                    <span className="text-3xl animate-bounce">💳</span>
+                    <span className="font-bold text-xl">
+                      {showReceivedAmount ? 
+                        `🚀 Pay ${currency}${calculateReceivedAmount().toFixed(0)}` : 
+                        `🚀 Pay ${currency}${calculateTotal().toFixed(0)}`
+                      }
+                    </span>
+                  </div>
                 )}
               </Button>
             ) : (
-              <div className="bg-green-50 border-2 border-green-300 rounded-xl p-4 flex items-center gap-3">
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center"><Check className="w-6 h-6 text-white" /></div>
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 flex items-center gap-3 animate-success-glow shadow-lg">
+                <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center animate-bounce shadow-lg">
+                  <Check className="w-6 h-6 text-white" />
+                </div>
                 <div>
-                  <p className="text-xl font-bold text-green-800">Payment Successful!</p>
-                  <p className="text-green-600">
-                    {currency}{(completedPaymentData?.received || calculateTotal()).toFixed(0)} received via {(completedPaymentData?.paymentMethod || paymentMethod).toUpperCase()}
+                  <p className="text-xl font-bold text-green-800 flex items-center gap-2">
+                    <span>🎉 Payment Successful!</span>
+                    <span className="animate-pulse text-2xl">✨</span>
+                  </p>
+                  <p className="text-green-600 text-lg">
+                    <span className="font-bold">{currency}{(completedPaymentData?.received || calculateTotal()).toFixed(0)}</span> received via <span className="font-semibold uppercase">{(completedPaymentData?.paymentMethod || paymentMethod)}</span>
                     {completedPaymentData?.balance > 0 && (
-                      <span className="block text-red-600 text-sm">Balance Due: {currency}{completedPaymentData.balance.toFixed(0)}</span>
+                      <span className="block text-red-600 text-base font-medium mt-1">
+                        💰 Balance Due: <span className="font-bold">{currency}{completedPaymentData.balance.toFixed(0)}</span>
+                      </span>
                     )}
                   </p>
                 </div>
