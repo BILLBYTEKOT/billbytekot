@@ -84,6 +84,7 @@ const OrdersPage = ({ user }) => {
   const [todaysBills, setTodaysBills] = useState([]);
   const [tables, setTables] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+  const [menuLoading, setMenuLoading] = useState(true);
   const [businessSettings, setBusinessSettings] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
@@ -116,7 +117,6 @@ const OrdersPage = ({ user }) => {
   // Tab state for Active Orders vs Today's Bills
   const [activeTab, setActiveTab] = useState('active'); // 'active' or 'history'
   const [loading, setLoading] = useState(true);
-  const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const navigate = useNavigate();
   const dataLoadedRef = useRef(false);
 
@@ -226,12 +226,31 @@ const OrdersPage = ({ user }) => {
 
   const loadInitialData = async () => {
     try {
-      // Load critical data first (orders, today's bills, and tables), then secondary data
-      const [ordersRes, todaysBillsRes, tablesRes] = await Promise.all([
+      // Try to load menu from cache first for instant display
+      const cachedMenu = localStorage.getItem('billbyte_menu_cache');
+      if (cachedMenu) {
+        try {
+          const { data: cachedMenuData, timestamp } = JSON.parse(cachedMenu);
+          // Use cached menu if less than 5 minutes old
+          if (Date.now() - timestamp < 300000 && Array.isArray(cachedMenuData)) {
+            const validCachedItems = cachedMenuData.filter(item => item && item.id && item.name && item.available);
+            setMenuItems(validCachedItems);
+            setMenuLoading(false);
+            console.log(`⚡ Loaded ${validCachedItems.length} menu items from cache instantly`);
+          }
+        } catch (e) {
+          console.warn('Failed to parse cached menu:', e);
+        }
+      }
+
+      // Load critical data first (orders, today's bills, tables, and menu items)
+      const [ordersRes, todaysBillsRes, tablesRes, menuRes] = await Promise.all([
         axios.get(`${API}/orders`).catch(() => ({ data: [] })),
         axios.get(`${API}/orders/today-bills`).catch(() => ({ data: [] })),
         // Use fresh=true and cache-busting for tables to get real-time status
-        axios.get(`${API}/tables?fresh=true&_t=${Date.now()}`).catch(() => ({ data: [] }))
+        axios.get(`${API}/tables?fresh=true&_t=${Date.now()}`).catch(() => ({ data: [] })),
+        // Load menu items as priority data (not secondary)
+        axios.get(`${API}/menu`).catch(() => ({ data: [] }))
       ]);
       
       // Process orders data
@@ -264,9 +283,27 @@ const OrdersPage = ({ user }) => {
         return table && table.id && typeof table.table_number === 'number';
       });
       
+      // Process menu items data - now loaded as priority
+      const menuData = Array.isArray(menuRes.data) ? menuRes.data : [];
+      const validMenuItems = menuData.filter(item => item && item.id && item.name && item.available);
+      
       setOrders(validOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
       setTodaysBills(validBills.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
       setTables(validTables);
+      setMenuItems(validMenuItems); // Set menu items immediately
+      setMenuLoading(false);
+      
+      // Cache menu items for next time
+      try {
+        localStorage.setItem('billbyte_menu_cache', JSON.stringify({
+          data: validMenuItems,
+          timestamp: Date.now()
+        }));
+      } catch (e) {
+        console.warn('Failed to cache menu items:', e);
+      }
+      
+      console.log(`📋 Loaded ${validMenuItems.length} menu items instantly`);
       
       // 🚀 PERFORMANCE OPTIMIZATION: Smart pre-loading with persistent cache
       const activeOrderIds = validOrders
@@ -284,15 +321,11 @@ const OrdersPage = ({ user }) => {
         billingCache.backgroundSync(activeOrderIds);
       }
       
-      // Load secondary data in background
-      Promise.all([
-        axios.get(`${API}/menu`).catch(() => ({ data: [] })),
-        axios.get(`${API}/business/settings`).catch(() => ({ data: { business_settings: {} } }))
-      ]).then(([menuRes, settingsRes]) => {
-        const items = Array.isArray(menuRes.data) ? menuRes.data : [];
-        setMenuItems(items.filter(item => item.available));
-        setBusinessSettings(settingsRes.data.business_settings || {});
-      });
+      // Load business settings in background (less critical)
+      axios.get(`${API}/business/settings`).catch(() => ({ data: { business_settings: {} } }))
+        .then((settingsRes) => {
+          setBusinessSettings(settingsRes.data.business_settings || {});
+        });
       
     } catch (error) {
       console.error('Failed to load initial data', error);
@@ -302,6 +335,7 @@ const OrdersPage = ({ user }) => {
       setTables([]);
       setMenuItems([]);
       setBusinessSettings({});
+      setMenuLoading(false);
     } finally {
       setLoading(false);
     }
@@ -453,7 +487,7 @@ const OrdersPage = ({ user }) => {
     setSelectedItems(updated);
   };
 
-  // Submit order from full-screen menu page
+  // Submit order from full-screen menu page with instant feedback
   const handleSubmitOrder = async () => {
     if (selectedItems.length === 0) {
       toast.error('Please add at least one item');
@@ -466,7 +500,16 @@ const OrdersPage = ({ user }) => {
       return;
     }
 
-    setLoading(true);
+    // Instant feedback - play sound and show success immediately
+    playSound('success');
+    toast.success('🎉 Order created successfully!');
+    
+    // Instant UI update - close menu and reset form immediately
+    setShowMenuPage(false);
+    setCartExpanded(false);
+    resetForm();
+
+    // Background order creation - no loading states visible to user
     try {
       const selectedTable = formData.table_id ? tables.find(t => t.id === formData.table_id) : null;
       // Use "Cash Sale" if no customer name provided (for counter sales)
@@ -481,13 +524,11 @@ const OrdersPage = ({ user }) => {
         frontend_origin: window.location.origin
       });
       
-      toast.success('Order created successfully!');
-      setShowMenuPage(false);
-      setCartExpanded(false);
-      resetForm();
-      
-      // Refresh data including tables to update status
-      await Promise.all([fetchOrders(), fetchTables(true)]);
+      // Silent background refresh to sync with server
+      setTimeout(() => {
+        fetchOrders();
+        fetchTables(true);
+      }, 1000);
       
       // Offer WhatsApp notification
       if (response.data?.whatsapp_link && formData.customer_phone) {
@@ -495,14 +536,15 @@ const OrdersPage = ({ user }) => {
           if (window.confirm('Send order confirmation via WhatsApp?')) {
             window.open(response.data.whatsapp_link, '_blank');
           }
-        }, 300);
+        }, 500);
       }
     } catch (error) {
       console.error('Order creation failed:', error);
       const errorMsg = error.response?.data?.detail || error.message || 'Failed to create order';
       toast.error(errorMsg);
-    } finally {
-      setLoading(false);
+      
+      // If order creation failed, user can try again - no need to revert UI
+      // since they're already back to the orders page
     }
   };
 
@@ -514,9 +556,6 @@ const OrdersPage = ({ user }) => {
   };
 
   const handleStatusChange = async (orderId, status) => {
-    // Set loading state for this specific order
-    setUpdatingOrderId(orderId);
-    
     // Immediate visual feedback - optimistic update
     const statusSounds = {
       'preparing': 'cooking',
@@ -549,14 +588,15 @@ const OrdersPage = ({ user }) => {
       toast.success(statusMessages[status]);
     }
 
+    // Silent background server update - no loading states
     try {
       const response = await axios.put(`${API}/orders/${orderId}/status?status=${status}&frontend_origin=${encodeURIComponent(window.location.origin)}`);
       
-      // Background refresh to sync with server
+      // Silent background refresh to sync with server
       setTimeout(() => {
         fetchOrders();
         fetchTables();
-      }, 500);
+      }, 1000);
       
       if (response.data?.whatsapp_link && response.data?.customer_phone) {
         setTimeout(() => {
@@ -569,7 +609,7 @@ const OrdersPage = ({ user }) => {
     } catch (error) {
       console.error('Status update failed:', error);
       
-      // Revert optimistic update on error
+      // Silent revert optimistic update on error
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
@@ -578,12 +618,8 @@ const OrdersPage = ({ user }) => {
         )
       );
       
-      // Play error sound
-      playSound('error');
-      toast.error(error.response?.data?.detail || 'Failed to update status');
-    } finally {
-      // Clear loading state
-      setUpdatingOrderId(null);
+      // Only show error if something actually failed
+      toast.error('Failed to update status - please try again');
     }
   };
 
@@ -1018,8 +1054,19 @@ const OrdersPage = ({ user }) => {
                   })}
               </div>
               
-              {/* Empty State */}
-              {menuItems.filter(item => {
+              {/* Loading State for Menu */}
+              {menuLoading && (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-8 h-8 border-3 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <p className="text-lg font-semibold text-gray-700">Loading menu...</p>
+                  <p className="text-gray-500 mt-1 text-sm">Getting fresh menu items</p>
+                </div>
+              )}
+              
+              {/* Empty State - Only show when not loading and no items */}
+              {!menuLoading && menuItems.filter(item => {
                 const matchesSearch = item.name.toLowerCase().includes(menuSearch.toLowerCase());
                 const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
                 return matchesSearch && matchesCategory;
@@ -1137,20 +1184,11 @@ const OrdersPage = ({ user }) => {
                     </div>
                     <button 
                       onClick={() => { playSound('success'); handleSubmitOrder(); }}
-                      disabled={loading || selectedItems.length === 0}
+                      disabled={selectedItems.length === 0}
                       className="bg-white text-violet-600 font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 disabled:opacity-50 active:scale-95 transition-transform text-sm"
                     >
-                      {loading ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-violet-200 border-t-violet-600 rounded-full animate-spin"></span>
-                          Wait
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4" />
-                          Create
-                        </>
-                      )}
+                      <CheckCircle className="w-4 h-4" />
+                      Create
                     </button>
                   </div>
                 </div>
@@ -1650,37 +1688,17 @@ const OrdersPage = ({ user }) => {
                     {['admin', 'kitchen'].includes(user?.role) && order.status === 'pending' && (
                       <button 
                         onClick={() => handleStatusChange(order.id, 'preparing')} 
-                        className="flex-1 h-10 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-150 active:scale-95 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={updatingOrderId === order.id}
+                        className="flex-1 h-10 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-150 active:scale-95 shadow-lg hover:shadow-xl"
                       >
-                        {updatingOrderId === order.id ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Cooking...
-                          </>
-                        ) : (
-                          <>
-                            <span className="animate-bounce">👨‍🍳</span> Start Cooking
-                          </>
-                        )}
+                        <span className="animate-bounce">👨‍🍳</span> Start Cooking
                       </button>
                     )}
                     {['admin', 'kitchen'].includes(user?.role) && order.status === 'preparing' && (
                       <button 
                         onClick={() => handleStatusChange(order.id, 'ready')} 
-                        className="flex-1 h-10 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-150 active:scale-95 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={updatingOrderId === order.id}
+                        className="flex-1 h-10 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-150 active:scale-95 shadow-lg hover:shadow-xl"
                       >
-                        {updatingOrderId === order.id ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Ready...
-                          </>
-                        ) : (
-                          <>
-                            <span className="animate-pulse">✅</span> Mark Ready
-                          </>
-                        )}
+                        <span className="animate-pulse">✅</span> Mark Ready
                       </button>
                     )}
                     {['admin', 'waiter', 'cashier'].includes(user?.role) && order.status !== 'completed' && (
