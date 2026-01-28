@@ -23,7 +23,7 @@ import {
 
 const SuperAdminPage = () => {
   const [authenticated, setAuthenticated] = useState(false);
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [credentials, setCredentials] = useState({ username: 'shiv', password: 'shiv@123' });
   const [userType, setUserType] = useState(null); // 'super-admin' or 'team'
   const [teamUser, setTeamUser] = useState(null);
   const [teamToken, setTeamToken] = useState(null);
@@ -314,7 +314,7 @@ const SuperAdminPage = () => {
       setSelectedUsers([]);
       setBulkAction('');
       setShowBulkModal(false);
-      fetchUsers(); // Only refresh users after bulk action
+      fetchUsers(0, false); // Only refresh users after bulk action
     } catch (error) {
       toast.error('Bulk action failed: ' + (error.response?.data?.detail || error.message));
     } finally {
@@ -525,23 +525,45 @@ const SuperAdminPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      console.log('🔍 API URL being used:', API);
+      console.log('🔐 Attempting super admin login...');
+      console.log('🔗 Full login URL:', `${API}/super-admin/login`);
+      console.log('🔑 Credentials being sent:', credentials);
+      
       // Use super admin login endpoint
       const response = await axios.get(`${API}/super-admin/login`, {
         params: credentials
       });
       
+      console.log('🔐 Login response:', response.data);
+      
       if (response.data.success) {
         setUserType('super-admin');
         setAuthenticated(true);
         toast.success('Super Admin access granted');
+        console.log('✅ Authentication successful, fetching dashboard...');
         // Only fetch dashboard data initially
         fetchDashboard();
       } else {
+        console.log('❌ Login failed - invalid credentials');
         toast.error('Invalid credentials');
       }
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error('Invalid credentials or server error');
+      console.error('❌ Login error:', error);
+      console.log('🔗 Failed URL:', error.config?.url);
+      
+      // More specific error handling
+      if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
+        toast.error('Cannot connect to backend server. Please start the backend server first.');
+        console.log('💡 Backend server is not running. Start it with: python backend/server.py');
+      } else if (error.response?.status === 403) {
+        toast.error('Invalid super admin credentials');
+      } else if (error.response?.status === 404) {
+        toast.error('SuperAdmin endpoint not found. Check backend configuration.');
+        console.log('💡 SuperAdmin endpoints might not be available in this backend version');
+      } else {
+        toast.error('Server error: ' + (error.response?.data?.detail || error.message));
+      }
     } finally {
       setLoading(false);
     }
@@ -578,22 +600,88 @@ const SuperAdminPage = () => {
   // State for user fetch error and retry (Requirements 3.4)
   const [usersFetchError, setUsersFetchError] = useState(null);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [usersPage, setUsersPage] = useState(0);
+  const [usersHasMore, setUsersHasMore] = useState(true);
+  const [usersTotal, setUsersTotal] = useState(0);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (page = 0, append = false) => {
     try {
+      console.log(`🔍 Fetching users - page: ${page}, append: ${append}`);
       setUsersLoading(true);
       setUsersFetchError(null);
-      const usersRes = await axios.get(`${API}/super-admin/users/list`, {
-        params: credentials
-      });
-      setUsers(usersRes.data.users || []);
+      
+      let usersRes;
+      
+      try {
+        // Try the new optimized endpoint first
+        usersRes = await axios.get(`${API}/super-admin/users/list`, {
+          params: {
+            ...credentials,
+            page: page,
+            limit: 20,
+            fields: 'id,username,email,subscription_active,subscription_expires_at,created_at,bill_count'
+          }
+        });
+        console.log(`✅ New endpoint response:`, usersRes.data);
+      } catch (newEndpointError) {
+        console.log(`⚠️ New endpoint failed, falling back to old endpoint:`, newEndpointError.message);
+        
+        // Fallback to old endpoint
+        const skip = page * 20;
+        usersRes = await axios.get(`${API}/super-admin/users`, {
+          params: {
+            ...credentials,
+            skip: skip,
+            limit: 20
+          }
+        });
+        
+        // Transform old endpoint response to match new format
+        const oldData = usersRes.data;
+        usersRes.data = {
+          users: oldData.users || [],
+          total: oldData.total || 0,
+          has_more: (skip + (oldData.users?.length || 0)) < (oldData.total || 0),
+          page: page,
+          limit: 20
+        };
+        console.log(`✅ Old endpoint response (transformed):`, usersRes.data);
+      }
+      
+      const newUsers = usersRes.data.users || [];
+      const total = usersRes.data.total || 0;
+      const hasMore = usersRes.data.has_more || false;
+      
+      if (append) {
+        setUsers(prev => [...prev, ...newUsers]);
+        console.log(`📝 Appended ${newUsers.length} users to existing list`);
+      } else {
+        setUsers(newUsers);
+        console.log(`📝 Set ${newUsers.length} users (fresh load)`);
+      }
+      
+      setUsersTotal(total);
+      setUsersHasMore(hasMore);
+      setUsersPage(page);
+      
+      console.log(`📊 Users state - total: ${total}, hasMore: ${hasMore}, page: ${page}`);
+      
     } catch (e) {
-      console.error('Failed to fetch users', e);
-      setUsers([]);
+      console.error('❌ Failed to fetch users', e);
+      if (!append) {
+        setUsers([]);
+      }
       setUsersFetchError(e.response?.data?.detail || e.message || 'Failed to fetch users');
       toast.error('Failed to fetch users. Click retry to try again.');
     } finally {
       setUsersLoading(false);
+    }
+  };
+
+  // Load more users (pagination)
+  const loadMoreUsers = () => {
+    if (!usersLoading && usersHasMore) {
+      fetchUsers(usersPage + 1, true);
     }
   };
 
@@ -901,48 +989,62 @@ const SuperAdminPage = () => {
 
   // Function to fetch data based on active tab
   const fetchTabData = async (tab) => {
+    console.log(`📊 Fetching data for tab: ${tab}`);
     setLoading(true);
     try {
       switch (tab) {
         case 'dashboard':
+          console.log('📊 Fetching dashboard data...');
           await fetchDashboard();
           break;
         case 'users':
-          await fetchUsers();
+          console.log('👥 Fetching users data...');
+          await fetchUsers(0, false);
           break;
         case 'leads':
+          console.log('🎯 Fetching leads data...');
           await fetchLeads();
           break;
         case 'team':
+          console.log('👨‍💼 Fetching team data...');
           await fetchTeam();
           break;
         case 'tickets':
+          console.log('🎫 Fetching tickets data...');
           await fetchTickets();
           break;
         case 'analytics':
+          console.log('📈 Fetching analytics data...');
           await fetchAnalytics();
           break;
         case 'app-versions':
+          console.log('📱 Fetching app versions data...');
           await fetchAppVersions();
           break;
         case 'pricing':
+          console.log('💰 Fetching pricing data...');
           await fetchPricing();
           break;
         case 'promotions':
+          console.log('🎉 Fetching promotions data...');
           await fetchPromotions();
           break;
         case 'notifications':
+          console.log('🔔 Fetching notifications data...');
           await fetchNotifications();
           break;
         case 'referrals':
+          console.log('🤝 Fetching referrals data...');
           await fetchReferrals();
           await fetchReferralAnalytics();
           break;
         default:
+          console.log(`⚠️ Unknown tab: ${tab}`);
           break;
       }
+      console.log(`✅ Successfully fetched data for tab: ${tab}`);
     } catch (error) {
-      console.error(`Failed to fetch ${tab} data:`, error);
+      console.error(`❌ Failed to fetch ${tab} data:`, error);
     } finally {
       setLoading(false);
     }
@@ -950,6 +1052,7 @@ const SuperAdminPage = () => {
 
   // Handle tab switching with data fetching
   const handleTabSwitch = (tab) => {
+    console.log(`🔄 Switching to tab: ${tab}`);
     setActiveTab(tab);
     fetchTabData(tab);
   };
@@ -1066,7 +1169,7 @@ const SuperAdminPage = () => {
         params: credentials
       });
       toast.success('User deleted');
-      fetchUsers(); // Only refresh users
+      fetchUsers(0, false); // Only refresh users
     } catch (error) {
       toast.error('Failed to delete user');
     }
@@ -1083,7 +1186,7 @@ const SuperAdminPage = () => {
         { params: credentials }
       );
       toast.success(`Trial extended by ${days} days! Total trial: ${response.data.total_trial_days} days`);
-      fetchUsers(); // Only refresh users
+      fetchUsers(0, false); // Only refresh users
     } catch (error) {
       toast.error('Failed to extend trial');
     }
@@ -1094,15 +1197,24 @@ const SuperAdminPage = () => {
     try {
       setBusinessDetailsLoading(true);
       
-      // Fetch business details and navigation data in parallel (Requirements 2.1, 2.5, 2.6)
-      const [detailsResponse, navResponse] = await Promise.all([
-        axios.get(`${API}/super-admin/users/${userId}/business-details`, {
-          params: credentials
-        }),
-        axios.get(`${API}/super-admin/users/navigation`, {
-          params: { ...credentials, current_user_id: userId }
-        }).catch(() => ({ data: { previous_user_id: null, next_user_id: null, current_position: 0, total_users: 0 } }))
-      ]);
+      // Only fetch detailed business info when specifically requested
+      // This reduces MongoDB queries and improves performance for free tier
+      const detailsResponse = await axios.get(`${API}/super-admin/users/${userId}/business-details`, {
+        params: credentials
+      });
+      
+      // Get user navigation data from current users list instead of separate API call
+      const currentUserIndex = users.findIndex(u => u.id === userId);
+      const previousUserId = currentUserIndex > 0 ? users[currentUserIndex - 1].id : null;
+      const nextUserId = currentUserIndex < users.length - 1 ? users[currentUserIndex + 1].id : null;
+      
+      // Set navigation data (Requirements 2.5, 2.6)
+      setUserNavigation({
+        previousUserId,
+        nextUserId,
+        currentPosition: currentUserIndex + 1,
+        totalUsers: usersTotal
+      });
       
       // Ensure all business fields are present (Requirements 2.2)
       const details = detailsResponse.data;
@@ -1118,13 +1230,6 @@ const SuperAdminPage = () => {
         fssai: details.fssai || null
       });
       
-      // Set navigation data (Requirements 2.5, 2.6)
-      setUserNavigation({
-        previousUserId: navResponse.data.previous_user_id,
-        nextUserId: navResponse.data.next_user_id,
-        currentPosition: navResponse.data.current_position || 0,
-        totalUsers: navResponse.data.total_users || 0
-      });
       setShowBusinessDetails(true);
     } catch (error) {
       console.error('Failed to fetch business details:', error);
@@ -1161,7 +1266,7 @@ const SuperAdminPage = () => {
         params: credentials
       });
       toast.success('Subscription deactivated');
-      fetchUsers(); // Only refresh users
+      fetchUsers(0, false); // Only refresh users
     } catch (error) {
       toast.error('Failed to deactivate subscription');
     }
@@ -1246,6 +1351,17 @@ const SuperAdminPage = () => {
               >
                 {loading ? 'Authenticating...' : 'Login'}
               </Button>
+              
+              {/* Backend Status Help */}
+              <div className="mt-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <p className="text-xs text-gray-400 mb-2">💡 If login fails:</p>
+                <ul className="text-xs text-gray-400 space-y-1">
+                  <li>• Ensure backend server is running</li>
+                  <li>• Start with: <code className="bg-gray-700 px-1 rounded">python backend/server.py</code></li>
+                  <li>• Check MongoDB connection</li>
+                  <li>• Verify credentials</li>
+                </ul>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -1628,7 +1744,8 @@ const SuperAdminPage = () => {
                       User Management
                     </CardTitle>
                     <p className="text-sm text-gray-500 mt-1">
-                      {getFilteredUsers().length} of {users.length} users
+                      Showing {getFilteredUsers().length} of {usersTotal} users
+                      {users.length < usersTotal && ` (${users.length} loaded)`}
                     </p>
                   </div>
                   
@@ -1797,7 +1914,11 @@ const SuperAdminPage = () => {
                     </div>
                     <Button
                       variant="outline"
-                      onClick={fetchUsers}
+                      onClick={() => {
+                        setUsersPage(0);
+                        setUsersHasMore(true);
+                        fetchUsers(0, false); // Reset pagination and reload
+                      }}
                       disabled={usersLoading}
                       className="border-red-300 text-red-700 hover:bg-red-100"
                     >
@@ -2063,6 +2184,28 @@ const SuperAdminPage = () => {
                       ))}
                     </tbody>
                   </table>
+                  
+                  {/* Load More Button for Pagination */}
+                  {usersHasMore && !usersLoading && getFilteredUsers().length > 0 && (
+                    <div className="text-center py-4 border-t">
+                      <Button
+                        onClick={loadMoreUsers}
+                        variant="outline"
+                        className="flex items-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Load More Users ({usersTotal - users.length} remaining)
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Loading indicator for pagination */}
+                  {usersLoading && users.length > 0 && (
+                    <div className="text-center py-4 border-t">
+                      <RefreshCw className="w-4 h-4 animate-spin mx-auto text-blue-600" />
+                      <p className="text-sm text-gray-500 mt-2">Loading more users...</p>
+                    </div>
+                  )}
                   
                   {getFilteredUsers().length === 0 && (
                     <div className="text-center py-12">

@@ -11520,6 +11520,72 @@ async def get_all_users_admin(username: str, password: str, skip: int = 0, limit
     
     return {"users": users, "total": total, "skip": skip, "limit": limit}
 
+@api_router.get("/super-admin/users/list")
+async def get_users_list_optimized(
+    username: str, 
+    password: str, 
+    page: int = 0, 
+    limit: int = 20,
+    fields: str = None
+):
+    """Get users list with pagination and field selection - Optimized for MongoDB free tier"""
+    if not verify_super_admin(username, password):
+        raise HTTPException(status_code=403, detail="Invalid super admin credentials")
+    
+    # Calculate skip based on page
+    skip = page * limit
+    
+    # Define projection based on requested fields
+    if fields:
+        # Parse comma-separated fields
+        field_list = [f.strip() for f in fields.split(',')]
+        projection = {field: 1 for field in field_list}
+        projection["_id"] = 0  # Always exclude _id
+        projection["password"] = 0  # Always exclude password
+    else:
+        # Default minimal projection for performance
+        projection = {
+            "_id": 0,
+            "password": 0,
+            "id": 1,
+            "username": 1,
+            "email": 1,
+            "subscription_active": 1,
+            "subscription_expires_at": 1,
+            "created_at": 1,
+            "bill_count": 1
+        }
+    
+    try:
+        # Use aggregation pipeline for better performance on large collections
+        pipeline = [
+            {"$project": projection},
+            {"$skip": skip},
+            {"$limit": limit}
+        ]
+        
+        users_cursor = db.users.aggregate(pipeline)
+        users = await users_cursor.to_list(limit)
+        
+        # Get total count efficiently
+        total = await db.users.count_documents({})
+        
+        # Calculate if there are more users
+        has_more = (skip + len(users)) < total
+        
+        return {
+            "users": users,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "has_more": has_more,
+            "loaded": skip + len(users)
+        }
+        
+    except Exception as e:
+        print(f"Error fetching users list: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch users list")
+
 class SubscriptionUpdate(BaseModel):
     subscription_active: bool
     subscription_expires_at: Optional[str] = None
