@@ -188,9 +188,9 @@ EnhancedSEOHead.defaultProps = {
  * Homepage SEO Component
  */
 export const HomepageSEO = ({ 
-  title = 'BillByteKOT - Best Restaurant Billing Software in India',
-  description = 'Best restaurant billing software in India with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Trusted by 500+ restaurants.',
-  keywords = ['restaurant billing software', 'POS system', 'KOT software', 'restaurant management'],
+  title = 'BillByteKOT - Best KOT-First Restaurant Automation Platform in India',
+  description = 'Best KOT-first restaurant automation platform in India with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Trusted by 500+ restaurants.',
+  keywords = ['KOT-first restaurant automation platform', 'POS system', 'KOT software', 'restaurant management'],
   ...props 
 }) => (
   <EnhancedSEOHead

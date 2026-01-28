@@ -1,7 +1,7 @@
 const faqData = [
   {
     id: 1,
-    question: "What is the best restaurant billing software in India 2025?",
+    question: "What is the best KOT-first restaurant automation platform in India 2025?",
     answer: "BillByteKOT is rated as the best restaurant billing software in India for 2025. It offers comprehensive features including KOT system, thermal printing with 6 themes, WhatsApp integration, inventory management, and GST billing at just ₹1999/year - making it more affordable than competitors like Petpooja while offering superior features.",
     keywords: ["best restaurant billing software India", "restaurant software 2025"],
     category: "General"

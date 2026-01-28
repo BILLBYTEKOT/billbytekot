@@ -18,8 +18,8 @@ class InternalLinkBuilder {
     return {
       homepage: {
         url: '/',
-        title: 'BillByteKOT - Restaurant Billing Software',
-        keywords: ['restaurant billing software', 'restaurant management', 'billbytekot'],
+        title: 'BillByteKOT - KOT-First Restaurant Automation Platform',
+        keywords: ['KOT-first restaurant automation platform', 'restaurant management', 'billbytekot'],
         priority: 1.0,
         type: 'homepage'
       },

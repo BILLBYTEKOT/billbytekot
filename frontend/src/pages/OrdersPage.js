@@ -8,7 +8,6 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { Plus, Eye, Printer, MessageCircle, X, Receipt, Search, Edit, Trash2, Ban, MoreVertical, AlertTriangle, ArrowLeft, ArrowRight, ShoppingCart, Clock, CheckCircle, Wallet, DollarSign, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import TrialBanner from '../components/TrialBanner';
 import { printKOT as printKOTUtil, printReceipt as printReceiptUtil } from '../utils/printUtils';
 import OptimizedBillingButton from '../components/OptimizedBillingButton';
@@ -122,7 +121,6 @@ const OrdersPage = ({ user }) => {
   // Add state for preventing duplicate orders
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [lastOrderCreated, setLastOrderCreated] = useState(null);
-  const navigate = useNavigate();
   const dataLoadedRef = useRef(false);
 
   // Get unique categories from menu items
@@ -140,7 +138,6 @@ const OrdersPage = ({ user }) => {
     const interval = setInterval(() => {
       // Skip polling if there are active status changes to avoid conflicts
       if (processingStatusChanges.size > 0) {
-        console.log('⏸️ Skipping polling due to active status changes');
         return;
       }
       
@@ -149,7 +146,7 @@ const OrdersPage = ({ user }) => {
       } else if (activeTab === 'history') {
         fetchTodaysBills(); // Refresh today's bills when viewing history tab
       }
-    }, 5000); // Poll every 5 seconds to avoid overriding optimistic updates
+    }, 10000); // Increased to 10 seconds to reduce conflicts with optimistic updates
 
     return () => clearInterval(interval);
   }, [activeTab]); // Only depend on activeTab to prevent infinite loops
@@ -157,7 +154,6 @@ const OrdersPage = ({ user }) => {
   // Aggressive real-time refresh on window focus (when user returns to tab)
   useEffect(() => {
     const handleFocus = () => {
-      console.log('🔄 Window focused - refreshing orders for real-time sync');
       if (activeTab === 'active') {
         fetchOrders();
       } else if (activeTab === 'history') {
@@ -173,7 +169,6 @@ const OrdersPage = ({ user }) => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('🔄 Tab became visible - refreshing orders for real-time sync');
         if (activeTab === 'active') {
           fetchOrders();
         } else if (activeTab === 'history') {
@@ -208,7 +203,6 @@ const OrdersPage = ({ user }) => {
 
   // Manual refresh function for real-time updates
   const handleManualRefresh = async () => {
-    console.log('🔄 Manual refresh triggered');
     setLoading(true);
     
     try {
@@ -249,7 +243,6 @@ const OrdersPage = ({ user }) => {
           }));
           
           setMenuItems(validMenuItems);
-          console.log(`✅ Refreshed ${validMenuItems.length} menu items`);
         }
       } catch (menuError) {
         console.error('Menu refresh failed:', menuError);
@@ -277,7 +270,6 @@ const OrdersPage = ({ user }) => {
             const validCachedItems = cachedMenuData.filter(item => item && item.id && item.name && item.available);
             setMenuItems(validCachedItems);
             setMenuLoading(false);
-            console.log(`⚡ Loaded ${validCachedItems.length} menu items from cache instantly`);
           }
         } catch (e) {
           console.warn('Failed to parse cached menu:', e);
@@ -344,8 +336,6 @@ const OrdersPage = ({ user }) => {
         console.warn('Failed to cache menu items:', e);
       }
       
-      console.log(`📋 Loaded ${validMenuItems.length} menu items instantly`);
-      
       // 🚀 PERFORMANCE OPTIMIZATION: Smart pre-loading with persistent cache
       const activeOrderIds = validOrders
         .filter(order => ['ready', 'preparing', 'pending'].includes(order.status))
@@ -408,8 +398,6 @@ const OrdersPage = ({ user }) => {
         }
       }
       
-      console.log(`📋 Fetching orders${forceRefresh ? ' (force refresh)' : ''}...`);
-      
       const params = forceRefresh ? `?_t=${Date.now()}` : '';
       const response = await apiWithRetry({
         method: 'get',
@@ -453,6 +441,7 @@ const OrdersPage = ({ user }) => {
       setOrders(prevOrders => {
         try {
           const optimisticOrders = prevOrders.filter(order => order.is_optimistic);
+          const instantUpdates = prevOrders.filter(order => order.instant_update);
           const serverOrders = sortedOrders.filter(order => !order.is_optimistic);
           
           // Remove optimistic orders that now exist on server (successful creation)
@@ -467,17 +456,57 @@ const OrdersPage = ({ user }) => {
             return !existsOnServer;
           });
           
-          const mergedOrders = [...finalOptimisticOrders, ...serverOrders];
-          console.log(`✅ Fetched ${serverOrders.length} orders (${finalOptimisticOrders.length} optimistic preserved)`);
+          // Preserve instant status updates for 5 seconds to prevent flickering
+          const mergedServerOrders = serverOrders.map(serverOrder => {
+            const instantUpdate = instantUpdates.find(local => local.id === serverOrder.id);
+            
+            if (instantUpdate && instantUpdate.updated_at) {
+              try {
+                const timeSinceUpdate = Date.now() - new Date(instantUpdate.updated_at).getTime();
+                // Preserve instant updates for 5 seconds
+                if (timeSinceUpdate < 5000 && instantUpdate.status !== serverOrder.status) {
+                  return {
+                    ...serverOrder,
+                    status: instantUpdate.status,
+                    updated_at: instantUpdate.updated_at,
+                    instant_update: true
+                  };
+                }
+              } catch (dateError) {
+                console.warn('Date parsing error:', dateError);
+              }
+            }
+            
+            return serverOrder;
+          });
+          
+          // Filter out completed and paid orders from active orders
+          const activeServerOrders = mergedServerOrders.filter(order => 
+            !['completed', 'cancelled', 'paid'].includes(order.status)
+          );
+          
+          // Move completed orders to today's bills
+          const completedOrders = mergedServerOrders.filter(order => 
+            ['completed', 'paid'].includes(order.status)
+          );
+          
+          if (completedOrders.length > 0) {
+            setTodaysBills(prevBills => {
+              const existingIds = new Set(prevBills.map(bill => bill.id));
+              const newCompletedOrders = completedOrders.filter(order => !existingIds.has(order.id));
+              return [...newCompletedOrders, ...prevBills];
+            });
+          }
+          
+          const mergedOrders = [...finalOptimisticOrders, ...activeServerOrders];
           
           return mergedOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         } catch (mergeError) {
           console.error('Error merging orders:', mergeError);
           // Fallback to just server orders if merging fails
-          return sortedOrders;
+          return sortedOrders.filter(order => !['completed', 'cancelled', 'paid'].includes(order.status));
         }
       });
-      console.log(`✅ Fetched ${sortedOrders.length} orders`);
       
     } catch (error) {
       console.error('Failed to fetch orders', error);
@@ -545,7 +574,6 @@ const OrdersPage = ({ user }) => {
         params.append('_t', Date.now().toString());  // Cache-busting for browser
       }
       const url = `${API}/tables?${params.toString()}`;
-      console.log(`🍽️ Fetching tables${forceRefresh ? ' (force refresh)' : ''} with fresh=true...`);
       
       const response = await apiWithRetry({
         method: 'get',
@@ -566,7 +594,6 @@ const OrdersPage = ({ user }) => {
       }));
       
       setTables(validTables);
-      console.log(`✅ Fetched ${validTables.length} tables, ${validTables.filter(t => t.status === 'available').length} available`);
     } catch (error) {
       console.error('Failed to fetch tables', error);
       setTables([]);
@@ -748,56 +775,59 @@ const OrdersPage = ({ user }) => {
   const handleStatusChange = async (orderId, status) => {
     // 🚫 PREVENT DOUBLE-CLICKS: Check if already processing this order
     if (processingStatusChanges.has(orderId)) {
-      console.log('⚠️ Status change already in progress for order:', orderId);
       return;
     }
 
-    // Add to processing set immediately
+    // Add to processing set immediately and keep it longer
     setProcessingStatusChanges(prev => new Set([...prev, orderId]));
 
-    // Immediate visual feedback - optimistic update
+    // Store original status for potential rollback
+    const originalOrder = orders.find(order => order.id === orderId);
+    const originalStatus = originalOrder?.status;
+    
+    // 🚀 INSTANT VISUAL FEEDBACK - Update UI immediately (0ms delay)
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === orderId 
+          ? { 
+              ...order, 
+              status,
+              updated_at: new Date().toISOString(),
+              instant_update: true // Flag for instant updates
+            }
+          : order
+      )
+    );
+
+    // 🎵 IMMEDIATE SOUND FEEDBACK
     const statusSounds = {
       'preparing': 'cooking',
       'ready': 'success',
       'completed': 'success'
     };
     
-    // Play sound immediately for instant feedback
     if (statusSounds[status]) {
       playSound(statusSounds[status]);
     }
     
-    // 📳 ENHANCED VIBRATION FEEDBACK
+    // 📳 IMMEDIATE VIBRATION FEEDBACK
     try {
       if (navigator.vibrate) {
         if (status === 'preparing') {
           navigator.vibrate([100, 50, 100]); // Cooking pattern
         } else if (status === 'ready') {
-          navigator.vibrate([200, 100, 200]); // Success pattern
+          navigator.vibrate([200, 100, 200, 100, 200]); // Ready pattern - more celebratory
         } else if (status === 'completed') {
           navigator.vibrate([150, 50, 150, 50, 150]); // Completion pattern
         }
       }
     } catch (e) {}
     
-    // Store original status for potential rollback
-    const originalOrder = orders.find(order => order.id === orderId);
-    const originalStatus = originalOrder?.status;
-    
-    // Optimistic UI update - update local state immediately
-    setOrders(prevOrders => 
-      prevOrders.map(order => 
-        order.id === orderId 
-          ? { ...order, status }
-          : order
-      )
-    );
-    
-    // Show immediate success feedback with enhanced styling
+    // 🎉 IMMEDIATE TOAST FEEDBACK
     const statusMessages = {
       'preparing': '👨‍🍳 Started cooking!',
-      'ready': '✅ Marked as ready!',
-      'completed': '🎉 Order completed!'
+      'ready': '🎉 Order is ready!',
+      'completed': '✅ Order completed!'
     };
     
     if (statusMessages[status]) {
@@ -813,20 +843,41 @@ const OrdersPage = ({ user }) => {
       });
     }
 
-    // Silent background server update - no loading states
+    // 🔄 BACKGROUND SERVER UPDATE (non-blocking)
     try {
       const response = await apiWithRetry({
         method: 'put',
         url: `${API}/orders/${orderId}/status?status=${status}&frontend_origin=${encodeURIComponent(window.location.origin)}`,
-        timeout: 8000 // Shorter timeout for status updates
+        timeout: 8000
       });
       
-      // Delay background refresh to let optimistic update be visible longer
-      setTimeout(() => {
-        fetchOrders();
-        fetchTables();
-      }, 1000); // Reduced delay for better sync
+      // Only move to Today's Bills if order is completed/paid
+      if (status === 'completed') {
+        setOrders(prevOrders => {
+          const completedOrder = prevOrders.find(order => order.id === orderId);
+          if (completedOrder) {
+            // Add to today's bills
+            setTodaysBills(prevBills => [
+              { ...completedOrder, status: 'completed' },
+              ...prevBills
+            ]);
+            // Remove from active orders
+            return prevOrders.filter(order => order.id !== orderId);
+          }
+          return prevOrders;
+        });
+      }
+      // Note: 'ready' orders stay in active tab until they're completed/paid
       
+      // Refresh data in background after longer delay to preserve instant feedback
+      setTimeout(() => {
+        if (status !== 'completed') { // Don't refresh if we already moved the order
+          fetchOrders();
+        }
+        fetchTables();
+      }, 5000); // Much longer delay to preserve instant feedback
+      
+      // WhatsApp notification
       if (response.data?.whatsapp_link && response.data?.customer_phone) {
         setTimeout(() => {
           if (window.confirm(`Send "${status}" update via WhatsApp?`)) {
@@ -838,7 +889,7 @@ const OrdersPage = ({ user }) => {
     } catch (error) {
       console.error('Status update failed:', error);
       
-      // Silent revert optimistic update on error
+      // 🔄 REVERT ON ERROR - Silent rollback
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
@@ -847,14 +898,13 @@ const OrdersPage = ({ user }) => {
         )
       );
       
-      // Error vibration
+      // Error feedback
       try {
         if (navigator.vibrate) {
           navigator.vibrate([300, 100, 300]);
         }
       } catch (e) {}
       
-      // Only show error if something actually failed
       toast.error('❌ Failed to update status - please try again', {
         duration: 3000,
         style: {
@@ -864,14 +914,14 @@ const OrdersPage = ({ user }) => {
         }
       });
     } finally {
-      // Remove from processing set after completion
+      // Clean up processing state after longer delay to prevent multiple clicks
       setTimeout(() => {
         setProcessingStatusChanges(prev => {
           const newSet = new Set(prev);
           newSet.delete(orderId);
           return newSet;
         });
-      }, 500); // Reduced delay
+      }, 1000); // Longer delay to prevent rapid clicking
     }
   };
 
@@ -1765,7 +1815,7 @@ const OrdersPage = ({ user }) => {
             <Clock className="w-4 h-4" />
             Active Orders
             <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'active' ? 'bg-violet-100 text-violet-700' : 'bg-gray-200'}`}>
-              {loading ? '...' : orders.filter(o => !['completed', 'cancelled'].includes(o.status)).length}
+              {loading ? '...' : orders.filter(o => !['completed', 'cancelled', 'paid'].includes(o.status)).length}
             </span>
           </button>
           <button
@@ -1819,7 +1869,7 @@ const OrdersPage = ({ user }) => {
         {/* Active Orders Tab */}
         {!loading && activeTab === 'active' && (
           <div className="space-y-3">
-            {orders.filter(order => !['completed', 'cancelled'].includes(order.status)).length === 0 && (
+            {orders.filter(order => !['completed', 'cancelled'].includes(order.status) && order.status !== 'paid').length === 0 && (
               <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
                 <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-3xl">🍽️</span>
@@ -1828,7 +1878,7 @@ const OrdersPage = ({ user }) => {
                 <p className="text-gray-500 text-sm">All clear! Tap "New Order" to get started</p>
               </div>
             )}
-            {orders.filter(order => !['completed', 'cancelled'].includes(order.status)).map((order) => {
+            {orders.filter(order => !['completed', 'cancelled', 'paid'].includes(order.status)).map((order) => {
               const statusConfig = {
                 pending: { color: 'amber', icon: '⏳', label: 'Pending', bg: 'bg-amber-500' },
                 preparing: { color: 'blue', icon: '👨‍🍳', label: 'Cooking', bg: 'bg-blue-500' },
@@ -1969,14 +2019,17 @@ const OrdersPage = ({ user }) => {
                       <button 
                         onClick={() => handleStatusChange(order.id, 'preparing')} 
                         disabled={processingStatusChanges.has(order.id)}
-                        className={`flex-1 h-10 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-150 shadow-lg hover:shadow-xl ${
+                        className={`flex-1 h-10 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-100 shadow-lg hover:shadow-xl transform ${
                           processingStatusChanges.has(order.id)
                             ? 'bg-green-500 text-white scale-95 cursor-not-allowed animate-pulse'
-                            : 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white active:scale-95 transform hover:scale-105'
+                            : 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white active:scale-95 hover:scale-105'
                         }`}
                         style={{
                           boxShadow: processingStatusChanges.has(order.id) 
                             ? '0 0 20px rgba(34, 197, 94, 0.5)' 
+                            : undefined,
+                          transform: processingStatusChanges.has(order.id) 
+                            ? 'scale(0.95)' 
                             : undefined
                         }}
                       >
@@ -1996,14 +2049,17 @@ const OrdersPage = ({ user }) => {
                       <button 
                         onClick={() => handleStatusChange(order.id, 'ready')} 
                         disabled={processingStatusChanges.has(order.id)}
-                        className={`flex-1 h-10 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-150 shadow-lg hover:shadow-xl ${
+                        className={`flex-1 h-10 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 transition-all duration-100 shadow-lg hover:shadow-xl transform ${
                           processingStatusChanges.has(order.id)
                             ? 'bg-green-600 text-white scale-95 cursor-not-allowed animate-pulse'
-                            : 'bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white active:scale-95 transform hover:scale-105'
+                            : 'bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white active:scale-95 hover:scale-105'
                         }`}
                         style={{
                           boxShadow: processingStatusChanges.has(order.id) 
-                            ? '0 0 20px rgba(34, 197, 94, 0.5)' 
+                            ? '0 0 20px rgba(16, 185, 129, 0.6)' // Emerald glow for ready
+                            : undefined,
+                          transform: processingStatusChanges.has(order.id) 
+                            ? 'scale(0.95)' 
                             : undefined
                         }}
                       >
@@ -2014,7 +2070,7 @@ const OrdersPage = ({ user }) => {
                           </>
                         ) : (
                           <>
-                            <span className="animate-pulse">✅</span> Mark Ready
+                            <span className="animate-pulse text-lg">🎉</span> Mark Ready
                           </>
                         )}
                       </button>

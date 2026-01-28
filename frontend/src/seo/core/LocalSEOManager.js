@@ -269,9 +269,9 @@ class LocalSEOManager {
    */
   generateLocationPageContent(location) {
     return `
-# Restaurant Billing Software in ${location.city}
+# KOT-First Restaurant Automation Platform in ${location.city}
 
-BillByteKOT is the leading restaurant management software solution serving businesses across ${location.city}, ${location.state}. Our comprehensive platform helps restaurants in ${location.city} streamline their operations with advanced billing, POS, and management features.
+BillByteKOT is the leading KOT-first restaurant automation platform serving businesses across ${location.city}, ${location.state}. Our comprehensive platform helps restaurants in ${location.city} streamline their operations with advanced KOT automation, POS, and management features.
 
 ## Why Choose BillByteKOT in ${location.city}?
 

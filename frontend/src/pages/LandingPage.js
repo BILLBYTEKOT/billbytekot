@@ -900,15 +900,16 @@ const LandingPage = () => {
     <>
       {/* SEO Meta Tags and Schema Markup */}
       <HomepageSEO
-        title="BillByteKOT - #1 Restaurant Billing Software India | Free KOT System & Thermal Printing"
-        description="BillByteKOT is India's most trusted restaurant billing software with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Used by 500+ restaurants. Better than Petpooja at ₹1999/year only!"
+        title="BillByteKOT - #1 KOT-First Restaurant Automation Platform India | Free KOT System & Thermal Printing"
+        description="BillByteKOT is India's most trusted KOT-first restaurant automation platform with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Used by 500+ restaurants. Better than Petpooja at ₹1999/year only!"
         keywords={[
           'BillByteKOT',
           'BillByte KOT',
           'Bill Byte KOT',
           'BillByteKOT restaurant software',
           'BillByteKOT POS system',
-          'restaurant billing software',
+          'KOT-first restaurant automation platform',
+          'restaurant automation platform',
           'POS system India',
           'KOT software',
           'restaurant management software',
@@ -917,9 +918,9 @@ const LandingPage = () => {
           'restaurant POS India',
           'kitchen order ticket system',
           'restaurant software India',
-          'billing software for restaurants',
+          'restaurant automation software',
           'BillByteKOT vs Petpooja',
-          'restaurant billing software India',
+          'restaurant automation platform India',
           'best restaurant POS software',
           'restaurant management system India'
         ]}
@@ -929,7 +930,7 @@ const LandingPage = () => {
           // Enhanced brand-specific data for search disambiguation
           name: 'BillByteKOT',
           alternateName: ['BillByte KOT', 'Bill Byte KOT', 'BillByteKOT Restaurant Software', 'BillByteKOT POS'],
-          description: 'BillByteKOT is the best restaurant billing software in India with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Trusted by 500+ restaurants nationwide.',
+          description: 'BillByteKOT is the best KOT-first restaurant automation platform in India with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Trusted by 500+ restaurants nationwide.',
           applicationCategory: 'BusinessApplication',
           applicationSubCategory: 'Restaurant Management Software',
           operatingSystem: ['Web Browser', 'Windows', 'macOS', 'Android', 'iOS'],
@@ -945,7 +946,7 @@ const LandingPage = () => {
           
           // Industry and category specification
           industry: 'Restaurant Technology',
-          keywords: 'restaurant billing software, KOT system, POS software, restaurant management, GST billing, thermal printing, restaurant software India',
+          keywords: 'KOT-first restaurant automation platform, KOT system, POS software, restaurant management, GST billing, thermal printing, restaurant software India',
           
           // Enhanced feature list with brand context
           featureList: [
@@ -1016,7 +1017,7 @@ const LandingPage = () => {
       <FAQPageSchemaInjector faqs={[
         {
           question: "What is BillByteKOT?",
-          answer: "BillByteKOT is India's leading restaurant billing software that provides a complete restaurant management solution including KOT (Kitchen Order Ticket) system, thermal printing, GST billing, inventory management, and WhatsApp integration. It's designed specifically for restaurants, cafes, and food businesses in India."
+          answer: "BillByteKOT is India's leading KOT-first restaurant automation platform that provides a complete restaurant management solution including KOT (Kitchen Order Ticket) system, thermal printing, GST billing, inventory management, and WhatsApp integration. It's designed specifically for restaurants, cafes, and food businesses in India."
         },
         {
           question: "How is BillByteKOT different from other restaurant software?",
@@ -1321,7 +1322,7 @@ const LandingPage = () => {
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-100 rounded-full mb-6 animate-fade-in-down">
               <Sparkles className="w-4 h-4 text-violet-600 animate-pulse" aria-hidden="true" />
               <span className="text-sm font-medium text-violet-600">
-                #1 Restaurant Billing Software India 2025
+                #1 KOT-First Restaurant Automation Platform India 2025
               </span>
             </div>
 

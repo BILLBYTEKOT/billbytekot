@@ -88,8 +88,8 @@ const CityLandingPage = () => {
   const cityFAQData = {
     questions: [
       {
-        question: `What is the best restaurant billing software in ${city.name}?`,
-        answer: `BillByteKOT is the leading restaurant billing software in ${city.name}, trusted by ${city.stats.restaurantCount}+ restaurants. It offers KOT system, thermal printing, GST billing, and WhatsApp integration at just ₹999/year.`
+        question: `What is the best KOT-first restaurant automation platform in ${city.name}?`,
+        answer: `BillByteKOT is the leading KOT-first restaurant automation platform in ${city.name}, trusted by ${city.stats.restaurantCount}+ restaurants. It offers KOT system, thermal printing, GST billing, and WhatsApp integration at just ₹999/year.`
       },
       {
         question: `How much does restaurant POS software cost in ${city.name}?`,
@@ -97,7 +97,7 @@ const CityLandingPage = () => {
       },
       {
         question: `Does BillByteKOT work offline in ${city.name}?`,
-        answer: `Yes! BillByteKOT works completely offline in ${city.name}. Your restaurant can continue billing even during internet outages, with automatic sync when connection is restored.`
+        answer: `Yes! BillByteKOT works completely offline in ${city.name}. Your restaurant can continue with KOT automation even during internet outages, with automatic sync when connection is restored.`
       },
       {
         question: `Is BillByteKOT GST compliant for ${city.state}?`,

@@ -381,7 +381,7 @@ const BlogPage = () => {
           <TrendingUp className="w-16 h-16 mx-auto mb-6" />
           <h2 className="text-4xl font-bold mb-4">Ready to Transform Your Restaurant?</h2>
           <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-            Join 500+ successful restaurants using BillByteKOT for billing, KOT management, and more.
+            Join 500+ successful restaurants using BillByteKOT for KOT-first automation, restaurant management, and more.
           </p>
           <Link to="/login">
             <Button size="lg" className="bg-white text-violet-600 hover:bg-gray-100 h-14 px-8 text-lg">

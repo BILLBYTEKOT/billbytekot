@@ -52,8 +52,8 @@ export const HomepageExample = () => {
       <div>
         {/* Comprehensive SEO with Meta Tags and Schema */}
         <HomepageSEO
-          title="BillByteKOT - Best Restaurant Billing Software in India"
-          description="Best restaurant billing software in India with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Trusted by 500+ restaurants."
+          title="BillByteKOT - Best KOT-First Restaurant Automation Platform in India"
+          description="Best KOT-first restaurant automation platform in India with FREE KOT system, thermal printing, GST billing & WhatsApp integration. Trusted by 500+ restaurants."
           keywords={[
             'restaurant billing software',
             'POS system',
@@ -69,7 +69,7 @@ export const HomepageExample = () => {
         
         {/* Page Content */}
         <main>
-          <h1>BillByteKOT - Restaurant Billing Software</h1>
+          <h1>BillByteKOT - KOT-First Restaurant Automation Platform</h1>
           <p>Complete restaurant management solution with advanced features.</p>
           
           {/* Features Section */}
@@ -110,9 +110,9 @@ export const ProductPageExample = () => {
       <div>
         <ProductPageSEO
           title="Restaurant Billing Software | BillByteKOT"
-          description="Complete restaurant billing software with KOT system, thermal printing, and GST compliance."
-          keywords={['restaurant billing', 'POS system', 'KOT software']}
-          url="https://billbytekot.in/restaurant-billing-software"
+          description="Complete KOT-first restaurant automation platform with KOT system, thermal printing, and GST compliance."
+          keywords={['KOT-first restaurant automation', 'POS system', 'KOT software']}
+          url="https://billbytekot.in/restaurant-automation-platform"
           schemaData={productData}
         />
         
@@ -152,7 +152,7 @@ export const BlogPostExample = () => {
           publishedDate={articleData.publishedDate}
           modifiedDate={articleData.modifiedDate}
           keywords={articleData.keywords}
-          url="https://billbytekot.in/blog/restaurant-billing-software-guide"
+          url="https://billbytekot.in/blog/restaurant-automation-platform-guide"
           image={articleData.image}
           schemaData={articleData}
         />
@@ -179,7 +179,7 @@ export const MultiSchemaExample = () => {
   const faqs = [
     {
       question: 'What is BillByteKOT?',
-      answer: 'BillByteKOT is a comprehensive restaurant billing software with KOT system, thermal printing, and GST compliance.'
+      answer: 'BillByteKOT is a comprehensive KOT-first restaurant automation platform with KOT system, thermal printing, and GST compliance.'
     },
     {
       question: 'How much does it cost?',

@@ -80,8 +80,8 @@ const ContactPage = () => {
     <>
       {/* SEO Meta Tags and Schema Markup */}
       <EnhancedSEOHead
-        title="Contact BillByteKOT - Restaurant Software Support | Get Help & Demo"
-        description="Contact BillByteKOT for restaurant software support, demo requests, and technical assistance. Get help with billing software, KOT system, and restaurant management solutions."
+        title="Contact BillByteKOT - Restaurant Automation Platform Support | Get Help & Demo"
+        description="Contact BillByteKOT for restaurant automation platform support, demo requests, and technical assistance. Get help with KOT-first automation platform, KOT system, and restaurant management solutions."
         keywords={[
           'BillByteKOT contact',
           'restaurant software support',

@@ -2,7 +2,7 @@ const comparisonData = {
   'billbytekot-vs-petpooja': {
     title: 'BillByteKOT vs Petpooja - Complete Comparison 2025',
     metaTitle: 'BillByteKOT vs Petpooja Comparison 2025 | Which is Better?',
-    metaDescription: 'Compare BillByteKOT vs Petpooja restaurant billing software. Features, pricing, pros & cons. BillByteKOT offers better value at ₹1999 vs Petpooja ₹12000+',
+    metaDescription: 'Compare BillByteKOT vs Petpooja KOT-first restaurant automation platforms. Features, pricing, pros & cons. BillByteKOT offers better value at ₹1999 vs Petpooja ₹12000+',
     slug: 'billbytekot-vs-petpooja',
     competitor: 'Petpooja',
     ourProduct: 'BillByteKOT',

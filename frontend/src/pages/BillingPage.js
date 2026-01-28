@@ -137,13 +137,11 @@ const BillingPage = ({ user }) => {
     startBillingTimer(orderId);
 
     try {
-      console.log('⚡ Loading billing data with cache optimization...');
       
       // Try to get cached data first for instant loading
       const cached = billingCache.getCachedBillingData(orderId);
       
       if (cached) {
-        console.log('⚡ Using cached billing data - INSTANT LOAD!');
         setOrder(cached.order);
         setOrderItems(cached.order.items || []);
         setBusinessSettings(cached.businessSettings);
@@ -161,14 +159,13 @@ const BillingPage = ({ user }) => {
         
         // Pre-load payment data for even faster processing
         preloadPaymentData(orderId).catch(error => {
-          console.warn('⚠️ Failed to preload payment data:', error);
+          // Failed to preload payment data - continue without preloading
         });
         
         return; // Data loaded instantly from cache!
       }
       
       // Fallback: Fetch fresh data if not cached
-      console.log('🔄 Cache miss - fetching fresh billing data...');
       const billingData = await billingCache.getBillingData(orderId);
       
       setOrder(billingData.order);
@@ -188,7 +185,7 @@ const BillingPage = ({ user }) => {
       
       // Pre-load payment data for faster processing
       preloadPaymentData(orderId).catch(error => {
-        console.warn('⚠️ Failed to preload payment data:', error);
+        // Failed to preload payment data - continue without preloading
       });
       
     } catch (error) {
@@ -260,10 +257,8 @@ const BillingPage = ({ user }) => {
         setShowMenuDropdown(true);
         setIsDropdownAnimating(true);
         setTimeout(() => setIsDropdownAnimating(false), 200);
-        console.log('🔍 Showing dropdown for query:', value);
       } else {
         setShowMenuDropdown(false);
-        console.log('🔍 Hiding dropdown - query too short');
       }
     }, 100); // Reduced debounce for faster response
     
@@ -272,7 +267,6 @@ const BillingPage = ({ user }) => {
   
   // Handle menu item selection with improved feedback
   const handleAddMenuItem = useCallback((item) => {
-    console.log('➕ Adding menu item:', item.name);
     
     // Check if item already exists in order
     const existingItemIndex = orderItems.findIndex(orderItem => orderItem.menu_item_id === item.id);
@@ -345,37 +339,15 @@ const BillingPage = ({ user }) => {
     }
   };
 
-  // Enhanced debugging for dropdown issues
-  useEffect(() => {
-    console.log('🔍 BillByteKOT Billing Debug:', {
-      menuItemsCount: menuItems.length,
-      searchQuery,
-      showMenuDropdown,
-      hasMatches: filteredMenuItems.length > 0,
-      menuError
-    });
-  }, [menuItems.length, searchQuery, showMenuDropdown, menuError]);
-
-  // Add visual feedback for menu state (no loading notifications)
-  useEffect(() => {
-    if (menuItems.length === 0 && !menuError) {
-      console.log('⚠️ No menu items found. Please add items in Menu page');
-    } else if (menuItems.length > 0) {
-      console.log('✅ Menu items loaded successfully:', menuItems.length);
-    }
-  }, [menuItems.length, menuError, navigate]);
-
   const fetchMenuItems = async (forceRefresh = false) => {
     setMenuLoading(true);
     setMenuError(null);
     
     try {
-      console.log('🔄 Fetching menu items silently...');
       
       // Check if user is authenticated
       const token = localStorage.getItem('token');
       if (!token) {
-        console.error('❌ No auth token found');
         setMenuError('Authentication required. Please login again.');
         setMenuLoading(false);
         return;
@@ -392,7 +364,6 @@ const BillingPage = ({ user }) => {
           const CACHE_TTL = 2 * 60 * 1000; // 2 minutes for faster updates
           
           if (cacheAge < CACHE_TTL && items.length > 0) {
-            console.log('📦 Using cached menu items:', items.length, 'items');
             setMenuItems(items);
             setMenuLoading(false);
             
@@ -401,7 +372,7 @@ const BillingPage = ({ user }) => {
             return;
           }
         } catch (e) {
-          console.warn('⚠️ Cache parse error:', e);
+          // Cache parse error - continue with fresh fetch
         }
       }
       
@@ -424,7 +395,6 @@ const BillingPage = ({ user }) => {
       const items = Array.isArray(response.data) ? response.data : [];
       const availableItems = items.filter(item => item.available);
       
-      console.log('✅ Menu fetch successful:', availableItems.length, 'available items out of', items.length, 'total');
       setMenuItems(availableItems);
       
       // Cache the menu items with better error handling
@@ -433,20 +403,15 @@ const BillingPage = ({ user }) => {
           items: availableItems,
           timestamp: Date.now()
         }));
-        console.log('💾 Menu items cached successfully');
       } catch (e) {
-        console.warn('⚠️ Failed to cache menu items:', e);
+        // Cache storage failed - continue without caching
       }
       
       if (availableItems.length === 0) {
-        console.warn('⚠️ No available menu items found');
         setMenuError('No menu items available');
-      } else {
-        console.log('🎉 Menu loaded successfully with', availableItems.length, 'items');
       }
       
     } catch (error) {
-      console.error('❌ Failed to fetch menu items', error);
       
       let errorMessage = 'Failed to load menu items';
       
@@ -584,13 +549,6 @@ const BillingPage = ({ user }) => {
     .sort((a, b) => b.searchScore - a.searchScore)
     .slice(0, 20); // Limit to top 20 results
     
-    console.log('🔍 Search results:', {
-      query,
-      totalItems: menuItems.length,
-      matches: searchResults.length,
-      topMatch: searchResults[0]?.name
-    });
-    
     return searchResults;
   }, [searchQuery, menuItems]);
   
@@ -646,13 +604,10 @@ const BillingPage = ({ user }) => {
   const releaseTable = async () => {
     const kotEnabled = businessSettings?.kot_mode_enabled !== false;
     if (!kotEnabled || !order?.table_id || order.table_id === 'counter') {
-      console.log('✅ Table release skipped (KOT disabled or counter order)');
       return true;
     }
     
     try {
-      console.log(`🍽️ Releasing table ${order.table_number} (ID: ${order.table_id})...`);
-      
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
@@ -669,8 +624,6 @@ const BillingPage = ({ user }) => {
         notes: order.notes || ''
       };
       
-      console.log('📤 Sending table update:', updateData);
-      
       const response = await apiWithRetry({
         method: 'put',
         url: `${API}/tables/${order.table_id}`,
@@ -682,31 +635,12 @@ const BillingPage = ({ user }) => {
         timeout: 10000 // 10 second timeout for table updates
       });
       
-      console.log('📥 Table update response:', response.data);
-      console.log(`✅ Table ${order.table_number} released successfully`);
-      
       // Success feedback without showing toast (to avoid confusion)
       return true;
       
     } catch (error) {
-      console.error('❌ Failed to release table:', error);
-      
-      // Enhanced error logging
-      const errorDetails = {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message,
-        tableId: order.table_id,
-        tableNumber: order.table_number,
-        url: error.config?.url,
-        method: error.config?.method
-      };
-      console.error('Error details:', errorDetails);
-      
       // Try alternative approach - just mark as available
       try {
-        console.log('🔄 Trying alternative table clearing method...');
         await apiSilent({
           method: 'patch',
           url: `${API}/tables/${order.table_id}/status`,
@@ -714,15 +648,13 @@ const BillingPage = ({ user }) => {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
           timeout: 8000
         });
-        console.log('✅ Table cleared using alternative method');
         return true;
       } catch (altError) {
-        console.error('❌ Alternative method also failed:', altError);
+        // Alternative method also failed
       }
       
       // Don't show error toast if table was actually cleared (common case)
-      // Just log the error and continue
-      console.warn('⚠️ Table release had errors but payment completed successfully');
+      // Just continue - payment completed successfully
       return false; // Return false but don't block the payment process
     }
   };
@@ -737,8 +669,6 @@ const BillingPage = ({ user }) => {
     setLoading(true);
     
     try {
-      console.log('🚀 Starting optimized payment processing:', { total, received, balance, isCredit });
-      
       // Prepare payment data - ensure all fields are explicitly set
       // CRITICAL FIX: QR orders (Self-Order) should stay 'pending' until kitchen marks as completed
       const isQROrder = order?.waiter_name === 'Self-Order';
@@ -786,7 +716,6 @@ const BillingPage = ({ user }) => {
         result = await processPaymentFast(paymentData, {
           onStart: (data) => {
             // Optimistic UI update - show success immediately
-            console.log('💫 Optimistic update: Payment processing started');
             setCompletedPaymentData({
               received: received,
               balance: balance,
@@ -797,13 +726,10 @@ const BillingPage = ({ user }) => {
           },
           onError: (error) => {
             // Revert optimistic update on error
-            console.log('❌ Reverting optimistic update due to error:', error);
             setCompletedPaymentData(null);
           }
         });
       } catch (optimizedError) {
-        console.warn('⚠️ Optimized payment failed, falling back to standard method:', optimizedError);
-        
         // Fallback to standard payment processing
         const token = localStorage.getItem('token');
         result = await apiWithRetry({
@@ -826,11 +752,8 @@ const BillingPage = ({ user }) => {
         result = { success: true, processingTime: 0 };
       }
       
-      console.log(`✅ Payment completed in ${result.processingTime.toFixed(0)}ms`);
-      
       // 🗑️ CACHE INVALIDATION: Clear cached billing data after successful payment
       billingCache.invalidateOrder(orderId);
-      console.log('🗑️ Billing cache invalidated after successful payment');
       
       toast.success(isCredit ? 'Partial payment recorded!' : 'Payment completed!');
       setPaymentCompleted(true);
@@ -863,8 +786,6 @@ const BillingPage = ({ user }) => {
         receiptData.credit_amount = balance;
       }
 
-      console.log('Auto-printing receipt with data:', receiptData);
-      
       // Only auto-print if enabled in settings (check businessSettings for auto_print preference)
       const shouldAutoPrint = businessSettings?.print_customization?.auto_print ?? false; // Default to FALSE to avoid unwanted dialogs
       
@@ -882,20 +803,12 @@ const BillingPage = ({ user }) => {
       
       // Release table asynchronously (don't block UI)
       releaseTable().catch(error => {
-        console.warn('⚠️ Payment completed but table release failed:', error);
+        // Table release failed but payment succeeded - continue
       });
       
     } catch (error) {
-      console.error('Payment error:', error);
-      console.error('Error details:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
-      
       // Check if payment actually succeeded despite the error
       try {
-        console.log('🔍 Verifying payment status after error...');
         const token = localStorage.getItem('token');
         const verifyResponse = await apiSilent({
           method: 'get',
@@ -906,11 +819,9 @@ const BillingPage = ({ user }) => {
         
         const updatedOrder = verifyResponse?.data;
         if (updatedOrder && (updatedOrder.status === 'completed' || updatedOrder.payment_received > 0)) {
-          console.log('✅ Payment actually succeeded despite error!');
           
           // 🗑️ CACHE INVALIDATION: Clear cached billing data after successful payment
           billingCache.invalidateOrder(orderId);
-          console.log('🗑️ Billing cache invalidated after payment verification');
           
           toast.success(isCredit ? 'Partial payment recorded!' : 'Payment completed!');
           setPaymentCompleted(true);
@@ -924,13 +835,13 @@ const BillingPage = ({ user }) => {
           
           // Release table if needed
           releaseTable().catch(err => {
-            console.warn('⚠️ Table release failed after payment verification:', err);
+            // Table release failed but payment succeeded
           });
           
           return; // Exit early - payment was successful
         }
       } catch (verifyError) {
-        console.warn('⚠️ Could not verify payment status:', verifyError);
+        // Could not verify payment status
       }
       
       let errorMessage = 'Payment failed. Please try again.';
@@ -1044,7 +955,7 @@ const BillingPage = ({ user }) => {
       
       // Process payment in background
       processPayment().catch(error => {
-        console.error('Background payment processing failed:', error);
+        // Background payment processing failed
         // Revert optimistic update on error
         setPaymentCompleted(false);
         setCompletedPaymentData(null);
@@ -1061,7 +972,6 @@ const BillingPage = ({ user }) => {
       });
       
     } catch (error) {
-      console.error('Error in handlePayment:', error);
       toast.error('❌ Payment processing failed. Please try again.');
       setLoading(false);
       // Revert optimistic update
@@ -2757,7 +2667,6 @@ const BillingPage = ({ user }) => {
                       setShowCustomerModal(false);
                       processPayment();
                     } catch (error) {
-                      console.error('Error in customer modal:', error);
                       toast.error('Error processing customer information');
                     }
                   }}

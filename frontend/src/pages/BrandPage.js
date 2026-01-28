@@ -29,7 +29,7 @@ const BrandPage = () => {
   const brandFAQs = [
     {
       question: "What is BillByteKOT and what makes it special?",
-      answer: "BillByteKOT is India's most affordable and feature-rich restaurant billing software. What makes it special is the combination of comprehensive features (KOT system, thermal printing, GST billing, inventory management, WhatsApp integration) at just ₹1999/year - 85% cheaper than competitors like Petpooja while offering superior functionality."
+      answer: "BillByteKOT is India's most affordable and feature-rich KOT-first restaurant automation platform. What makes it special is the combination of comprehensive features (KOT system, thermal printing, GST billing, inventory management, WhatsApp integration) at just ₹1999/year - 85% cheaper than competitors like Petpooja while offering superior functionality."
     },
     {
       question: "How is BillByteKOT different from Petpooja and other restaurant software?",
@@ -57,8 +57,8 @@ const BrandPage = () => {
     <>
       {/* Enhanced SEO for Brand Page */}
       <EnhancedSEOHead
-        title="BillByteKOT - India's #1 Restaurant Billing Software | Better than Petpooja at ₹1999/year"
-        description="BillByteKOT is India's leading restaurant billing software trusted by 500+ restaurants. Complete solution with FREE KOT system, thermal printing, GST billing & WhatsApp integration at just ₹1999/year - 85% cheaper than Petpooja!"
+        title="BillByteKOT - India's #1 KOT-First Restaurant Automation Platform | Better than Petpooja at ₹1999/year"
+        description="BillByteKOT is India's leading KOT-first restaurant automation platform trusted by 500+ restaurants. Complete solution with FREE KOT system, thermal printing, GST billing & WhatsApp integration at just ₹1999/year - 85% cheaper than Petpooja!"
         keywords={[
           'BillByteKOT',
           'BillByte KOT',
