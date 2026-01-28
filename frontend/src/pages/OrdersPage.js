@@ -148,11 +148,19 @@ const OrdersPage = ({ user }) => {
     }
   }, []);
 
-  // Real-time polling for active orders and today's bills (every 5 seconds to avoid overriding optimistic updates)
+  // Smart real-time polling that avoids conflicts with user interactions
   useEffect(() => {
     const interval = setInterval(() => {
-      // Skip polling if there are active status changes to avoid conflicts
+      // Skip polling if there are active status changes or user is actively interacting
       if (processingStatusChanges.size > 0) {
+        console.log('⏸️ Skipping polling - status changes in progress');
+        return;
+      }
+      
+      // Skip polling if user recently interacted (within 3 seconds)
+      const lastInteraction = localStorage.getItem('lastUserInteraction');
+      if (lastInteraction && (Date.now() - parseInt(lastInteraction)) < 3000) {
+        console.log('⏸️ Skipping polling - recent user interaction');
         return;
       }
       
@@ -161,10 +169,28 @@ const OrdersPage = ({ user }) => {
       } else if (activeTab === 'history') {
         fetchTodaysBills(); // Refresh today's bills when viewing history tab
       }
-    }, 10000); // Increased to 10 seconds to reduce conflicts with optimistic updates
+    }, 15000); // Increased to 15 seconds to reduce conflicts
 
     return () => clearInterval(interval);
   }, [activeTab]); // Only depend on activeTab to prevent infinite loops
+
+  // Track user interactions to pause polling
+  useEffect(() => {
+    const trackInteraction = () => {
+      localStorage.setItem('lastUserInteraction', Date.now().toString());
+    };
+
+    // Track various user interactions
+    document.addEventListener('click', trackInteraction);
+    document.addEventListener('touchstart', trackInteraction);
+    document.addEventListener('keydown', trackInteraction);
+
+    return () => {
+      document.removeEventListener('click', trackInteraction);
+      document.removeEventListener('touchstart', trackInteraction);
+      document.removeEventListener('keydown', trackInteraction);
+    };
+  }, []);
 
   // Aggressive real-time refresh on window focus (when user returns to tab)
   useEffect(() => {
@@ -475,6 +501,12 @@ const OrdersPage = ({ user }) => {
 
   const fetchOrders = async (forceRefresh = false) => {
     try {
+      // Skip fetch if there are active status changes to prevent conflicts
+      if (processingStatusChanges.size > 0 && !forceRefresh) {
+        console.log('⏸️ Skipping fetch - status changes in progress');
+        return;
+      }
+
       // Use cache for faster loading unless force refresh
       const cacheKey = `orders_${user?.id}`;
       const cachedData = !forceRefresh ? sessionStorage.getItem(cacheKey) : null;
@@ -487,9 +519,26 @@ const OrdersPage = ({ user }) => {
             setOrders(prevOrders => {
               const optimisticOrders = prevOrders.filter(order => order.is_optimistic);
               const cachedOrders = parsed.data.filter(order => !order.is_optimistic);
-              return [...optimisticOrders, ...cachedOrders];
+              
+              // Enhanced duplicate removal with better matching
+              const uniqueOrders = [];
+              const seenIds = new Set();
+              const seenSignatures = new Set();
+              
+              [...optimisticOrders, ...cachedOrders].forEach(order => {
+                // Create unique signature for better duplicate detection
+                const signature = `${order.id}_${order.table_id || 'counter'}_${order.total}_${order.items?.length || 0}`;
+                
+                if (!seenIds.has(order.id) && !seenSignatures.has(signature)) {
+                  seenIds.add(order.id);
+                  seenSignatures.add(signature);
+                  uniqueOrders.push(order);
+                }
+              });
+              
+              return uniqueOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             });
-            console.log('� Orders loaded from cache (preserving optimistic orders)');
+            console.log('📦 Orders loaded from cache (preserving optimistic orders)');
             return;
           }
         } catch (e) {
@@ -536,44 +585,52 @@ const OrdersPage = ({ user }) => {
         timestamp: Date.now()
       }));
       
-      // 🚀 PRESERVE OPTIMISTIC ORDERS: Merge server data with local changes
+      // 🚀 ENHANCED MERGE LOGIC: Better duplicate prevention and conflict resolution
       setOrders(prevOrders => {
         try {
           const optimisticOrders = prevOrders.filter(order => order.is_optimistic);
-          const instantUpdates = prevOrders.filter(order => order.instant_update);
+          const processingOrders = prevOrders.filter(order => processingStatusChanges.has(order.id));
+          const instantUpdatedOrders = prevOrders.filter(order => order.instant_update);
           const serverOrders = sortedOrders.filter(order => !order.is_optimistic);
           
-          // Remove optimistic orders that now exist on server (successful creation)
+          // Enhanced optimistic order cleanup - better matching
           const finalOptimisticOrders = optimisticOrders.filter(optimisticOrder => {
             // Check if this optimistic order has been created on server
             const existsOnServer = serverOrders.some(serverOrder => {
-              // Match by table and items (since temp IDs won't match)
-              return serverOrder.table_id === optimisticOrder.table_id &&
-                     serverOrder.items?.length === optimisticOrder.items?.length &&
-                     Math.abs(serverOrder.total - optimisticOrder.total) < 0.01;
+              // Enhanced matching criteria
+              const tableMatch = serverOrder.table_id === optimisticOrder.table_id;
+              const itemsMatch = serverOrder.items?.length === optimisticOrder.items?.length;
+              const totalMatch = Math.abs(serverOrder.total - optimisticOrder.total) < 0.01;
+              const timeMatch = Math.abs(new Date(serverOrder.created_at) - new Date(optimisticOrder.created_at)) < 60000; // 1 minute
+              
+              return tableMatch && itemsMatch && totalMatch && timeMatch;
             });
             return !existsOnServer;
           });
           
-          // Preserve instant status updates for 5 seconds to prevent flickering
+          // Enhanced status preservation for processing orders
           const mergedServerOrders = serverOrders.map(serverOrder => {
-            const instantUpdate = instantUpdates.find(local => local.id === serverOrder.id);
+            const processingOrder = processingOrders.find(local => local.id === serverOrder.id);
+            const instantOrder = instantUpdatedOrders.find(local => local.id === serverOrder.id);
             
-            if (instantUpdate && instantUpdate.updated_at) {
-              try {
-                const timeSinceUpdate = Date.now() - new Date(instantUpdate.updated_at).getTime();
-                // Preserve instant updates for 5 seconds
-                if (timeSinceUpdate < 5000 && instantUpdate.status !== serverOrder.status) {
-                  return {
-                    ...serverOrder,
-                    status: instantUpdate.status,
-                    updated_at: instantUpdate.updated_at,
-                    instant_update: true
-                  };
-                }
-              } catch (dateError) {
-                console.warn('Date parsing error:', dateError);
-              }
+            // Preserve processing status to prevent flickering
+            if (processingOrder && processingStatusChanges.has(serverOrder.id)) {
+              return {
+                ...serverOrder,
+                status: processingOrder.status,
+                processing_status: true,
+                instant_update: true
+              };
+            }
+            
+            // Preserve instant updates for a short time
+            if (instantOrder && (Date.now() - new Date(instantOrder.updated_at).getTime()) < 3000) {
+              return {
+                ...serverOrder,
+                status: instantOrder.status,
+                instant_update: true,
+                updated_at: instantOrder.updated_at
+              };
             }
             
             return serverOrder;
@@ -597,19 +654,47 @@ const OrdersPage = ({ user }) => {
             });
           }
           
-          const mergedOrders = [...finalOptimisticOrders, ...activeServerOrders];
+          // Enhanced duplicate removal with signature-based matching
+          const allOrders = [...finalOptimisticOrders, ...activeServerOrders];
+          const uniqueOrders = [];
+          const seenIds = new Set();
+          const seenSignatures = new Set();
           
-          return mergedOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          allOrders.forEach(order => {
+            // Create comprehensive signature for duplicate detection
+            const signature = `${order.id}_${order.table_id || 'counter'}_${order.total}_${order.items?.length || 0}_${order.customer_name || ''}`;
+            
+            if (!seenIds.has(order.id) && !seenSignatures.has(signature)) {
+              seenIds.add(order.id);
+              seenSignatures.add(signature);
+              uniqueOrders.push(order);
+            } else {
+              console.log('🚫 Duplicate order prevented:', order.id, signature);
+            }
+          });
+          
+          return uniqueOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         } catch (mergeError) {
           console.error('Error merging orders:', mergeError);
-          // Fallback to just server orders if merging fails
-          return sortedOrders.filter(order => !['completed', 'cancelled', 'paid'].includes(order.status));
+          // Enhanced fallback with duplicate prevention
+          const uniqueServerOrders = [];
+          const seenIds = new Set();
+          
+          sortedOrders.filter(order => !['completed', 'cancelled', 'paid'].includes(order.status))
+            .forEach(order => {
+              if (!seenIds.has(order.id)) {
+                seenIds.add(order.id);
+                uniqueServerOrders.push(order);
+              }
+            });
+          
+          return uniqueServerOrders;
         }
       });
       
     } catch (error) {
       console.error('Failed to fetch orders', error);
-      setOrders([]);
+      // Don't clear orders on error to preserve current state
       // Show user-friendly error
       if (error.response?.status === 401) {
         toast.error('Session expired. Please login again.');
@@ -730,7 +815,7 @@ const OrdersPage = ({ user }) => {
     setSelectedItems(updated);
   };
 
-  // Submit order from full-screen menu page with instant feedback
+  // Submit order from full-screen menu page with enhanced duplicate prevention
   const handleSubmitOrder = async () => {
     if (selectedItems.length === 0) {
       toast.error('Please add at least one item');
@@ -743,17 +828,20 @@ const OrdersPage = ({ user }) => {
       return;
     }
 
-    // Prevent duplicate order creation
+    // Enhanced duplicate prevention
     if (isCreatingOrder) {
       toast.warning('Order is being created, please wait...');
       return;
     }
 
-    // Check for recent duplicate order (same table, same items within 10 seconds)
-    const orderSignature = `${formData.table_id || 'counter'}_${selectedItems.map(i => `${i.id}_${i.quantity}`).join('_')}`;
+    // Enhanced duplicate detection with more comprehensive signature
+    const orderSignature = `${formData.table_id || 'counter'}_${selectedItems.map(i => `${i.menu_item_id}_${i.quantity}_${i.price}`).sort().join('_')}_${selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)}`;
     const now = Date.now();
-    if (lastOrderCreated && lastOrderCreated.signature === orderSignature && (now - lastOrderCreated.timestamp) < 10000) {
-      toast.error('Duplicate order detected! Please wait 10 seconds before creating the same order again.');
+    
+    if (lastOrderCreated && 
+        lastOrderCreated.signature === orderSignature && 
+        (now - lastOrderCreated.timestamp) < 15000) { // Increased to 15 seconds
+      toast.error('Duplicate order detected! Please wait 15 seconds before creating the same order again.');
       return;
     }
 
@@ -763,12 +851,21 @@ const OrdersPage = ({ user }) => {
       const selectedTable = formData.table_id ? tables.find(t => t.id === formData.table_id) : null;
       const customerName = formData.customer_name?.trim() || (businessSettings?.kot_mode_enabled === false ? 'Cash Sale' : '');
       
-      // Create order data
+      // Create enhanced order data with better unique ID
+      const uniqueId = `order_${Date.now()}_${Math.random().toString(36).substring(2)}_${user?.id || 'default'}`;
       const orderData = {
-        id: `order_${Date.now()}_${Math.random().toString(36).substring(2)}`,
+        id: uniqueId,
         table_id: formData.table_id || null,
         table_number: selectedTable?.table_number || 0,
-        items: selectedItems,
+        items: selectedItems.map(item => ({
+          ...item,
+          // Ensure all required fields
+          menu_item_id: item.menu_item_id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          notes: item.notes || ''
+        })),
         customer_name: customerName,
         customer_phone: formData.customer_phone || '',
         status: 'pending',
@@ -784,7 +881,8 @@ const OrdersPage = ({ user }) => {
         balance_amount: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        organization_id: user?.id || 'default'
+        organization_id: user?.id || 'default',
+        signature: orderSignature // Store signature for duplicate detection
       };
 
       // Save to offline storage first (works in both online and offline modes)
@@ -804,7 +902,19 @@ const OrdersPage = ({ user }) => {
       };
 
       // Instant UI update - show order immediately
-      setOrders(prevOrders => [optimisticOrder, ...prevOrders]);
+      setOrders(prevOrders => {
+        // Check for existing optimistic orders with same signature to prevent UI duplicates
+        const existingOptimistic = prevOrders.find(order => 
+          order.is_optimistic && order.signature === orderSignature
+        );
+        
+        if (existingOptimistic) {
+          console.log('🚫 Preventing duplicate optimistic order');
+          return prevOrders;
+        }
+        
+        return [optimisticOrder, ...prevOrders];
+      });
       
       // Instant feedback
       playSound('success');
@@ -814,6 +924,12 @@ const OrdersPage = ({ user }) => {
       setShowMenuPage(false);
       setCartExpanded(false);
       resetForm();
+
+      // Update last order created to prevent duplicates
+      setLastOrderCreated({
+        signature: orderSignature,
+        timestamp: now
+      });
 
       // If online, sync with server
       if (isOnline) {
@@ -829,14 +945,19 @@ const OrdersPage = ({ user }) => {
               customer_phone: formData.customer_phone || '',
               frontend_origin: window.location.origin
             },
-            timeout: 12000 // Longer timeout for order creation
+            timeout: 15000 // Increased timeout for order creation
           });
 
           // Replace optimistic order with real order from server
           setOrders(prevOrders => 
             prevOrders.map(order => 
               order.id === optimisticOrder.id 
-                ? { ...response.data, created_at: response.data.created_at || new Date().toISOString() }
+                ? { 
+                    ...response.data, 
+                    created_at: response.data.created_at || new Date().toISOString(),
+                    server_synced: true,
+                    is_optimistic: false
+                  }
                 : order
             )
           );
@@ -871,7 +992,7 @@ const OrdersPage = ({ user }) => {
           setOrders(prevOrders => 
             prevOrders.map(order => 
               order.id === optimisticOrder.id 
-                ? { ...order, is_optimistic: false }
+                ? { ...order, is_optimistic: false, offline_pending: true }
                 : order
             )
           );
@@ -882,17 +1003,11 @@ const OrdersPage = ({ user }) => {
         setOrders(prevOrders => 
           prevOrders.map(order => 
             order.id === optimisticOrder.id 
-              ? { ...order, is_optimistic: false }
+              ? { ...order, is_optimistic: false, offline_pending: true }
               : order
           )
         );
       }
-
-      // Update last order created to prevent duplicates
-      setLastOrderCreated({
-        signature: orderSignature,
-        timestamp: now
-      });
 
       // Update table status if needed
       if (selectedTable && selectedTable.status === 'available') {
@@ -905,22 +1020,26 @@ const OrdersPage = ({ user }) => {
         );
       }
 
-      // Background refresh for consistency (only if online)
+      // Background refresh for consistency (only if online and no active processing)
       if (isOnline) {
         setTimeout(() => {
-          fetchTables(true);
-          // Delay the first order refresh to let optimistic update be visible
-          setTimeout(() => {
-            fetchOrders(true);
-          }, 1000);
-        }, 3000); // Increased delay to let optimistic update be visible
+          if (processingStatusChanges.size === 0) {
+            fetchTables(true);
+            // Delay the first order refresh to let optimistic update be visible
+            setTimeout(() => {
+              if (processingStatusChanges.size === 0) {
+                fetchOrders(true);
+              }
+            }, 2000);
+          }
+        }, 5000); // Increased delay to let optimistic update be visible
       }
 
     } catch (error) {
       console.error('Order creation failed:', error);
       
       // Remove optimistic order on failure
-      setOrders(prevOrders => prevOrders.filter(order => order.id !== `temp_${now}`));
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== uniqueId));
       
       const errorMsg = error.response?.data?.detail || error.message || 'Failed to create order';
       toast.error(`Order creation failed: ${errorMsg}`);
@@ -942,6 +1061,7 @@ const OrdersPage = ({ user }) => {
   const handleStatusChange = async (orderId, status) => {
     // 🚫 PREVENT DOUBLE-CLICKS: Check if already processing this order
     if (processingStatusChanges.has(orderId)) {
+      console.log('⏸️ Status change already in progress for order:', orderId);
       return;
     }
 
@@ -952,6 +1072,16 @@ const OrdersPage = ({ user }) => {
     const originalOrder = orders.find(order => order.id === orderId);
     const originalStatus = originalOrder?.status;
     
+    if (!originalOrder) {
+      console.error('Order not found for status change:', orderId);
+      setProcessingStatusChanges(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+      return;
+    }
+    
     // 🚀 INSTANT VISUAL FEEDBACK - Update UI immediately (0ms delay)
     setOrders(prevOrders => 
       prevOrders.map(order => 
@@ -960,7 +1090,8 @@ const OrdersPage = ({ user }) => {
               ...order, 
               status,
               updated_at: new Date().toISOString(),
-              instant_update: true // Flag for instant updates
+              instant_update: true, // Flag for instant updates
+              processing_status: true // Flag to indicate processing
             }
           : order
       )
@@ -1018,6 +1149,23 @@ const OrdersPage = ({ user }) => {
         timeout: 8000
       });
       
+      // ✅ SUCCESS: Update order with server response and remove processing flag
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { 
+                ...order, 
+                ...response.data,
+                status, // Ensure status is what we requested
+                processing_status: false,
+                instant_update: false,
+                server_synced: true,
+                updated_at: new Date().toISOString()
+              }
+            : order
+        )
+      );
+      
       // Only move to Today's Bills if order is completed/paid
       if (status === 'completed') {
         setOrders(prevOrders => {
@@ -1025,7 +1173,7 @@ const OrdersPage = ({ user }) => {
           if (completedOrder) {
             // Add to today's bills
             setTodaysBills(prevBills => [
-              { ...completedOrder, status: 'completed' },
+              { ...completedOrder, status: 'completed', processing_status: false },
               ...prevBills
             ]);
             // Remove from active orders
@@ -1034,15 +1182,6 @@ const OrdersPage = ({ user }) => {
           return prevOrders;
         });
       }
-      // Note: 'ready' orders stay in active tab until they're completed/paid
-      
-      // Refresh data in background after longer delay to preserve instant feedback
-      setTimeout(() => {
-        if (status !== 'completed') { // Don't refresh if we already moved the order
-          fetchOrders();
-        }
-        fetchTables();
-      }, 5000); // Much longer delay to preserve instant feedback
       
       // WhatsApp notification
       if (response.data?.whatsapp_link && response.data?.customer_phone) {
@@ -1053,14 +1192,22 @@ const OrdersPage = ({ user }) => {
         }, 300);
       }
       
-    } catch (error) {
-      console.error('Status update failed:', error);
+      console.log('✅ Status change successful:', orderId, originalStatus, '->', status);
       
-      // 🔄 REVERT ON ERROR - Silent rollback
+    } catch (error) {
+      console.error('❌ Status update failed:', error);
+      
+      // 🔄 REVERT ON ERROR - Silent rollback with user feedback
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
-            ? { ...order, status: originalStatus || order.status }
+            ? { 
+                ...order, 
+                status: originalStatus || order.status,
+                processing_status: false,
+                instant_update: false,
+                error_state: true
+              }
             : order
         )
       );
@@ -1072,8 +1219,9 @@ const OrdersPage = ({ user }) => {
         }
       } catch (e) {}
       
-      toast.error('❌ Failed to update status - please try again', {
-        duration: 3000,
+      const errorMessage = error.response?.data?.detail || error.message || 'Network error';
+      toast.error(`❌ Failed to update status: ${errorMessage}`, {
+        duration: 4000,
         style: {
           background: 'linear-gradient(135deg, #ef4444, #dc2626)',
           color: 'white',
@@ -1081,14 +1229,25 @@ const OrdersPage = ({ user }) => {
         }
       });
     } finally {
-      // Clean up processing state after longer delay to prevent multiple clicks
+      // Clean up processing state after delay to prevent multiple clicks
       setTimeout(() => {
         setProcessingStatusChanges(prev => {
           const newSet = new Set(prev);
           newSet.delete(orderId);
           return newSet;
         });
-      }, 1000); // Longer delay to prevent rapid clicking
+        
+        // Clear error state after longer delay
+        setTimeout(() => {
+          setOrders(prevOrders => 
+            prevOrders.map(order => 
+              order.id === orderId && order.error_state
+                ? { ...order, error_state: false }
+                : order
+            )
+          );
+        }, 2000);
+      }, 1500); // Increased delay to prevent rapid clicking
     }
   };
 

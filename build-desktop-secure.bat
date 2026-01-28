@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo BillByteKOT - Secure Desktop Build v3.0.0
+echo BillByteKOT - Secure Desktop Build v3.1.0
 echo ========================================
 echo.
 
@@ -21,7 +21,7 @@ call npm run electron:build:win
 echo [5/5] Build completed!
 echo.
 echo ========================================
-echo BillByteKOT v3.0.0 Build Complete
+echo BillByteKOT v3.1.0 Build Complete
 echo ========================================
 echo.
 echo Output location: frontend\dist-electron\
@@ -34,6 +34,6 @@ echo - Offline storage support
 echo - WhatsApp integration
 echo - Thermal printer support
 echo.
-echo Installation file: BillByteKOT-Setup-3.0.0-win.exe
+echo Installation file: BillByteKOT-Setup-3.1.0-win.exe
 echo.
 pause
