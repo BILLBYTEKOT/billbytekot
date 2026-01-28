@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import '@/App.css';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { Analytics } from '@vercel/analytics/react';
 
 // ✅ Import Performance Optimization Modules
 import {
@@ -937,6 +938,7 @@ function App() {
         <UpdateBanner />
       </BrowserRouter>
       <Toaster position="top-center" richColors />
+      <Analytics />
     </div>
   );
 }
