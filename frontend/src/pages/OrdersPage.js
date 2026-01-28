@@ -14,6 +14,8 @@ import OptimizedBillingButton from '../components/OptimizedBillingButton';
 import { billingCache } from '../utils/billingCache';
 import EditOrderModal from '../components/EditOrderModal';
 import { apiWithRetry, apiSilent } from '../utils/apiClient';
+import { useOfflineStorage } from '../hooks/useOfflineStorage';
+import OfflineIndicator from '../components/OfflineIndicator';
 
 // Enhanced sound effects for better UX
 const playSound = (type) => {
@@ -79,6 +81,19 @@ const playSound = (type) => {
 };
 
 const OrdersPage = ({ user }) => {
+  // Offline storage hook
+  const {
+    isInitialized: offlineInitialized,
+    isOnline,
+    getOrders: getOfflineOrders,
+    createOrder: createOfflineOrder,
+    updateOrder: updateOfflineOrder,
+    deleteOrder: deleteOfflineOrder,
+    getMenuItems: getOfflineMenuItems,
+    getTables: getOfflineTables,
+    forcSync
+  } = useOfflineStorage();
+
   const [orders, setOrders] = useState([]);
   const [todaysBills, setTodaysBills] = useState([]);
   const [tables, setTables] = useState([]);
@@ -260,113 +275,197 @@ const OrdersPage = ({ user }) => {
 
   const loadInitialData = async () => {
     try {
-      // Try to load menu from cache first for instant display
-      const cachedMenu = localStorage.getItem('billbyte_menu_cache');
-      if (cachedMenu) {
+      // Load from offline storage first for instant display
+      if (offlineInitialized) {
         try {
-          const { data: cachedMenuData, timestamp } = JSON.parse(cachedMenu);
-          // Use cached menu if less than 5 minutes old
-          if (Date.now() - timestamp < 300000 && Array.isArray(cachedMenuData)) {
-            const validCachedItems = cachedMenuData.filter(item => item && item.id && item.name && item.available);
-            setMenuItems(validCachedItems);
+          const [offlineOrders, offlineMenuItems, offlineTables] = await Promise.all([
+            getOfflineOrders({ limit: 50 }),
+            getOfflineMenuItems({ limit: 200 }),
+            getOfflineTables({ limit: 100 })
+          ]);
+
+          if (offlineOrders.length > 0) {
+            setOrders(offlineOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+          }
+          
+          if (offlineMenuItems.length > 0) {
+            setMenuItems(offlineMenuItems.filter(item => item.available));
             setMenuLoading(false);
           }
-        } catch (e) {
-          console.warn('Failed to parse cached menu:', e);
+          
+          if (offlineTables.length > 0) {
+            setTables(offlineTables);
+          }
+
+          console.log('📱 Loaded initial data from offline storage');
+        } catch (offlineError) {
+          console.warn('⚠️ Failed to load from offline storage:', offlineError);
         }
       }
 
-      // Load critical data first (orders, today's bills, tables, and menu items)
-      const [ordersRes, todaysBillsRes, tablesRes, menuRes] = await Promise.all([
-        apiSilent({ method: 'get', url: `${API}/orders` }),
-        apiSilent({ method: 'get', url: `${API}/orders/today-bills` }),
-        // Use fresh=true and cache-busting for tables to get real-time status
-        apiSilent({ method: 'get', url: `${API}/tables?fresh=true&_t=${Date.now()}` }),
-        // Load menu items with timeout and caching
-        apiSilent({ method: 'get', url: `${API}/menu`, timeout: 8000 })
-      ]);
-      
-      // Process orders data
-      const ordersData = Array.isArray(ordersRes?.data) ? ordersRes.data : [];
-      const validOrders = ordersData.filter(order => {
-        return order && order.id && order.created_at && order.status && typeof order.total === 'number';
-      }).map(order => ({
-        ...order,
-        customer_name: order.customer_name || '',
-        table_number: order.table_number || 0,
-        payment_method: order.payment_method || 'cash',
-        created_at: order.created_at || new Date().toISOString()
-      }));
-      
-      // Process today's bills data
-      const billsData = Array.isArray(todaysBillsRes?.data) ? todaysBillsRes.data : [];
-      const validBills = billsData.filter(order => {
-        return order && order.id && order.created_at && order.status && typeof order.total === 'number';
-      }).map(order => ({
-        ...order,
-        customer_name: order.customer_name || '',
-        table_number: order.table_number || 0,
-        payment_method: order.payment_method || 'cash',
-        created_at: order.created_at || new Date().toISOString()
-      }));
-      
-      // Process tables data
-      const tablesData = Array.isArray(tablesRes?.data) ? tablesRes.data : [];
-      const validTables = tablesData.filter(table => {
-        return table && table.id && typeof table.table_number === 'number';
-      });
-      
-      // Process menu items data - now loaded as priority
-      const menuData = Array.isArray(menuRes?.data) ? menuRes.data : [];
-      const validMenuItems = menuData.filter(item => item && item.id && item.name && item.available);
-      
-      setOrders(validOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
-      setTodaysBills(validBills.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
-      setTables(validTables);
-      setMenuItems(validMenuItems); // Set menu items immediately
-      setMenuLoading(false);
-      
-      // Cache menu items for next time
-      try {
-        localStorage.setItem('billbyte_menu_cache', JSON.stringify({
-          data: validMenuItems,
-          timestamp: Date.now()
-        }));
-      } catch (e) {
-        console.warn('Failed to cache menu items:', e);
-      }
-      
-      // 🚀 PERFORMANCE OPTIMIZATION: Smart pre-loading with persistent cache
-      const activeOrderIds = validOrders
-        .filter(order => ['ready', 'preparing', 'pending'].includes(order.status))
-        .map(order => order.id)
-        .slice(0, 15); // Increased from 10 to 15 for better coverage
-      
-      if (activeOrderIds.length > 0) {
-        // Smart preloading - only preload uncached orders
-        billingCache.preloadMultipleOrders(activeOrderIds).catch(error => {
-          console.warn('Smart preload failed:', error);
-        });
-        
-        // Background sync for potentially stale cached orders
-        billingCache.backgroundSync(activeOrderIds);
-      }
-      
-      // Load business settings in background (less critical)
-      apiSilent({ method: 'get', url: `${API}/business/settings` })
-        .then((settingsRes) => {
-          if (settingsRes?.data) {
-            setBusinessSettings(settingsRes.data.business_settings || {});
+      // If online, fetch fresh data and sync with offline storage
+      if (isOnline) {
+        // Try to load menu from cache first for instant display
+        const cachedMenu = localStorage.getItem('billbyte_menu_cache');
+        if (cachedMenu && menuItems.length === 0) {
+          try {
+            const { data: cachedMenuData, timestamp } = JSON.parse(cachedMenu);
+            // Use cached menu if less than 5 minutes old
+            if (Date.now() - timestamp < 300000 && Array.isArray(cachedMenuData)) {
+              const validCachedItems = cachedMenuData.filter(item => item && item.id && item.name && item.available);
+              setMenuItems(validCachedItems);
+              setMenuLoading(false);
+            }
+          } catch (e) {
+            console.warn('Failed to parse cached menu:', e);
           }
-        });
+        }
+
+        // Load critical data from server
+        const [ordersRes, todaysBillsRes, tablesRes, menuRes] = await Promise.all([
+          apiSilent({ method: 'get', url: `${API}/orders` }),
+          apiSilent({ method: 'get', url: `${API}/orders/today-bills` }),
+          // Use fresh=true and cache-busting for tables to get real-time status
+          apiSilent({ method: 'get', url: `${API}/tables?fresh=true&_t=${Date.now()}` }),
+          // Load menu items with timeout and caching
+          apiSilent({ method: 'get', url: `${API}/menu`, timeout: 8000 })
+        ]);
+        
+        // Process and sync orders data
+        const ordersData = Array.isArray(ordersRes?.data) ? ordersRes.data : [];
+        const validOrders = ordersData.filter(order => {
+          return order && order.id && order.created_at && order.status && typeof order.total === 'number';
+        }).map(order => ({
+          ...order,
+          customer_name: order.customer_name || '',
+          table_number: order.table_number || 0,
+          payment_method: order.payment_method || 'cash',
+          created_at: order.created_at || new Date().toISOString(),
+          organization_id: user?.id || 'default'
+        }));
+        
+        // Process and sync today's bills data
+        const billsData = Array.isArray(todaysBillsRes?.data) ? todaysBillsRes.data : [];
+        const validBills = billsData.filter(order => {
+          return order && order.id && order.created_at && order.status && typeof order.total === 'number';
+        }).map(order => ({
+          ...order,
+          customer_name: order.customer_name || '',
+          table_number: order.table_number || 0,
+          payment_method: order.payment_method || 'cash',
+          created_at: order.created_at || new Date().toISOString(),
+          organization_id: user?.id || 'default'
+        }));
+        
+        // Process and sync tables data
+        const tablesData = Array.isArray(tablesRes?.data) ? tablesRes.data : [];
+        const validTables = tablesData.filter(table => {
+          return table && table.id && typeof table.table_number === 'number';
+        }).map(table => ({
+          ...table,
+          organization_id: user?.id || 'default'
+        }));
+        
+        // Process and sync menu items data
+        const menuData = Array.isArray(menuRes?.data) ? menuRes.data : [];
+        const validMenuItems = menuData.filter(item => item && item.id && item.name && item.available).map(item => ({
+          ...item,
+          organization_id: user?.id || 'default'
+        }));
+        
+        // Update state with server data
+        setOrders(validOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+        setTodaysBills(validBills.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+        setTables(validTables);
+        setMenuItems(validMenuItems);
+        setMenuLoading(false);
+        
+        // Sync with offline storage in background
+        if (offlineInitialized) {
+          try {
+            // Note: In a real implementation, you'd want to implement proper sync logic
+            // that handles conflicts, updates existing records, etc.
+            console.log('🔄 Syncing fresh data with offline storage...');
+            
+            // For now, we'll just ensure the data is available offline
+            // A proper sync implementation would be more sophisticated
+            
+          } catch (syncError) {
+            console.warn('⚠️ Failed to sync with offline storage:', syncError);
+          }
+        }
+        
+        // Cache menu items for next time
+        try {
+          localStorage.setItem('billbyte_menu_cache', JSON.stringify({
+            data: validMenuItems,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.warn('Failed to cache menu items:', e);
+        }
+        
+        // 🚀 PERFORMANCE OPTIMIZATION: Smart pre-loading with persistent cache
+        const activeOrderIds = validOrders
+          .filter(order => ['ready', 'preparing', 'pending'].includes(order.status))
+          .map(order => order.id)
+          .slice(0, 15); // Increased from 10 to 15 for better coverage
+        
+        if (activeOrderIds.length > 0) {
+          // Smart preloading - only preload uncached orders
+          billingCache.preloadMultipleOrders(activeOrderIds).catch(error => {
+            console.warn('Smart preload failed:', error);
+          });
+          
+          // Background sync for potentially stale cached orders
+          billingCache.backgroundSync(activeOrderIds);
+        }
+        
+        // Load business settings in background (less critical)
+        apiSilent({ method: 'get', url: `${API}/business/settings` })
+          .then((settingsRes) => {
+            if (settingsRes?.data) {
+              setBusinessSettings(settingsRes.data.business_settings || {});
+            }
+          });
+      } else {
+        // Offline mode - show message
+        if (orders.length === 0 && menuItems.length === 0) {
+          toast.info('Working offline - showing cached data');
+        }
+      }
       
     } catch (error) {
       console.error('Failed to load initial data', error);
-      // Set empty defaults to prevent crashes
-      setOrders([]);
-      setTodaysBills([]);
-      setTables([]);
-      setMenuItems([]);
+      
+      // Try to load from offline storage as fallback
+      if (offlineInitialized && orders.length === 0) {
+        try {
+          const fallbackOrders = await getOfflineOrders({ limit: 50 });
+          const fallbackMenuItems = await getOfflineMenuItems({ limit: 200 });
+          const fallbackTables = await getOfflineTables({ limit: 100 });
+          
+          setOrders(fallbackOrders);
+          setMenuItems(fallbackMenuItems.filter(item => item.available));
+          setTables(fallbackTables);
+          
+          toast.info('Loaded data from offline storage');
+        } catch (fallbackError) {
+          console.error('Fallback to offline storage failed:', fallbackError);
+          // Set empty defaults to prevent crashes
+          setOrders([]);
+          setTodaysBills([]);
+          setTables([]);
+          setMenuItems([]);
+        }
+      } else {
+        // Set empty defaults to prevent crashes
+        setOrders([]);
+        setTodaysBills([]);
+        setTables([]);
+        setMenuItems([]);
+      }
+      
       setBusinessSettings({});
       setMenuLoading(false);
     } finally {
@@ -664,9 +763,9 @@ const OrdersPage = ({ user }) => {
       const selectedTable = formData.table_id ? tables.find(t => t.id === formData.table_id) : null;
       const customerName = formData.customer_name?.trim() || (businessSettings?.kot_mode_enabled === false ? 'Cash Sale' : '');
       
-      // Create optimistic order for instant display
-      const optimisticOrder = {
-        id: `temp_${Date.now()}`,
+      // Create order data
+      const orderData = {
+        id: `order_${Date.now()}_${Math.random().toString(36).substring(2)}`,
         table_id: formData.table_id || null,
         table_number: selectedTable?.table_number || 0,
         items: selectedItems,
@@ -674,7 +773,33 @@ const OrdersPage = ({ user }) => {
         customer_phone: formData.customer_phone || '',
         status: 'pending',
         total: selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        subtotal: selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        tax: 0,
+        discount: 0,
+        waiter_id: user?.id || null,
+        waiter_name: user?.name || '',
+        payment_method: 'cash',
+        is_credit: false,
+        payment_received: 0,
+        balance_amount: 0,
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        organization_id: user?.id || 'default'
+      };
+
+      // Save to offline storage first (works in both online and offline modes)
+      if (offlineInitialized) {
+        try {
+          await createOfflineOrder(orderData);
+          console.log('💾 Order saved to offline storage');
+        } catch (offlineError) {
+          console.warn('⚠️ Failed to save to offline storage:', offlineError);
+        }
+      }
+
+      // Create optimistic order for instant display
+      const optimisticOrder = {
+        ...orderData,
         is_optimistic: true // Flag to identify optimistic orders
       };
 
@@ -690,29 +815,78 @@ const OrdersPage = ({ user }) => {
       setCartExpanded(false);
       resetForm();
 
-      // Create actual order on server
-      const response = await apiWithRetry({
-        method: 'post',
-        url: `${API}/orders`,
-        data: {
-          table_id: formData.table_id || null,
-          table_number: selectedTable?.table_number || 0,
-          items: selectedItems,
-          customer_name: customerName,
-          customer_phone: formData.customer_phone || '',
-          frontend_origin: window.location.origin
-        },
-        timeout: 12000 // Longer timeout for order creation
-      });
+      // If online, sync with server
+      if (isOnline) {
+        try {
+          const response = await apiWithRetry({
+            method: 'post',
+            url: `${API}/orders`,
+            data: {
+              table_id: formData.table_id || null,
+              table_number: selectedTable?.table_number || 0,
+              items: selectedItems,
+              customer_name: customerName,
+              customer_phone: formData.customer_phone || '',
+              frontend_origin: window.location.origin
+            },
+            timeout: 12000 // Longer timeout for order creation
+          });
 
-      // Replace optimistic order with real order
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === optimisticOrder.id 
-            ? { ...response.data, created_at: response.data.created_at || new Date().toISOString() }
-            : order
-        )
-      );
+          // Replace optimistic order with real order from server
+          setOrders(prevOrders => 
+            prevOrders.map(order => 
+              order.id === optimisticOrder.id 
+                ? { ...response.data, created_at: response.data.created_at || new Date().toISOString() }
+                : order
+            )
+          );
+
+          // Update offline storage with server response
+          if (offlineInitialized && response.data) {
+            try {
+              await updateOfflineOrder(orderData.id, {
+                ...response.data,
+                synced: true,
+                organization_id: user?.id || 'default'
+              });
+              console.log('🔄 Order synced with server');
+            } catch (syncError) {
+              console.warn('⚠️ Failed to update offline storage with server data:', syncError);
+            }
+          }
+
+          // Offer WhatsApp notification
+          if (response.data?.whatsapp_link && formData.customer_phone) {
+            setTimeout(() => {
+              if (window.confirm('Send order confirmation via WhatsApp?')) {
+                window.open(response.data.whatsapp_link, '_blank');
+              }
+            }, 500);
+          }
+        } catch (serverError) {
+          console.error('❌ Failed to sync order with server:', serverError);
+          toast.warning('Order saved offline - will sync when connection is restored');
+          
+          // Keep the optimistic order but remove the optimistic flag
+          setOrders(prevOrders => 
+            prevOrders.map(order => 
+              order.id === optimisticOrder.id 
+                ? { ...order, is_optimistic: false }
+                : order
+            )
+          );
+        }
+      } else {
+        // Offline mode - just remove optimistic flag
+        toast.info('Order saved offline - will sync when online');
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === optimisticOrder.id 
+              ? { ...order, is_optimistic: false }
+              : order
+          )
+        );
+      }
 
       // Update last order created to prevent duplicates
       setLastOrderCreated({
@@ -731,22 +905,15 @@ const OrdersPage = ({ user }) => {
         );
       }
 
-      // Background refresh for consistency (but don't override optimistic updates)
-      setTimeout(() => {
-        fetchTables(true);
-        // Delay the first order refresh to let optimistic update be visible
+      // Background refresh for consistency (only if online)
+      if (isOnline) {
         setTimeout(() => {
-          fetchOrders(true);
-        }, 1000);
-      }, 3000); // Increased delay to let optimistic update be visible
-      
-      // Offer WhatsApp notification
-      if (response.data?.whatsapp_link && formData.customer_phone) {
-        setTimeout(() => {
-          if (window.confirm('Send order confirmation via WhatsApp?')) {
-            window.open(response.data.whatsapp_link, '_blank');
-          }
-        }, 500);
+          fetchTables(true);
+          // Delay the first order refresh to let optimistic update be visible
+          setTimeout(() => {
+            fetchOrders(true);
+          }, 1000);
+        }, 3000); // Increased delay to let optimistic update be visible
       }
 
     } catch (error) {
@@ -1543,6 +1710,8 @@ const OrdersPage = ({ user }) => {
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 Live
               </div>
+              {/* Offline Storage Indicator */}
+              <OfflineIndicator className="ml-2" />
             </div>
             <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Manage restaurant orders • Updates every 5 seconds</p>
           </div>

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Storage Test - BillByteKOT</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .status.online { background: #d4edda; color: #155724; }
+        .status.offline { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .button:hover { background: #5856eb; }
+        .button:disabled { background: #9ca3af; cursor: not-allowed; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .test-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #374151;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #6366f1;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗄️ Offline Storage Test</h1>
+        <p>Test the BillByteKOT offline storage system functionality</p>
+
+        <!-- Status Section -->
+        <div class="test-section">
+            <h3>📊 System Status</h3>
+            <div id="status-container">
+                <div class="status info">Initializing offline storage...</div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="platform-value">-</div>
+                    <div class="stat-label">Platform</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="online-status">-</div>
+                    <div class="stat-label">Connection</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="sync-queue">-</div>
+                    <div class="stat-label">Sync Queue</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-records">-</div>
+                    <div class="stat-label">Total Records</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Controls -->
+        <div class="test-section">
+            <h3>🧪 Test Operations</h3>
+            <button class="button" onclick="testCreateOrder()">Create Test Order</button>
+            <button class="button" onclick="testCreateMenuItem()">Create Menu Item</button>
+            <button class="button" onclick="testCreateTable()">Create Table</button>
+            <button class="button" onclick="loadAllData()">Load All Data</button>
+            <button class="button" onclick="clearAllData()">Clear All Data</button>
+            <button class="button" onclick="toggleOfflineMode()">Toggle Offline Mode</button>
+            <button class="button" onclick="forcSync()">Force Sync</button>
+        </div>
+
+        <!-- Data Display -->
+        <div class="test-section">
+            <h3>📋 Stored Data</h3>
+            <div id="data-display">
+                <p>Click "Load All Data" to see stored records</p>
+            </div>
+        </div>
+
+        <!-- Log Section -->
+        <div class="test-section">
+            <h3>📝 Activity Log</h3>
+            <div id="log" class="log">
+                <div>System starting up...</div>
+            </div>
+            <button class="button" onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Mock offline storage for testing
+        class MockOfflineStorage {
+            constructor() {
+                this.isInitialized = false;
+                this.isOnline = navigator.onLine;
+                this.syncQueue = [];
+                this.data = {
+                    orders: [],
+                    menu_items: [],
+                    tables: [],
+                    inventory: [],
+                    expenses: []
+                };
+                this.platform = this.detectPlatform();
+            }
+
+            detectPlatform() {
+                if (/Android/i.test(navigator.userAgent)) return 'Android';
+                if (window.electronAPI) return 'Desktop';
+                return 'Web';
+            }
+
+            async initialize() {
+                log('🔄 Initializing offline storage...');
+                
+                // Simulate initialization delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                this.isInitialized = true;
+                log('✅ Offline storage initialized successfully');
+                updateStatus();
+                return true;
+            }
+
+            generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).substring(2);
+            }
+
+            async insert(tableName, data) {
+                if (!this.isInitialized) throw new Error('Storage not initialized');
+                
+                const record = {
+                    ...data,
+                    id: data.id || this.generateId(),
+                    created_at: new Date().toISOString(),
+                    synced: false
+                };
+
+                this.data[tableName].push(record);
+                
+                if (!this.isOnline) {
+                    this.syncQueue.push({
+                        table: tableName,
+                        action: 'INSERT',
+                        data: record,
+                        timestamp: Date.now()
+                    });
+                }
+
+                log(`✅ Created ${tableName} record: ${record.id}`);
+                updateStatus();
+                return record.id;
+            }
+
+            async findAll(tableName) {
+                if (!this.isInitialized) throw new Error('Storage not initialized');
+                return this.data[tableName] || [];
+            }
+
+            async clearAllData() {
+                Object.keys(this.data).forEach(key => {
+                    this.data[key] = [];
+                });
+                this.syncQueue = [];
+                log('🗑️ All data cleared');
+                updateStatus();
+            }
+
+            getSyncQueueCount() {
+                return this.syncQueue.length;
+            }
+
+            getTotalRecords() {
+                return Object.values(this.data).reduce((sum, arr) => sum + arr.length, 0);
+            }
+
+            async forcSync() {
+                if (!this.isOnline) {
+                    log('⚠️ Cannot sync while offline');
+                    return false;
+                }
+
+                log(`🔄 Syncing ${this.syncQueue.length} items...`);
+                
+                // Simulate sync delay
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                this.syncQueue = [];
+                log('✅ Sync completed successfully');
+                updateStatus();
+                return true;
+            }
+        }
+
+        // Initialize mock storage
+        const offlineStorage = new MockOfflineStorage();
+        let isOfflineMode = false;
+
+        // Utility functions
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateStatus() {
+            const statusContainer = document.getElementById('status-container');
+            const platformValue = document.getElementById('platform-value');
+            const onlineStatus = document.getElementById('online-status');
+            const syncQueue = document.getElementById('sync-queue');
+            const totalRecords = document.getElementById('total-records');
+
+            // Update status display
+            if (offlineStorage.isInitialized) {
+                if (offlineStorage.isOnline) {
+                    statusContainer.innerHTML = '<div class="status online">✅ Online - Data syncing automatically</div>';
+                } else {
+                    statusContainer.innerHTML = '<div class="status offline">📱 Offline - Changes saved locally</div>';
+                }
+            } else {
+                statusContainer.innerHTML = '<div class="status info">🔄 Initializing...</div>';
+            }
+
+            // Update stats
+            platformValue.textContent = offlineStorage.platform;
+            onlineStatus.textContent = offlineStorage.isOnline ? 'Online' : 'Offline';
+            syncQueue.textContent = offlineStorage.getSyncQueueCount();
+            totalRecords.textContent = offlineStorage.getTotalRecords();
+        }
+
+        // Test functions
+        window.testCreateOrder = async function() {
+            try {
+                const orderId = await offlineStorage.insert('orders', {
+                    table_number: Math.floor(Math.random() * 10) + 1,
+                    customer_name: `Customer ${Math.floor(Math.random() * 100)}`,
+                    items: [
+                        { name: 'Pizza', quantity: 1, price: 12.99 },
+                        { name: 'Coke', quantity: 2, price: 2.50 }
+                    ],
+                    total: 17.99,
+                    status: 'pending'
+                });
+                log(`🍕 Test order created: ${orderId}`);
+            } catch (error) {
+                log(`❌ Failed to create order: ${error.message}`);
+            }
+        };
+
+        window.testCreateMenuItem = async function() {
+            try {
+                const itemId = await offlineStorage.insert('menu_items', {
+                    name: `Test Item ${Math.floor(Math.random() * 100)}`,
+                    category: 'Test Category',
+                    price: Math.floor(Math.random() * 20) + 5,
+                    available: true,
+                    description: 'Test menu item for offline storage'
+                });
+                log(`🍽️ Test menu item created: ${itemId}`);
+            } catch (error) {
+                log(`❌ Failed to create menu item: ${error.message}`);
+            }
+        };
+
+        window.testCreateTable = async function() {
+            try {
+                const tableId = await offlineStorage.insert('tables', {
+                    table_number: Math.floor(Math.random() * 20) + 1,
+                    capacity: Math.floor(Math.random() * 6) + 2,
+                    status: 'available',
+                    location: 'Main Hall'
+                });
+                log(`🪑 Test table created: ${tableId}`);
+            } catch (error) {
+                log(`❌ Failed to create table: ${error.message}`);
+            }
+        };
+
+        window.loadAllData = async function() {
+            try {
+                const dataDisplay = document.getElementById('data-display');
+                let html = '';
+
+                for (const [tableName, records] of Object.entries(offlineStorage.data)) {
+                    html += `<h4>${tableName.toUpperCase()} (${records.length} records)</h4>`;
+                    
+                    if (records.length === 0) {
+                        html += '<p style="color: #6b7280; font-style: italic;">No records</p>';
+                    } else {
+                        html += '<div style="max-height: 200px; overflow-y: auto; background: #f9fafb; padding: 10px; border-radius: 6px; margin-bottom: 15px;">';
+                        records.forEach(record => {
+                            html += `<div style="margin: 5px 0; padding: 8px; background: white; border-radius: 4px; font-size: 12px;">`;
+                            html += `<strong>ID:</strong> ${record.id}<br>`;
+                            if (record.name) html += `<strong>Name:</strong> ${record.name}<br>`;
+                            if (record.customer_name) html += `<strong>Customer:</strong> ${record.customer_name}<br>`;
+                            if (record.table_number) html += `<strong>Table:</strong> ${record.table_number}<br>`;
+                            if (record.total) html += `<strong>Total:</strong> $${record.total}<br>`;
+                            if (record.status) html += `<strong>Status:</strong> ${record.status}<br>`;
+                            html += `<strong>Synced:</strong> ${record.synced ? '✅' : '⏳'}<br>`;
+                            html += `<strong>Created:</strong> ${new Date(record.created_at).toLocaleString()}`;
+                            html += '</div>';
+                        });
+                        html += '</div>';
+                    }
+                }
+
+                dataDisplay.innerHTML = html;
+                log('📊 Data loaded and displayed');
+            } catch (error) {
+                log(`❌ Failed to load data: ${error.message}`);
+            }
+        };
+
+        window.clearAllData = async function() {
+            if (confirm('Are you sure you want to clear all data?')) {
+                await offlineStorage.clearAllData();
+                document.getElementById('data-display').innerHTML = '<p>All data cleared</p>';
+            }
+        };
+
+        window.toggleOfflineMode = function() {
+            isOfflineMode = !isOfflineMode;
+            offlineStorage.isOnline = !isOfflineMode;
+            
+            if (isOfflineMode) {
+                log('📱 Switched to offline mode');
+            } else {
+                log('🌐 Switched to online mode');
+            }
+            
+            updateStatus();
+        };
+
+        window.forcSync = async function() {
+            await offlineStorage.forcSync();
+        };
+
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '<div>Log cleared</div>';
+        };
+
+        // Initialize on page load
+        window.addEventListener('load', async () => {
+            log('🚀 Starting offline storage test...');
+            await offlineStorage.initialize();
+            
+            // Listen for online/offline events
+            window.addEventListener('online', () => {
+                offlineStorage.isOnline = true;
+                log('🌐 Connection restored');
+                updateStatus();
+            });
+            
+            window.addEventListener('offline', () => {
+                offlineStorage.isOnline = false;
+                log('📱 Connection lost - working offline');
+                updateStatus();
+            });
+        });
+    </script>
+</body>
+</html>

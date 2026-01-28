@@ -14,7 +14,7 @@ try {
     // Fallback config
     CONFIG = {
       APP_NAME: 'BillByteKOT',
-      APP_VERSION: '1.3.0',
+      APP_VERSION: '3.0.0',
       COMPANY_NAME: 'BillByte',
       COMPANY_URL: 'https://billbytekot.in',
       BACKEND_URL: 'https://restro-ai.onrender.com',
@@ -26,6 +26,9 @@ try {
         MIN_WIDTH: 1024,
         MIN_HEIGHT: 700,
         BACKGROUND_COLOR: '#f5f3ff'
+      },
+      FEATURES: {
+        DEV_TOOLS_HIDDEN: true
       }
     };
   }
@@ -67,6 +70,22 @@ function createWindow() {
   // Inject electronAPI bridge into the page after it loads
   mainWindow.webContents.on('did-finish-load', () => {
     console.log('[BillByteKOT Desktop] Page loaded, injecting Electron bridge');
+    
+    // Disable right-click context menu in production
+    if (!isDev && CONFIG.FEATURES?.DEV_TOOLS_HIDDEN) {
+      mainWindow.webContents.executeJavaScript(`
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('keydown', e => {
+          // Block F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+Shift+C
+          if (e.key === 'F12' || 
+              (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+              (e.ctrlKey && e.key === 'u')) {
+            e.preventDefault();
+            return false;
+          }
+        });
+      `);
+    }
     
     // Inject a bridge that uses postMessage for communication
     mainWindow.webContents.executeJavaScript(`
@@ -166,8 +185,8 @@ function createWindow() {
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    // DevTools can be opened with F12 or Ctrl+Shift+I
-    if (isDev) {
+    // DevTools only in development mode
+    if (isDev && !CONFIG.FEATURES?.DEV_TOOLS_HIDDEN) {
       mainWindow.webContents.openDevTools();
     }
   });
@@ -215,8 +234,11 @@ function createMenu() {
       submenu: [
         { role: 'reload' },
         { role: 'forceReload' },
-        { role: 'toggleDevTools', label: 'Developer Tools', accelerator: 'F12' },
-        { type: 'separator' },
+        // Hide DevTools from menu in production
+        ...(isDev || !CONFIG.FEATURES?.DEV_TOOLS_HIDDEN ? [
+          { role: 'toggleDevTools', label: 'Developer Tools', accelerator: 'F12' },
+          { type: 'separator' }
+        ] : []),
         { role: 'resetZoom' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
@@ -347,7 +369,7 @@ ipcMain.on('print-receipt', (event, content, options = {}) => {
   printWindow.webContents.on('did-finish-load', () => {
     // Get available printers
     printWindow.webContents.getPrintersAsync().then(printers => {
-      console.log('[BillByteKOT] Available printers:', printers.map(p => p.name));
+      console.log('[BillByteKOT Desktop] Available printers:', printers.map(p => p.name));
       
       // Find thermal printer or use default
       const thermalPrinter = printers.find(p => 
@@ -366,16 +388,16 @@ ipcMain.on('print-receipt', (event, content, options = {}) => {
         pageSize: { width: 80000, height: 297000 } // 80mm width in microns
       };
       
-      console.log('[BillByteKOT] Printing silently to:', printOptions.deviceName || 'default printer');
+      console.log('[BillByteKOT Desktop] Printing silently to:', printOptions.deviceName || 'default printer');
       
       printWindow.webContents.print(printOptions, (success, failureReason) => {
         if (success) {
-          console.log('[BillByteKOT] Print successful');
+          console.log('[BillByteKOT Desktop] Print successful');
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('print-result', { success: true });
           }
         } else {
-          console.error('[BillByteKOT] Print failed:', failureReason);
+          console.error('[BillByteKOT Desktop] Print failed:', failureReason);
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('print-result', { success: false, error: failureReason });
           }
@@ -383,7 +405,7 @@ ipcMain.on('print-receipt', (event, content, options = {}) => {
         printWindow.close();
       });
     }).catch(err => {
-      console.error('[BillByteKOT] Failed to get printers:', err);
+      console.error('[BillByteKOT Desktop] Failed to get printers:', err);
       // Fallback to silent print with default printer
       printWindow.webContents.print({ silent: true, printBackground: true }, (success) => {
         printWindow.close();
@@ -481,7 +503,7 @@ ipcMain.handle('get-printers', async () => {
     tempWindow.close();
     return printers.map(p => ({ name: p.name, isDefault: p.isDefault }));
   } catch (error) {
-    console.error('[BillByteKOT] Failed to get printers:', error);
+    console.error('[BillByteKOT Desktop] Failed to get printers:', error);
     return [];
   }
 });
@@ -782,7 +804,11 @@ function checkForUpdates() {
 app.whenReady().then(() => {
   createWindow();
   
-  // Register global shortcuts for DevTools
+  // Secret developer tools access - only Ctrl+H+S
+  let secretSequence = [];
+  const secretCode = ['h', 's'];
+  let secretTimeout = null;
+  
   const toggleDevTools = () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.webContents.isDevToolsOpened()) {
@@ -793,14 +819,39 @@ app.whenReady().then(() => {
     }
   };
   
-  // F12 - Toggle DevTools
-  globalShortcut.register('F12', toggleDevTools);
+  // Register ONLY the secret shortcut Ctrl+H+S
+  globalShortcut.register('CommandOrControl+H+S', () => {
+    console.log('[BillByteKOT Desktop] Secret developer access activated');
+    toggleDevTools();
+  });
   
-  // Ctrl+Shift+I - Toggle DevTools
-  globalShortcut.register('CommandOrControl+Shift+I', toggleDevTools);
-  
-  // Ctrl+Shift+O - Toggle DevTools (custom shortcut)
-  globalShortcut.register('CommandOrControl+Shift+O', toggleDevTools);
+  // Block all other common developer shortcuts in production
+  if (!isDev && CONFIG.FEATURES?.DEV_TOOLS_HIDDEN) {
+    // Block F12
+    globalShortcut.register('F12', () => {
+      console.log('[BillByteKOT Desktop] F12 blocked');
+    });
+    
+    // Block Ctrl+Shift+I
+    globalShortcut.register('CommandOrControl+Shift+I', () => {
+      console.log('[BillByteKOT Desktop] Ctrl+Shift+I blocked');
+    });
+    
+    // Block Ctrl+Shift+J
+    globalShortcut.register('CommandOrControl+Shift+J', () => {
+      console.log('[BillByteKOT Desktop] Ctrl+Shift+J blocked');
+    });
+    
+    // Block Ctrl+Shift+C
+    globalShortcut.register('CommandOrControl+Shift+C', () => {
+      console.log('[BillByteKOT Desktop] Ctrl+Shift+C blocked');
+    });
+    
+    // Block Ctrl+U (view source)
+    globalShortcut.register('CommandOrControl+U', () => {
+      console.log('[BillByteKOT Desktop] Ctrl+U blocked');
+    });
+  }
   
   // Initialize WhatsApp in background to check login status
   setTimeout(initWhatsApp, 2000);

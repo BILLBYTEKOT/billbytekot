@@ -603,10 +603,18 @@ const SuperAdminPage = () => {
   const [usersPage, setUsersPage] = useState(0);
   const [usersHasMore, setUsersHasMore] = useState(true);
   const [usersTotal, setUsersTotal] = useState(0);
+  const [fetchingUsers, setFetchingUsers] = useState(false); // Prevent duplicate calls
 
   const fetchUsers = async (page = 0, append = false) => {
+    // Prevent duplicate calls
+    if (fetchingUsers) {
+      console.log('⚠️ Already fetching users, skipping duplicate call');
+      return;
+    }
+    
     try {
       console.log(`🔍 Fetching users - page: ${page}, append: ${append}`);
+      setFetchingUsers(true);
       setUsersLoading(true);
       setUsersFetchError(null);
       
@@ -653,11 +661,20 @@ const SuperAdminPage = () => {
       const hasMore = usersRes.data.has_more || false;
       
       if (append) {
-        setUsers(prev => [...prev, ...newUsers]);
-        console.log(`📝 Appended ${newUsers.length} users to existing list`);
+        setUsers(prev => {
+          // Deduplicate users by ID to prevent duplicates
+          const existingIds = new Set(prev.map(user => user.id));
+          const uniqueNewUsers = newUsers.filter(user => !existingIds.has(user.id));
+          console.log(`📝 Appending ${uniqueNewUsers.length} unique users (filtered ${newUsers.length - uniqueNewUsers.length} duplicates)`);
+          return [...prev, ...uniqueNewUsers];
+        });
       } else {
-        setUsers(newUsers);
-        console.log(`📝 Set ${newUsers.length} users (fresh load)`);
+        // For fresh load, also deduplicate in case of any issues
+        const uniqueUsers = newUsers.filter((user, index, self) => 
+          index === self.findIndex(u => u.id === user.id)
+        );
+        setUsers(uniqueUsers);
+        console.log(`📝 Set ${uniqueUsers.length} unique users (filtered ${newUsers.length - uniqueUsers.length} duplicates)`);
       }
       
       setUsersTotal(total);
@@ -675,6 +692,7 @@ const SuperAdminPage = () => {
       toast.error('Failed to fetch users. Click retry to try again.');
     } finally {
       setUsersLoading(false);
+      setFetchingUsers(false);
     }
   };
 

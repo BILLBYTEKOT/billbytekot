@@ -14,8 +14,8 @@ module.exports = {
   
   // App Information
   APP_NAME: 'BillByteKOT',
-  APP_VERSION: '2.0.1',
-  APP_DESCRIPTION: 'Restaurant Billing & KOT Management System',
+  APP_VERSION: '3.0.0',
+  APP_DESCRIPTION: 'Restaurant Automation Platform',
   
   // Company Information
   COMPANY_NAME: 'BillByte',
@@ -45,6 +45,7 @@ module.exports = {
     NOTIFICATIONS: true,
     NATIVE_PRINT: true,
     AUTO_UPDATE: false, // Enable when auto-update server is ready
-    OFFLINE_MODE: false
+    OFFLINE_MODE: true,
+    DEV_TOOLS_HIDDEN: true // Hide developer tools from users
   }
 };

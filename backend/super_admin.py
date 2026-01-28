@@ -508,8 +508,9 @@ async def get_basic_stats(
 async def get_users_list(
     username: str = Query(...),
     password: str = Query(...),
-    skip: int = Query(0),
-    limit: int = Query(100)  # Increased limit for better user management
+    page: int = Query(0),  # Use page instead of skip for consistency
+    limit: int = Query(20),  # Default to 20 for pagination
+    fields: str = Query(None)  # Optional field selection
 ):
     """
     Get users list - Returns all users with essential fields for user management.
@@ -528,31 +529,48 @@ async def get_users_list(
     
     db = get_db()
     
-    # Allow larger limit for user management (Requirements 3.1)
-    limit = min(limit, 500)
+    # Calculate skip from page
+    skip = page * limit
+    
+    # Limit to reasonable values for performance
+    limit = min(limit, 100)
     
     try:
-        print(f"📊 Fetching users list (skip={skip}, limit={limit})...")
+        print(f"📊 Fetching users list (page={page}, skip={skip}, limit={limit})...")
         
-        # Get users with all fields needed for list view (Requirements 3.2)
+        # Determine which fields to return
+        projection = {
+            "_id": 0,
+            "id": 1,
+            "email": 1,
+            "username": 1,
+            "role": 1,
+            "subscription_active": 1,
+            "subscription_expires_at": 1,
+            "created_at": 1,
+            "bill_count": 1
+        }
+        
+        # If specific fields requested, use minimal projection
+        if fields:
+            requested_fields = fields.split(',')
+            projection = {"_id": 0}
+            for field in requested_fields:
+                projection[field.strip()] = 1
+        else:
+            # Include additional fields for full view
+            projection.update({
+                "subscription_amount": 1,
+                "subscription_months": 1,
+                "trial_extension_days": 1,
+                "last_login": 1,
+                "business_settings": 1
+            })
+        
+        # Get users with projection
         users = await db.users.find(
             {},
-            {
-                "_id": 0,
-                "id": 1,  # Essential for actions and navigation
-                "email": 1,
-                "username": 1,
-                "role": 1,
-                "subscription_active": 1,
-                "subscription_expires_at": 1,  # For subscription status display
-                "subscription_amount": 1,  # For subscription info
-                "subscription_months": 1,  # For subscription duration
-                "trial_extension_days": 1,  # For trial info
-                "created_at": 1,
-                "bill_count": 1,
-                "last_login": 1,  # For activity metrics
-                "business_settings": 1  # For restaurant name display
-            }
+            projection
         ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
         
         # Get total count for pagination
@@ -561,13 +579,13 @@ async def get_users_list(
         result = {
             "users": users,
             "total": total,
-            "skip": skip,
+            "page": page,
             "limit": limit,
             "has_more": skip + len(users) < total,
             "cached_at": datetime.now(timezone.utc).isoformat()
         }
         
-        print(f"✅ Users list: {len(users)} users returned (total: {total})")
+        print(f"✅ Users list: {len(users)} users returned (page {page}, total: {total})")
         return result
         
     except Exception as e:
