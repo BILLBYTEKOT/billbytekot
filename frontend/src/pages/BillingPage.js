@@ -147,6 +147,21 @@ const BillingPage = ({ user }) => {
         setBusinessSettings(cached.businessSettings);
         setMenuItems(cached.menuItems);
         
+        // 🚀 CHECK PAYMENT STATUS: Set payment completed based on order status
+        const isOrderPaid = cached.order.status === 'completed' || 
+                           cached.order.status === 'paid' || 
+                           (cached.order.payment_received > 0 && cached.order.balance_amount === 0);
+        
+        if (isOrderPaid) {
+          setPaymentCompleted(true);
+          setCompletedPaymentData({
+            received: cached.order.payment_received || cached.order.total,
+            paymentMethod: cached.order.payment_method || 'cash',
+            balance: cached.order.balance_amount || 0,
+            isCredit: cached.order.is_credit || false
+          });
+        }
+        
         // Set customer data
         if (cached.order.customer_phone) setWhatsappPhone(cached.order.customer_phone);
         if (cached.order.discount || cached.order.discount_amount) {
@@ -172,6 +187,21 @@ const BillingPage = ({ user }) => {
       setOrderItems(billingData.order.items || []);
       setBusinessSettings(billingData.businessSettings);
       setMenuItems(billingData.menuItems);
+      
+      // 🚀 CHECK PAYMENT STATUS: Set payment completed based on order status
+      const isOrderPaid = billingData.order.status === 'completed' || 
+                         billingData.order.status === 'paid' || 
+                         (billingData.order.payment_received > 0 && billingData.order.balance_amount === 0);
+      
+      if (isOrderPaid) {
+        setPaymentCompleted(true);
+        setCompletedPaymentData({
+          received: billingData.order.payment_received || billingData.order.total,
+          paymentMethod: billingData.order.payment_method || 'cash',
+          balance: billingData.order.balance_amount || 0,
+          isCredit: billingData.order.is_credit || false
+        });
+      }
       
       // Set customer data
       if (billingData.order.customer_phone) setWhatsappPhone(billingData.order.customer_phone);
@@ -313,6 +343,22 @@ const BillingPage = ({ user }) => {
       });
       setOrder(response.data);
       setOrderItems(response.data.items || []);
+      
+      // 🚀 CHECK PAYMENT STATUS: Set payment completed based on order status
+      const isOrderPaid = response.data.status === 'completed' || 
+                         response.data.status === 'paid' || 
+                         (response.data.payment_received > 0 && response.data.balance_amount === 0);
+      
+      if (isOrderPaid) {
+        setPaymentCompleted(true);
+        setCompletedPaymentData({
+          received: response.data.payment_received || response.data.total,
+          paymentMethod: response.data.payment_method || 'cash',
+          balance: response.data.balance_amount || 0,
+          isCredit: response.data.is_credit || false
+        });
+      }
+      
       if (response.data.customer_phone) setWhatsappPhone(response.data.customer_phone);
       if (response.data.discount || response.data.discount_amount) {
         setDiscountType(response.data.discount_type || 'amount');
@@ -757,6 +803,43 @@ const BillingPage = ({ user }) => {
       
       toast.success(isCredit ? 'Partial payment recorded!' : 'Payment completed!');
       setPaymentCompleted(true);
+      
+      // 🚀 IMMEDIATE EVENT DISPATCH: Notify OrdersPage about payment completion
+      const paymentCompletionEvent = new CustomEvent('paymentCompleted', {
+        detail: {
+          orderId: orderId,
+          orderData: {
+            ...order,
+            status: shouldStayPending ? 'pending' : 'completed',
+            payment_method: splitPayment ? 'split' : paymentMethod,
+            payment_received: received,
+            balance_amount: balance,
+            is_credit: isCredit,
+            total: total
+          }
+        }
+      });
+      window.dispatchEvent(paymentCompletionEvent);
+      
+      // Also store in localStorage for cross-tab communication
+      localStorage.setItem('paymentCompleted', JSON.stringify({
+        orderId: orderId,
+        orderData: {
+          ...order,
+          status: shouldStayPending ? 'pending' : 'completed',
+          payment_method: splitPayment ? 'split' : paymentMethod,
+          payment_received: received,
+          balance_amount: balance,
+          is_credit: isCredit,
+          total: total
+        },
+        timestamp: Date.now()
+      }));
+      
+      // Clear the localStorage after a short delay
+      setTimeout(() => {
+        localStorage.removeItem('paymentCompleted');
+      }, 5000);
       
       // Auto-print receipt immediately (only if auto-print is enabled)
       const discountAmt = calculateDiscountAmount();
