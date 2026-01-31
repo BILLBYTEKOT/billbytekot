@@ -655,10 +655,10 @@ const SubscriptionPage = ({ user }) => {
         <div className="text-center space-y-4 py-8">
           <div className="inline-flex items-center gap-2 px-6 py-3 bg-green-100 text-green-700 rounded-full">
             <Shield className="w-5 h-5" />
-            <span className="font-bold">30-Day Money Back Guarantee</span>
+            <span className="font-bold">7-Day Money Back Guarantee</span>
           </div>
           <p className="text-gray-600 max-w-xl mx-auto">
-            Not satisfied? Get a full refund within 30 days, no questions asked. We're confident you'll love BillByteKOT AI.
+            Not satisfied? Get a full refund within 7 days, no questions asked. We're confident you'll love BillByteKOT AI.
           </p>
         </div>
 
@@ -672,7 +672,7 @@ const SubscriptionPage = ({ user }) => {
               { q: 'How long is the free trial?', a: `You get ${pricing?.trial_days || 7} days of full access to all premium features, no credit card required.` },
               { q: 'What happens after the trial?', a: `After your trial ends, you get a special ${pricing?.trial_expired_discount || 10}% discount - pay only ${pricing?.trial_expired_price_display || '₹1799'} instead of ${pricing?.regular_price_display || '₹1999'}!` },
               { q: 'What is the regular price?', a: `The regular subscription price is ${pricing?.regular_price_display || '₹1999'}/year. Special discounts may apply during campaigns or after trial expiry.` },
-              { q: 'Can I cancel anytime?', a: 'Yes! Cancel anytime. We also offer a 30-day money-back guarantee.' },
+              { q: 'Can I cancel anytime?', a: 'Yes! Cancel anytime. We also offer a 7-day money-back guarantee.' },
               { q: 'Is my data secure?', a: 'Absolutely. We use bank-grade encryption and never share your data.' },
             ].map((faq, i) => (
               <div key={i} className="p-4 bg-gray-50 rounded-lg">

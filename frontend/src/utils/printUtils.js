@@ -994,13 +994,12 @@ export const generateReceiptHTML = (order, businessOverride = null) => {
     case 'professional':
       return generateProfessionalReceiptHTML(order, businessOverride);
     case 'modern':
-      return generateModernReceiptHTML(order, businessOverride);
     case 'compact':
-      return generateCompactReceiptHTML(order, businessOverride);
     case 'elegant':
-      return generateElegantReceiptHTML(order, businessOverride);
     case 'bold':
-      return generateBoldReceiptHTML(order, businessOverride);
+      // These themes are not yet implemented, fall back to default
+      console.warn(`Theme '${theme}' not implemented, using default theme`);
+      return generateDefaultReceiptHTML(order, businessOverride);
     case 'default':
     default:
       return generateDefaultReceiptHTML(order, businessOverride);
@@ -2163,7 +2162,7 @@ export const manualPrintReceipt = async (order, businessOverride = null) => {
     return printThermal(receiptHTML, settings.paper_width, true); // Force dialog for manual print
   } catch (e) { 
     console.error('Manual print failed:', e);
-    toast.error('Print failed'); 
+    toast.error('Print failed: ' + e.message); 
     return false; 
   }
 };
