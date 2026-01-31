@@ -7873,6 +7873,40 @@ async def best_selling_report(current_user: dict = Depends(get_current_user)):
     return sorted_items
 
 
+@api_router.get("/reports/top-items")
+async def top_items_report(current_user: dict = Depends(get_current_user)):
+    """Get top selling items for dashboard display"""
+    user_org_id = get_secure_org_id(current_user)
+    
+    orders = await db.orders.find({
+        "status": "completed",
+        "organization_id": user_org_id
+    }, {"_id": 0}).to_list(1000)
+    
+    from collections import defaultdict
+    item_stats = defaultdict(lambda: {
+        "quantity": 0, 
+        "revenue": 0, 
+        "name": ""
+    })
+    
+    for order in orders:
+        for item in order["items"]:
+            item_name = item["name"]
+            item_stats[item_name]["name"] = item_name
+            item_stats[item_name]["quantity"] += item["quantity"]
+            item_stats[item_name]["revenue"] += item["price"] * item["quantity"]
+    
+    # Sort by quantity sold and return top 10
+    sorted_items = sorted(
+        item_stats.values(), 
+        key=lambda x: x["quantity"], 
+        reverse=True
+    )[:10]
+    
+    return sorted_items
+
+
 @api_router.get("/reports/staff-performance")
 async def staff_performance_report(current_user: dict = Depends(get_current_user)):
     user_org_id = get_secure_org_id(current_user)
