@@ -11631,12 +11631,10 @@ async def send_subscription_invoice_email(user_email: str, user_name: str, invoi
     """Send subscription invoice email"""
     from email_service import send_support_email
     
-    # Calculate tax breakdown
-    base_amount = invoice_data['amount'] / 1.18
-    cgst = base_amount * 0.09
-    sgst = base_amount * 0.09
+    # Use direct subscription amount without tax calculations
+    subscription_amount = invoice_data['amount']
     
-    subject = f"BillByteKOT Tax Invoice - {invoice_data['invoice_number']}"
+    subject = f"BillByteKOT Invoice - {invoice_data['invoice_number']}"
     
     html_body = f"""
     <!DOCTYPE html>
@@ -11683,7 +11681,7 @@ async def send_subscription_invoice_email(user_email: str, user_name: str, invoi
                 <div class="invoice-header">
                     <div>
                         <div class="invoice-number">{invoice_data['invoice_number']}</div>
-                        <div class="invoice-date">Tax Invoice</div>
+                        <div class="invoice-date">Invoice</div>
                     </div>
                     <div style="text-align: right;">
                         <div class="detail-label">Invoice Date</div>
@@ -11728,36 +11726,24 @@ async def send_subscription_invoice_email(user_email: str, user_name: str, invoi
                         <tr>
                             <td>
                                 <strong>BillByteKOT Premium Subscription</strong><br>
-                                <span style="font-size: 12px; color: #666;">Annual subscription with all premium features</span>
+                                <span style="font-size: 12px; color: #666;">Premium subscription with all features</span>
                             </td>
                             <td>998314</td>
-                            <td style="text-align: right;">₹{base_amount:.2f}</td>
+                            <td style="text-align: right;">₹{subscription_amount:.2f}</td>
                         </tr>
                     </tbody>
                 </table>
                 
                 <div class="totals">
-                    <div class="total-row">
-                        <span>Subtotal</span>
-                        <span>₹{base_amount:.2f}</span>
-                    </div>
-                    <div class="total-row">
-                        <span>CGST (9%)</span>
-                        <span>₹{cgst:.2f}</span>
-                    </div>
-                    <div class="total-row">
-                        <span>SGST (9%)</span>
-                        <span>₹{sgst:.2f}</span>
-                    </div>
                     <div class="total-row final">
                         <span>Total</span>
-                        <span>₹{invoice_data['amount']:.2f}</span>
+                        <span>₹{subscription_amount:.2f}</span>
                     </div>
                 </div>
                 
                 <div class="amount-words">
                     <div style="font-size: 11px; color: #666; text-transform: uppercase;">Amount in Words</div>
-                    <div style="font-weight: 500;">Nine Hundred Ninety Nine Rupees Only</div>
+                    <div style="font-weight: 500;">Rupees {subscription_amount:.0f} Only</div>
                 </div>
             </div>
             
@@ -11773,8 +11759,8 @@ async def send_subscription_invoice_email(user_email: str, user_name: str, invoi
     """
     
     text_body = f"""
-    BillByteKOT Tax Invoice
-    ========================
+    BillByteKOT Invoice
+    ==================
     
     Invoice Number: {invoice_data['invoice_number']}
     Date: {invoice_data['date']}
@@ -11788,12 +11774,10 @@ async def send_subscription_invoice_email(user_email: str, user_name: str, invoi
     - Valid Until: {invoice_data['expires_at']}
     
     Invoice Summary:
-    - BillByteKOT Premium Subscription: ₹{base_amount:.2f}
-    - CGST (9%): ₹{cgst:.2f}
-    - SGST (9%): ₹{sgst:.2f}
-    - Total: ₹{invoice_data['amount']:.2f}
+    - BillByteKOT Premium Subscription: ₹{subscription_amount:.2f}
+    - Total: ₹{subscription_amount:.2f}
     
-    Amount in Words: Nine Hundred Ninety Nine Rupees Only
+    Amount in Words: Rupees {subscription_amount:.0f} Only
     
     Your subscription is now active!
     
@@ -11826,9 +11810,9 @@ async def create_manual_subscription(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Calculate expiry date
-    expires_at = datetime.now(timezone.utc)
-    expires_at = expires_at.replace(month=expires_at.month + subscription.months) if expires_at.month + subscription.months <= 12 else expires_at.replace(year=expires_at.year + 1, month=(expires_at.month + subscription.months) % 12 or 12)
+    # Calculate expiry date properly using relativedelta for accurate month addition
+    from dateutil.relativedelta import relativedelta
+    expires_at = datetime.now(timezone.utc) + relativedelta(months=subscription.months)
     
     # Generate invoice number
     invoice_number = generate_invoice_number()
@@ -11859,7 +11843,10 @@ async def create_manual_subscription(
             "subscription_active": True,
             "subscription_expires_at": expires_at.isoformat(),
             "subscription_payment_id": subscription.payment_id,
-            "subscription_type": "manual"
+            "subscription_type": "manual",
+            "subscription_amount": subscription.amount,
+            "subscription_months": subscription.months,
+            "subscription_created_at": datetime.now(timezone.utc).isoformat()
         }}
     )
     

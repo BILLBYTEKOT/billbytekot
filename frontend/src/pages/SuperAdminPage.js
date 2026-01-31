@@ -45,6 +45,22 @@ const SuperAdminPage = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [subscriptionMonths, setSubscriptionMonths] = useState(12);
   const [subscriptionAmount, setSubscriptionAmount] = useState(999);
+
+  // Auto-calculate subscription amount based on months
+  useEffect(() => {
+    const calculateAmount = (months) => {
+      const pricing = {
+        1: 199,    // 1 month
+        3: 499,    // 3 months  
+        6: 899,    // 6 months
+        12: 1599,  // 12 months (1 year)
+        24: 2999   // 24 months (2 years)
+      };
+      return pricing[months] || 999;
+    };
+    
+    setSubscriptionAmount(calculateAmount(subscriptionMonths));
+  }, [subscriptionMonths]);
   const [paymentId, setPaymentId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('manual');
   const [paymentProofUrl, setPaymentProofUrl] = useState('');
