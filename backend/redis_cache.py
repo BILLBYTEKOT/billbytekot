@@ -658,7 +658,36 @@ class CachedOrderService:
                 cached_orders = await self.cache.get_active_orders(org_id)
                 if cached_orders is not None:
                     print(f"🚀 Cache HIT: {len(cached_orders)} active orders for org {org_id}")
-                    return cached_orders
+                    
+                    # CRITICAL FIX: Filter cached orders to only show TODAY's orders
+                    from datetime import timezone, timedelta
+                    IST = timezone(timedelta(hours=5, minutes=30))
+                    
+                    # Get current time in IST and find start of today in IST
+                    now_ist = datetime.now(IST)
+                    today_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+                    
+                    # Convert to UTC for comparison
+                    today_utc = today_ist.astimezone(timezone.utc)
+                    
+                    todays_cached_orders = []
+                    for order in cached_orders:
+                        try:
+                            if isinstance(order.get("created_at"), str):
+                                order_date = datetime.fromisoformat(order["created_at"])
+                            else:
+                                order_date = order.get("created_at")
+                            
+                            # Only include orders created today or later
+                            if order_date and order_date >= today_utc:
+                                todays_cached_orders.append(order)
+                        except Exception as date_error:
+                            print(f"⚠️ Date parsing error for cached order {order.get('id', 'unknown')}: {date_error}")
+                            # If date parsing fails, exclude the order to be safe
+                            continue
+                    
+                    print(f"🚀 Filtered cached orders to TODAY only: {len(todays_cached_orders)} from {len(cached_orders)} total")
+                    return todays_cached_orders
                 else:
                     print(f"💾 Cache MISS: active orders for org {org_id}")
             except Exception as cache_error:
@@ -668,10 +697,22 @@ class CachedOrderService:
         print(f"📊 Fetching active orders from MongoDB for org {org_id}")
         
         try:
-            # Query only active orders (not completed/cancelled)
+            # Calculate today's date for filtering
+            from datetime import timezone, timedelta
+            IST = timezone(timedelta(hours=5, minutes=30))
+            
+            # Get current time in IST and find start of today in IST
+            now_ist = datetime.now(IST)
+            today_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # Convert to UTC for database query
+            today_utc = today_ist.astimezone(timezone.utc)
+            
+            # CRITICAL FIX: Query only TODAY's active orders (not completed/cancelled)
             query = {
                 "organization_id": org_id,
-                "status": {"$nin": ["completed", "cancelled"]}
+                "status": {"$nin": ["completed", "cancelled"]},
+                "created_at": {"$gte": today_utc.isoformat()}  # CRITICAL FIX: Only today's orders
             }
             
             orders = await self.db.orders.find(
@@ -698,7 +739,7 @@ class CachedOrderService:
                 except Exception as cache_set_error:
                     print(f"⚠️ Failed to cache orders: {cache_set_error}")
             
-            print(f"📊 Found {len(orders)} active orders for org {org_id}")
+            print(f"📊 Found {len(orders)} TODAY's active orders for org {org_id} (filtered by date)")
             return orders
             
         except Exception as db_error:

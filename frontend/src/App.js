@@ -58,6 +58,196 @@ import { Toaster } from './components/ui/sonner';
 import { setupAutoSync } from './utils/offlineSync';
 import { startNotificationPolling, requestNotificationPermission } from './utils/pushNotifications';
 
+// Secret Console Component
+const SecretConsole = ({ user, onClose }) => {
+  const [logs, setLogs] = useState([]);
+  const [command, setCommand] = useState('');
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  useEffect(() => {
+    // Capture console logs
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    const addLog = (type, args) => {
+      const timestamp = new Date().toLocaleTimeString();
+      const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ');
+      
+      setLogs(prev => [...prev.slice(-99), { type, message, timestamp }].slice(-100));
+    };
+
+    console.log = (...args) => {
+      originalLog(...args);
+      addLog('log', args);
+    };
+
+    console.error = (...args) => {
+      originalError(...args);
+      addLog('error', args);
+    };
+
+    console.warn = (...args) => {
+      originalWarn(...args);
+      addLog('warn', args);
+    };
+
+    // Add initial welcome message
+    console.log('🔧 Secret Console Activated - Ctrl+Shift+O to toggle');
+    console.log('📊 Available commands: clear, user, storage, api, memory, cache');
+
+    return () => {
+      console.log = originalLog;
+      console.error = originalError;
+      console.warn = originalWarn;
+    };
+  }, []);
+
+  const executeCommand = () => {
+    if (!command.trim()) return;
+
+    console.log(`> ${command}`);
+    
+    try {
+      switch (command.toLowerCase().trim()) {
+        case 'clear':
+          setLogs([]);
+          break;
+        case 'user':
+          console.log('Current user:', user);
+          break;
+        case 'storage':
+          console.log('LocalStorage:', { ...localStorage });
+          console.log('SessionStorage:', { ...sessionStorage });
+          break;
+        case 'api':
+          console.log('API Base:', API);
+          console.log('Auth Token:', getStoredToken() ? 'Present' : 'Missing');
+          break;
+        case 'memory':
+          if (performance.memory) {
+            console.log('Memory Usage:', {
+              used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + ' MB',
+              total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024) + ' MB',
+              limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024) + ' MB'
+            });
+          } else {
+            console.log('Memory info not available');
+          }
+          break;
+        case 'cache':
+          if (window.caches) {
+            window.caches.keys().then(names => {
+              console.log('Cache Storage:', names);
+            });
+          } else {
+            console.log('Cache API not available');
+          }
+          break;
+        case 'help':
+          console.log('Available commands:');
+          console.log('- clear: Clear console logs');
+          console.log('- user: Show current user data');
+          console.log('- storage: Show localStorage and sessionStorage');
+          console.log('- api: Show API configuration');
+          console.log('- memory: Show memory usage');
+          console.log('- cache: Show cache storage');
+          break;
+        default:
+          // Try to evaluate as JavaScript
+          const result = eval(command);
+          console.log('Result:', result);
+      }
+    } catch (error) {
+      console.error('Command error:', error.message);
+    }
+    
+    setCommand('');
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      executeCommand();
+    } else if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
+  if (isMinimized) {
+    return (
+      <div 
+        className="fixed bottom-4 right-4 bg-gray-900 text-white p-2 rounded cursor-pointer z-50 shadow-lg"
+        onClick={() => setIsMinimized(false)}
+      >
+        <span className="text-xs">🔧 Console</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-4 bg-gray-900 text-green-400 font-mono text-xs rounded-lg shadow-2xl z-50 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-700">
+        <div className="flex items-center space-x-2">
+          <span className="text-green-400">🔧</span>
+          <span className="text-white font-semibold">Secret Console</span>
+          <span className="text-gray-400">({user?.username || 'Guest'})</span>
+        </div>
+        <div className="flex space-x-2">
+          <button 
+            onClick={() => setIsMinimized(true)}
+            className="text-yellow-400 hover:text-yellow-300 px-2 py-1 rounded"
+          >
+            −
+          </button>
+          <button 
+            onClick={onClose}
+            className="text-red-400 hover:text-red-300 px-2 py-1 rounded"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      {/* Logs */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-1">
+        {logs.map((log, index) => (
+          <div key={index} className="flex">
+            <span className="text-gray-500 mr-2">{log.timestamp}</span>
+            <span className={`
+              ${log.type === 'error' ? 'text-red-400' : 
+                log.type === 'warn' ? 'text-yellow-400' : 'text-green-400'}
+            `}>
+              {log.message}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Command Input */}
+      <div className="border-t border-gray-700 p-3">
+        <div className="flex items-center space-x-2">
+          <span className="text-green-400">$</span>
+          <input
+            type="text"
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Enter command (help for commands, Esc to close)"
+            className="flex-1 bg-transparent text-green-400 outline-none placeholder-gray-500"
+            autoFocus
+          />
+        </div>
+        <div className="text-gray-500 text-xs mt-1">
+          Ctrl+Shift+O to toggle | Available: clear, user, storage, api, memory, cache, help
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Electron navigation handler component
 const ElectronNavigator = () => {
   const navigate = useNavigate();
@@ -539,6 +729,7 @@ function App() {
     return storedUser;
   });
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [showConsole, setShowConsole] = useState(false);
 
   // Set up the global logout callback
   useEffect(() => {
@@ -547,6 +738,20 @@ function App() {
     });
     return () => setLogoutCallback(null);
   }, []);
+
+  // Secret Console Button - Ctrl+Shift+O
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.ctrlKey && event.shiftKey && event.key === 'O') {
+        event.preventDefault();
+        setShowConsole(prev => !prev);
+        console.log('🔧 Secret console toggled:', !showConsole);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showConsole]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -939,6 +1144,9 @@ function App() {
       </BrowserRouter>
       <Toaster position="top-center" richColors />
       <Analytics />
+      
+      {/* Secret Console - Ctrl+Shift+O */}
+      {showConsole && <SecretConsole user={user} onClose={() => setShowConsole(false)} />}
     </div>
   );
 }

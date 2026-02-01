@@ -4930,6 +4930,17 @@ async def get_orders(
     print(f"🔒 User {current_user['email']} (org: {user_org_id}) fetching orders with status: {status}")
 
     try:
+        # Calculate today's date for filtering active orders
+        from datetime import timedelta
+        IST = timezone(timedelta(hours=5, minutes=30))
+        
+        # Get current time in IST and find start of today in IST
+        now_ist = datetime.now(IST)
+        today_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Convert to UTC for database query
+        today_utc = today_ist.astimezone(timezone.utc)
+        
         # Strategy 1: Try Redis-cached order service for active orders
         if not status or status not in ["completed", "cancelled"]:
             try:
@@ -4938,13 +4949,48 @@ async def get_orders(
                 if not status:
                     # Get all active orders (Redis cache with MongoDB fallback)
                     orders = await cached_service.get_active_orders(user_org_id, use_cache=True)
-                    print(f"🚀 Returned {len(orders)} active orders (cached service)")
-                    return orders
+                    
+                    # CRITICAL FIX: Filter active orders to only show TODAY's orders
+                    todays_active_orders = []
+                    for order in orders:
+                        try:
+                            if isinstance(order.get("created_at"), str):
+                                order_date = datetime.fromisoformat(order["created_at"])
+                            else:
+                                order_date = order.get("created_at")
+                            
+                            # Only include orders created today or later
+                            if order_date and order_date >= today_utc:
+                                todays_active_orders.append(order)
+                        except Exception as date_error:
+                            print(f"⚠️ Date parsing error for order {order.get('id', 'unknown')}: {date_error}")
+                            # If date parsing fails, exclude the order to be safe
+                            continue
+                    
+                    print(f"🚀 Returned {len(todays_active_orders)} TODAY's active orders (filtered from {len(orders)} total active orders)")
+                    return todays_active_orders
                 else:
-                    # Get active orders and filter by status
+                    # Get active orders and filter by status AND date
                     active_orders = await cached_service.get_active_orders(user_org_id, use_cache=True)
-                    filtered_orders = [order for order in active_orders if order.get("status") == status]
-                    print(f"🚀 Returned {len(filtered_orders)} orders with status '{status}' (cached service)")
+                    
+                    # Filter by status AND today's date
+                    filtered_orders = []
+                    for order in active_orders:
+                        if order.get("status") == status:
+                            try:
+                                if isinstance(order.get("created_at"), str):
+                                    order_date = datetime.fromisoformat(order["created_at"])
+                                else:
+                                    order_date = order.get("created_at")
+                                
+                                # Only include orders created today or later
+                                if order_date and order_date >= today_utc:
+                                    filtered_orders.append(order)
+                            except Exception as date_error:
+                                print(f"⚠️ Date parsing error for order {order.get('id', 'unknown')}: {date_error}")
+                                continue
+                    
+                    print(f"🚀 Returned {len(filtered_orders)} TODAY's orders with status '{status}' (cached service)")
                     return filtered_orders
                     
             except Exception as cache_error:
@@ -4955,11 +5001,19 @@ async def get_orders(
         print(f"📊 Fetching orders directly from MongoDB for org {user_org_id}")
         
         query = {"organization_id": user_org_id}
-        if status:
-            query["status"] = status
-        elif not status:
-            # If no status specified, get active orders from MongoDB
+        
+        # Add date filtering for active orders
+        if not status:
+            # If no status specified, get TODAY's active orders from MongoDB
             query["status"] = {"$nin": ["completed", "cancelled"]}
+            query["created_at"] = {"$gte": today_utc.isoformat()}  # CRITICAL FIX: Only today's orders
+        elif status in ["pending", "preparing", "ready"]:
+            # For active statuses, also filter by today's date
+            query["status"] = status
+            query["created_at"] = {"$gte": today_utc.isoformat()}  # CRITICAL FIX: Only today's orders
+        elif status:
+            # For completed/cancelled, don't filter by date (historical data)
+            query["status"] = status
 
         try:
             orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).limit(1000).to_list(1000)
@@ -4990,13 +5044,22 @@ async def get_orders(
         try:
             # Most basic query possible
             basic_query = {"organization_id": user_org_id}
+            
+            # Add date filtering for active orders in fallback too
+            if not status:
+                # For active orders, filter by today's date
+                basic_query["created_at"] = {"$gte": today_utc.isoformat()}
+            elif status in ["pending", "preparing", "ready"]:
+                # For active statuses, also filter by today's date
+                basic_query["created_at"] = {"$gte": today_utc.isoformat()}
+            
             orders = await db.orders.find(basic_query, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
             
             # Filter by status if needed
             if status:
                 orders = [order for order in orders if order.get("status") == status]
             elif not status:
-                # Filter to active orders only
+                # Filter to active orders only (already filtered by date in query)
                 orders = [order for order in orders if order.get("status") not in ["completed", "cancelled"]]
             
             # Basic datetime conversion
@@ -5010,7 +5073,7 @@ async def get_orders(
                     # If datetime conversion fails, leave as string
                     pass
             
-            print(f"🆘 Fallback returned {len(orders)} orders")
+            print(f"🆘 Fallback returned {len(orders)} orders (filtered by today's date for active orders)")
             return orders
             
         except Exception as final_error:
